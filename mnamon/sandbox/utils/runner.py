@@ -53,6 +53,7 @@ logger = get_logger(__name__)
 IS_POSIX = os.name == "posix"
 _TRANSFER_ROOTS = ("input", "output")
 _MEMORY_MARKERS = ("MemoryError", "Cannot allocate memory", "std::bad_alloc", "Unable to allocate")
+_DISK_MARKERS = ("File size limit exceeded", "File too large", "[Errno 27]")
 
 
 class InvalidFiles(ValueError):
@@ -238,7 +239,13 @@ def _killed_reason(
         return "output_limit"
     sig = _signal_of(returncode)
     tail = stderr[-4000:]
-    if disk_over or sig == getattr(signal, "SIGXFSZ", 25) or "File size limit exceeded" in tail:
+    # RLIMIT_FSIZE shows up three ways: SIGXFSZ, the shell's message, or (Python
+    # ignores SIGXFSZ, so the write fails instead) EFBIG "File too large".
+    if (
+        disk_over
+        or sig == getattr(signal, "SIGXFSZ", 25)
+        or any(m in tail for m in _DISK_MARKERS)
+    ):
         return "disk_limit"
     if sig == getattr(signal, "SIGXCPU", 24):
         return "timeout"

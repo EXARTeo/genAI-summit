@@ -126,7 +126,7 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
-      - run: uv venv mnamon/sandbox/.venv && uv pip install --python mnamon/sandbox/.venv/bin/python -r mnamon/sandbox/requirements.txt && uv pip install --python mnamon/sandbox/.venv/bin/python -e mnamon/sandbox/synthkit
+      - run: uv venv mnamon/sandbox/.venv && uv pip install --python mnamon/sandbox/.venv/bin/python -r mnamon/sandbox/requirements.txt && uv pip install --python mnamon/sandbox/.venv/bin/python -e mnamon/sandbox/synthkit && uv pip install --python mnamon/sandbox/.venv/bin/python -e mnamon/shared/modelaccess
       # No network: a local sklearn model and httpx.MockTransport; real subprocesses.
       - run: mnamon/sandbox/.venv/bin/python -m pytest tests/sandbox
 

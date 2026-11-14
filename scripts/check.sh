@@ -24,6 +24,8 @@ for service in backend agents reg-memory model-gateway mlflow-seed sandbox; do
   if [ "$service" = sandbox ]; then
     # synthkit is the image's `synthkit` command; the exec tests run it.
     uv pip install --quiet --python "$python" -e mnamon/sandbox/synthkit
+    # synthkit imports the shared plugin access layer.
+    uv pip install --quiet --python "$python" -e mnamon/shared/modelaccess
   fi
   "$python" -m pytest "tests/${service//-/_}" -q
 done

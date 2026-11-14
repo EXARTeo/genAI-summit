@@ -30,6 +30,9 @@ foreach ($service in 'backend', 'agents', 'reg-memory', 'model-gateway', 'mlflow
         # synthkit is the image's `synthkit` command; the exec tests run it.
         uv pip install --quiet --python $python -e "mnamon\sandbox\synthkit"
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        # synthkit imports the shared plugin access layer.
+        uv pip install --quiet --python $python -e "mnamon\shared\modelaccess"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     & $python -m pytest "tests\$($service -replace '-', '_')" -q
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
