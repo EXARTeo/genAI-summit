@@ -21,9 +21,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SERVICE_ROOT = REPO_ROOT / "product" / "sandbox"
+SERVICE_ROOT = REPO_ROOT / "mnamon" / "sandbox"
 SYNTHKIT_ROOT = SERVICE_ROOT / "synthkit"
-SHARED_ROOT = REPO_ROOT / "product" / "shared" / "modelaccess"
+SHARED_ROOT = REPO_ROOT / "mnamon" / "shared" / "modelaccess"
 for root in (SERVICE_ROOT, SYNTHKIT_ROOT, SHARED_ROOT):
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
@@ -41,7 +41,7 @@ from core.security.rate_limit import backend as rate_limit_backend  # noqa: E402
 from main import app  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-SEED_PLUGIN = REPO_ROOT / "product" / "mlflow-seed" / "cases" / "SYS-001" / "plugins" / "cv-ranker"
+SEED_PLUGIN = REPO_ROOT / "mnamon" / "mlflow-seed" / "cases" / "SYS-001" / "plugins" / "cv-ranker"
 RANKER_FEATURES = [
     "postcode_region",
     "education_level",

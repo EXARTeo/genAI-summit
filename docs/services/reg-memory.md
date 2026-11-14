@@ -1,6 +1,6 @@
 # reg-memory: the regulation store
 
-`product/reg-memory/` is the Regulatory Knowledge Service of the AI Act Governance Copilot
+`mnamon/reg-memory/` is the Regulatory Knowledge Service of the AI Act Governance Copilot
 ([agent context §1](../architecture/agent-context.md#1-reg-memory-all-the-regulation-in-one-place)).
 It **downloads** the EU AI Act and its supporting documents, keeps **every version** on disk with its
 **extracted text** and **diffs**, **parses** the acts into stable provision nodes (`AIA.10.2.f`) and the
@@ -14,11 +14,11 @@ any API key** (`GET /v1/integrations` shows what is active).
 ## Layout
 
 ```text
-product/reg-memory/
+mnamon/reg-memory/
 ├── main.py                 FastAPI app + lifespan (bootstrap: first download + baseline release; scheduler)
 ├── corpus/                 requirements.yaml + test_templates.yaml (in git, loaded into every release)
 ├── Dockerfile, requirements.txt, .dockerignore
-├── core/                   same layout and behaviour as product/backend/core/
+├── core/                   same layout and behaviour as mnamon/backend/core/
 │   ├── settings.py         grouped pydantic-settings (settings.app / store / fetch / security / rate_limit / logging)
 │   ├── error_handling.py   ServiceExceptionHandler (safe JSON errors, logged once)
 │   ├── logging/            backend's structured logging: request-id middleware, EventLogger, redaction, JSON/console
@@ -151,7 +151,7 @@ later provision diffs and `kb_version`.
 | Extract | `python -m engine.extract.stage [--source ID ...] [--force]` | `processed.extracted` and the text file exists |
 | Diff | `python -m engine.diff [--source ID ...] [--force]` | The `.diff` file for that version pair exists |
 
-`engine.ingest` runs extract and diff after the download. Run the CLIs from `product/reg-memory/`
+`engine.ingest` runs extract and diff after the download. Run the CLIs from `mnamon/reg-memory/`
 (`.venv\Scripts\python -m engine.ingest`) or inside the container
 (`./scripts/stack.sh exec reg-memory python -m engine.ingest`).
 
@@ -391,5 +391,5 @@ Example for an Annex III 4(a) provider (the agents' `load_context`):
 1. Append an entry to `engine/catalog/sources.yaml` (check the URL with `curl -sIL` first; prefer Cellar
    for EU law, a direct document URL or a landing page + `follow_links` for the rest).
 2. `python -m engine.ingest --source <id>` and check `data/manifests/<id>.json` and the text.
-3. Tests: `product\reg-memory\.venv\Scripts\python -m pytest tests/reg_memory` (no network:
+3. Tests: `mnamon\reg-memory\.venv\Scripts\python -m pytest tests/reg_memory` (no network:
    `httpx.MockTransport`).

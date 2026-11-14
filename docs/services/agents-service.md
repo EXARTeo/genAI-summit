@@ -1,13 +1,13 @@
 # Agents service
 
-`product/agents/` runs the agents and streams their work to the backend as
+`mnamon/agents/` runs the agents and streams their work to the backend as
 AG-UI events over SSE. It implements [the backend contract](../contracts/agents-contract.md)
 exactly; this page is how it is built inside. Port **8003**, FastAPI, **Google
 Gemini** models through LangChain (`langchain-google-genai`) and deepagents, durable state in the
 `agent_runtime` Postgres database.
 
 It ships one Python agent, **`audit-pipeline`** (the engineer audit pipeline and the change judge:
-[agents pipeline](agents-pipeline.md)); declarative chat agents go in `product/agents/definitions/<slug>/`
+[agents pipeline](agents-pipeline.md)); declarative chat agents go in `mnamon/agents/definitions/<slug>/`
 (see [Adding an agent](#adding-an-agent)).
 
 ## Routes
@@ -33,7 +33,7 @@ refuses to start without one.
 ## Structure
 
 ```text
-product/agents/
+mnamon/agents/
   main.py              app, lifespan (Langfuse, agent_runtime + checkpointer, TaskRunner), /health
   router/              thin HTTP: inference (stream/resume), catalog (GET /agents),
                        agent_protocol + tasks (async sub-agents)
@@ -215,7 +215,7 @@ a gated one.
   `http://mcp_gateway:8005/sse`. One SSE session per run; empty URL, or a
   gateway that does not finish its handshake within
   `MCP_CONNECT_TIMEOUT_SECONDS`, means the run goes on without MCP tools.
-- **Sandbox runner** (`product/sandbox`, compose `sandbox_runner`, [sandbox.md](sandbox.md)): `execute` exists only when
+- **Sandbox runner** (`mnamon/sandbox`, compose `sandbox_runner`, [sandbox.md](sandbox.md)): `execute` exists only when
   `SANDBOX_EXECUTION_ENABLED=true` **and** `SANDBOX_RUNNER_URL` is set (e.g.
   `http://sandbox_runner:8090`). Each call is `POST /v1/exec` with
   `X-Internal-Proxy-Secret: <SANDBOX_RUNNER_SECRET>` (the runner's
@@ -285,7 +285,7 @@ timeouts, summarization thresholds, rate-limit retry, `ASYNC_TASKS_*`) are in
 
 ## Adding an agent
 
-A folder `product/agents/definitions/<agent-name>/` (the folder name is the slug;
+A folder `mnamon/agents/definitions/<agent-name>/` (the folder name is the slug;
 set `DEFAULT_AGENT_SLUG` to it) with:
 
 - `agent.yaml`: `id`, `slug`, `name`, `version`, `type: deep_agent`,
@@ -308,11 +308,11 @@ working example is the test fixture `tests/agents/fixtures/agents/assistant/`
 From the repo root (the suite needs the service's own venv):
 
 ```bash
-product/agents/.venv/Scripts/python -m pytest tests/agents -q   # no network, no Postgres, fake models
-uv run ruff format product/agents tests/agents
-uv run ruff check product/agents tests/agents
+mnamon/agents/.venv/Scripts/python -m pytest tests/agents -q   # no network, no Postgres, fake models
+uv run ruff format mnamon/agents tests/agents
+uv run ruff check mnamon/agents tests/agents
 ```
 
-`tests/agents/conftest.py` puts `product/agents` on `sys.path`, restores the
+`tests/agents/conftest.py` puts `mnamon/agents` on `sys.path`, restores the
 settings tree around every test and wires a stub `agent_runtime` pool;
 `MemoryFileStore` is the in-memory twin of the conversation-files store.

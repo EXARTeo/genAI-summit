@@ -1,0 +1,4 @@
+# MLflow tracking server + model registry (mnamon/mlflow). 3.17.2: newest release at least
+# two weeks old on 2026-11-14 (3.18.0 came out 2026-11-03).
+mlflow==3.17.2
+psycopg2-binary==2.9.13

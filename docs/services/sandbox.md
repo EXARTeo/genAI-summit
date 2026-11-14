@@ -1,15 +1,15 @@
 # sandbox_runner and synthkit
 
-`product/sandbox/` holds two things:
+`mnamon/sandbox/` holds two things:
 
 - **sandbox_runner**: a small FastAPI service that runs the agents' `execute` commands (`POST /v1/exec`) in a
   throwaway workdir with limits. It is the runner the agents service's
   `harness/filesystem/sandbox_backend.py` expects.
-- **synthkit**: the deterministic synthetic test-data engine (`product/sandbox/synthkit/`), installed in the
+- **synthkit**: the deterministic synthetic test-data engine (`mnamon/sandbox/synthkit/`), installed in the
   runner image as the `synthkit` command. It implements [synthetic-data.md](../architecture/synthetic-data.md):
   first understand the model (`profile`), then check the scenarios, generate the data, and analyse it before a
   human approves it. After approval, `run-tests` turns the test plan into measured results (the findings).
-- **modelaccess** (`product/shared/modelaccess/`): the plugin access layer, one package shared by synthkit,
+- **modelaccess** (`mnamon/shared/modelaccess/`): the plugin access layer, one package shared by synthkit,
   `run-tests` and the [model gateway](model-gateway.md) (see [Plugin access config](#plugin-access-config)).
 
 The LLM never writes rows. It drafts the scenarios and the GenerationSpec in the agents service; synthkit does
@@ -91,9 +91,9 @@ plan, expression), 3 the model is unreachable.
 ### Plugin access config
 
 How the system under test is reached is configured **only in the plugin** (`plugin.yaml` → `access`); model
-and test runs use the local MLflow. `product/shared/modelaccess/` reads that block for synthkit, `run-tests`
+and test runs use the local MLflow. `mnamon/shared/modelaccess/` reads that block for synthkit, `run-tests`
 and the model gateway (installed in both images from the compose build context `shared`; locally
-`uv pip install -e product/shared/modelaccess --python <service venv>`):
+`uv pip install -e mnamon/shared/modelaccess --python <service venv>`):
 
 ```yaml
 access:
@@ -269,7 +269,7 @@ seeded resamples) meets it (accuracy uses the CI lower bound), otherwise `inconc
 `./scripts/sandbox-selfcheck.sh` (`.ps1`) sends the plugin, dictionary, system card, a spec and a plan from
 `scripts/sandbox_selfcheck/<SYS>/` to the **real runner** (`POST /v1/exec` via `docker compose exec`), runs
 profile → generate → analyze → run-tests, and compares the numbers with
-`product/mlflow-seed/cases/*/_answer-key/` on the host (the keys never enter the sandbox). SYS-002's accuracy
+`mnamon/mlflow-seed/cases/*/_answer-key/` on the host (the keys never enter the sandbox). SYS-002's accuracy
 test uses the provider's labelled holdout (regenerated with the seed job's generator and split), because the
 planted gap is label noise that synthetic labels cannot show. Results land in `scripts/sandbox_selfcheck/out/`
 (git-ignored). Last run (2026-11-14):
@@ -321,7 +321,7 @@ ranker, edge-case classes on a fragile model, chat probes on a mock transport, c
 one fake MLflow run per test, the CLI, the plugin access config). There is no network.
 
 ```powershell
-cd product/sandbox; uv venv .venv; uv pip install -r requirements.txt --python .venv; uv pip install -e synthkit --python .venv
+cd mnamon/sandbox; uv venv .venv; uv pip install -r requirements.txt --python .venv; uv pip install -e synthkit --python .venv
 uv pip install -e ../shared/modelaccess --python .venv
-cd ../..; product\sandbox\.venv\Scripts\python -m pytest tests/sandbox
+cd ../..; mnamon\sandbox\.venv\Scripts\python -m pytest tests/sandbox
 ```

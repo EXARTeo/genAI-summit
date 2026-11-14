@@ -1,4 +1,4 @@
-# Test copy of product/mlflow-seed/cases/SYS-001/plugins/cv-ranker (used when the seed case is absent).
+# Test copy of mnamon/mlflow-seed/cases/SYS-001/plugins/cv-ranker (used when the seed case is absent).
 id: SYS-001.cv-ranker
 system: SYS-001
 name: Candidate ranker

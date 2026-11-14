@@ -1,6 +1,6 @@
 # Frontend
 
-The engineer workspace: `product/frontend/` (Vite + React 18 + TypeScript + Tailwind, shadcn-style
+The engineer workspace: `mnamon/frontend/` (Vite + React 18 + TypeScript + Tailwind, shadcn-style
 Radix primitives). Served by nginx in the `frontend` compose service, which also proxies `/api` to the
 backend. The audit, approvals and regulation pages are described in
 [frontend-audit-workflow.md](frontend-audit-workflow.md); this page covers the scaffold, information
@@ -8,16 +8,16 @@ architecture, design rules, motion, brand, mock mode, visual QA and the home and
 
 ## Run
 
-| Task | Command (in `product/frontend/`) |
+| Task | Command (in `mnamon/frontend/`) |
 | --- | --- |
 | Install | `npm install` (Node 22+; `npm ci` in Docker once the lockfile is there) |
 | Dev server, live backend | `npm run dev` → <http://localhost:5173>, `/api` proxied to `VITE_DEV_BACKEND_URL` (default `http://127.0.0.1:8100`) |
 | Dev server, demo data only | `npm run dev:mocks` (or `VITE_USE_MOCKS=true`) |
 | Checks | `npm run typecheck` · `npm run lint` · `npm run format:check` · `npm test` · `npm run build` |
 | Regenerate brand tokens | `npm run tokens` (= `uv run python branding/export_tokens.py --frontend`) |
-| Regenerate mock dossiers | `npm run fixtures` (bundles `product/mlflow-seed/cases/SYS-*`, never `_answer-key/`) |
+| Regenerate mock dossiers | `npm run fixtures` (bundles `mnamon/mlflow-seed/cases/SYS-*`, never `_answer-key/`) |
 | Screenshot every route | `npm run shots` (see [Visual QA](#visual-qa)) |
-| In Docker | `./scripts/stack.sh up` (or `.ps1`; = `docker compose --env-file .env -f product/docker-compose.yaml up -d --build`) → <http://localhost:8080> |
+| In Docker | `./scripts/stack.sh up` (or `.ps1`; = `docker compose --env-file .env -f mnamon/docker-compose.yaml up -d --build`) → <http://localhost:8080> |
 
 Env vars live in the **one repo env file** (`.env` from the root `.env.example`, section *Frontend*; Vite reads it via `envDir` = repo root, compose passes `VITE_*` as build args). `VITE_*` are baked in at build time and are public:
 `VITE_USE_MOCKS`, `VITE_DEV_BACKEND_URL` (dev only), `VITE_LANGFUSE_URL`, `VITE_LANGFUSE_PROJECT_ID`,
@@ -130,7 +130,7 @@ Organised like magenticx `agentic_ui` (`src/styles/theme/`): four layers, import
   `chart_1`..`chart_5` to both palettes in `brand.json` and they override the fallbacks in `semantic.css`.
 
 **Re-theme the whole app (light + dark):** edit the colours in `branding/brand.json`, then run
-`npm run tokens` in `product/frontend/` (= `uv run python branding/export_tokens.py --frontend` from the repo
+`npm run tokens` in `mnamon/frontend/` (= `uv run python branding/export_tokens.py --frontend` from the repo
 root). Vite hot-reloads the result; `tests/test_branding.py` fails if `tokens.css` is stale.
 
 ## Motion

@@ -27,7 +27,7 @@ decision exactly like the UI (`decided_by: telegram:<username>`) and resumes the
    APP_PUBLIC_URL=http://localhost:8080
    ```
 
-4. **Restart the backend:** `docker compose --env-file .env -f product/docker-compose.yaml up -d backend`.
+4. **Restart the backend:** `docker compose --env-file .env -f mnamon/docker-compose.yaml up -d backend`.
    The log shows `telegram_polling_started`. Press **Start** in the bot's chat once (bots cannot message a user
    first).
 

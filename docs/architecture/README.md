@@ -25,10 +25,10 @@ Design principles (PDF §1):
 
 ## Layout
 
-The product lives in one folder named after it. Each service is a subfolder with its own Dockerfile, and the folder's `docker-compose.yaml` wraps them all:
+The product lives in one folder named after the brand, `mnamon/` (*Mnamon*). Each service is a subfolder with its own Dockerfile, and the folder's `docker-compose.yaml` wraps them all:
 
 ```text
-<product>/
+mnamon/
 ├── <service-a>/
 │   └── Dockerfile
 ├── <service-b>/
@@ -40,13 +40,13 @@ The product lives in one folder named after it. Each service is a subfolder with
 
 ### Running today
 
-The product folder is `product/` until a name is chosen. Full table (images, networks, healthchecks): [product/README.md](../../product/README.md).
+The product folder is `mnamon/`, named after the brand. Full table (images, networks, healthchecks): [mnamon/README.md](../../mnamon/README.md).
 
 | Service | Folder | Port (host → container) | Responsibility |
 | --- | --- | --- | --- |
-| `backend` | `product/backend/` | 8100 → 8000 | FastAPI API; runs `alembic upgrade head` on start: [backend](../services/backend.md) |
-| `frontend` | `product/frontend/` | 8080 → 8080 | Engineer workspace (Vite + React SPA, nginx proxies `/api` to the backend): [frontend](../services/frontend.md), [audit workflow](../services/frontend-audit-workflow.md) |
-| `agents` | `product/agents/` | not published (8003) | Runs the agents (OpenAI, deep agents, async sub-agents, MCP, sandbox) and streams AG-UI to the backend: [agents service](../services/agents-service.md), [contract](../contracts/agents-contract.md) |
+| `backend` | `mnamon/backend/` | 8100 → 8000 | FastAPI API; runs `alembic upgrade head` on start: [backend](../services/backend.md) |
+| `frontend` | `mnamon/frontend/` | 8080 → 8080 | Engineer workspace (Vite + React SPA, nginx proxies `/api` to the backend): [frontend](../services/frontend.md), [audit workflow](../services/frontend-audit-workflow.md) |
+| `agents` | `mnamon/agents/` | not published (8003) | Runs the agents (OpenAI, deep agents, async sub-agents, MCP, sandbox) and streams AG-UI to the backend: [agents service](../services/agents-service.md), [contract](../contracts/agents-contract.md) |
 | `postgres` | (image) | not published | Backend database + `agent_runtime` (checkpoints, conversation files, tasks) |
 | `redis` | (image) | not published | Backend cache (`volatile-lru`) |
 | `langfuse-web` + `langfuse-worker` | (images) | 3400 → 3000 | Langfuse v4: trace UI, ingestion API, async processing |

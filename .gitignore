@@ -39,7 +39,7 @@ node_modules/
 # --- Data, models and outputs (keep large files out of git) ---
 data/
 models/
-!product/agents/harness/models/
+!mnamon/agents/harness/models/
 outputs/
 *.gguf
 *.safetensors
@@ -65,10 +65,10 @@ Thumbs.db
 # --- Claude Code local settings ---
 .claude/settings.local.json
 
-# --- MLflow (product/mlflow-seed) ---
+# --- MLflow (mnamon/mlflow-seed) ---
 # Case folders are source: their data/ dirs hold dictionaries, datasheets and samples.
-!product/mlflow-seed/cases/**/data/
+!mnamon/mlflow-seed/cases/**/data/
 # Local MLflow stores and runs (never commit).
 mlruns/
 mlartifacts/
-product/mlflow-seed/.local/
+mnamon/mlflow-seed/.local/

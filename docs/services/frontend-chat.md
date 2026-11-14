@@ -1,6 +1,6 @@
 # Frontend chat (port of magenticx `agentic_ui`)
 
-`/chat` and `/chat/:conversationId` in `product/frontend/` are a port of the chat in
+`/chat` and `/chat/:conversationId` in `mnamon/frontend/` are a port of the chat in
 [magenticx](https://github.com/konstantinosmpouros/magenticx) `magenticx/agentic_ui/src/` (`features/chat`,
 `features/inference`, `features/attachments`, `app/useChatWorkspace`, `pages/ChatView`), talking to our
 backend (ported from magenticx's `dialogue_bridge`). Same behaviour and UX, restyled to our design system

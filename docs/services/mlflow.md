@@ -1,11 +1,11 @@
 # MLflow and the seed job
 
-Two containers in `product/docker-compose.yaml`:
+Two containers in `mnamon/docker-compose.yaml`:
 
 | Service | Folder | What it does |
 | --- | --- | --- |
-| `mlflow` | `product/mlflow/` | MLflow 3.17.2 tracking server + model registry. Long-running. |
-| `mlflow-seed` | `product/mlflow-seed/` | One-shot job: generates synthetic data, trains, evaluates and registers the demo systems' models, then exits 0. |
+| `mlflow` | `mnamon/mlflow/` | MLflow 3.17.2 tracking server + model registry. Long-running. |
+| `mlflow-seed` | `mnamon/mlflow-seed/` | One-shot job: generates synthetic data, trains, evaluates and registers the demo systems' models, then exits 0. |
 
 ## `mlflow` server
 
@@ -79,7 +79,7 @@ change log), `evidence/README.md`, and per plugin `plugin.yaml`, `README.md`,
 `_answer-key/expected-findings.yaml` lists each planted finding with requirement ids
 (`REQ.AIA.…`), metric, direction, threshold and expected magnitude.
 
-## Model naming contract (with `product/model-gateway`)
+## Model naming contract (with `mnamon/model-gateway`)
 
 | Name | Input | Output |
 | --- | --- | --- |
@@ -106,12 +106,12 @@ the gateway: change both, and `MODEL_NAMES` in `seed.py`.
 ## Run and test locally (no Docker)
 
 ```bash
-cd product/mlflow-seed
+cd mnamon/mlflow-seed
 uv venv .venv && uv pip install -r requirements.txt --python .venv
 .venv/Scripts/python -m mlflow server --backend-store-uri sqlite:///.local/mlflow.db \
   --artifacts-destination .local/artifacts --serve-artifacts --port 5577     # .local/ is git-ignored
 MLFLOW_TRACKING_URI=http://127.0.0.1:5577 .venv/Scripts/python seed.py
-cd ../.. && product/mlflow-seed/.venv/Scripts/python -m pytest tests/mlflow_seed
+cd ../.. && mnamon/mlflow-seed/.venv/Scripts/python -m pytest tests/mlflow_seed
 ```
 
 The suite (34 tests, ~10 s) needs no server and no network: small builds, and one registration

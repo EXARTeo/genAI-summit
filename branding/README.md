@@ -52,8 +52,8 @@ The CSS defines `--color-*` and `--font-*` variables on `:root`, switches to dar
 
 1. Edit `brand.json` (and drop the new logo files into `logo/`).
 2. Run `./scripts/build-decks.sh` (or `.ps1`) to rebuild every deck with the new look.
-3. Run `uv run python branding/export_tokens.py --frontend` (or `npm run tokens` in `product/frontend/`): it
-   writes `product/frontend/src/styles/theme/tokens.css`, which Tailwind reads (`--rgb-*` channels allow
+3. Run `uv run python branding/export_tokens.py --frontend` (or `npm run tokens` in `mnamon/frontend/`): it
+   writes `mnamon/frontend/src/styles/theme/tokens.css`, which Tailwind reads (`--rgb-*` channels allow
    opacity like `bg-primary/10`). `tests/test_branding.py` fails when that file is stale.
 
 That second command is all the frontend needs: every colour in the app (light + dark) derives from

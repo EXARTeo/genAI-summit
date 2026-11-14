@@ -1,6 +1,6 @@
 # Agents service: the audit pipeline and the change judge
 
-`product/agents/pipeline/` is the product's core: the **engineer audit pipeline** (a LangGraph
+`mnamon/agents/pipeline/` is the product's core: the **engineer audit pipeline** (a LangGraph
 `StateGraph` with deep agents inside the open-ended steps) and the **regulation-change impact pipeline**
 (deterministic impact index + a change judge). Model access is **Google Gemini only**
 (`harness/models/gemini.py`). Design background: [architecture](../architecture/README.md),

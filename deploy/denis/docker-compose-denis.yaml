@@ -5,7 +5,7 @@
 # and pushes the result to the deploy repo Portainer pulls, then calls the stack
 # webhook. Never edit the copy in the deploy repo. Guide: docs/guides/deploy-denis.md.
 #
-# Differences from product/docker-compose.yaml (local):
+# Differences from mnamon/docker-compose.yaml (local):
 # - Prebuilt ARM64 images from GHCR, no `build:`.
 # - Swarm semantics: no depends_on/conditions (services restart until their
 #   dependencies answer), deploy.restart_policy / resources instead of

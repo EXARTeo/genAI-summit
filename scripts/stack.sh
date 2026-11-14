@@ -9,4 +9,4 @@ case "$cmd" in
   up) set -- up -d --build "$@" ;;
   *)  set -- "$cmd" "$@" ;;
 esac
-docker compose --env-file "$env_file" -f product/docker-compose.yaml "$@"
+docker compose --env-file "$env_file" -f mnamon/docker-compose.yaml "$@"

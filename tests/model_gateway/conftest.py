@@ -15,8 +15,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-# tests/model_gateway/ -> repo root -> product/model-gateway (the service's import root).
-SERVICE_ROOT = Path(__file__).resolve().parents[2] / "product" / "model-gateway"
+# tests/model_gateway/ -> repo root -> mnamon/model-gateway (the service's import root).
+SERVICE_ROOT = Path(__file__).resolve().parents[2] / "mnamon" / "model-gateway"
 # The shared plugin access layer (installed in the image; on the path for a bare venv).
 SHARED_ROOT = SERVICE_ROOT.parent / "shared" / "modelaccess"
 for root in (SERVICE_ROOT, SHARED_ROOT):

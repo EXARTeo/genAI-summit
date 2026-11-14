@@ -15,8 +15,8 @@ right, fading towards the bottom) and the **MNAMON** wordmark (EB Garamond Mediu
 | `favicon.svg` / `favicon.ico` | Favicon: the mark as a **solid** stroke (stripes vanish below 48 px) on the ink tile; ICO holds 16, 32, 48 px |
 | `make_svgs.py` | Generates every SVG above |
 
-The frontend copies `favicon.svg`, `favicon.ico` and `apple-touch-icon.png` into `product/frontend/public/`, and
-draws the mark inline in `product/frontend/src/shared/ui/logo.tsx` from the `logo_lex` / `logo_terra` tokens,
+The frontend copies `favicon.svg`, `favicon.ico` and `apple-touch-icon.png` into `mnamon/frontend/public/`, and
+draws the mark inline in `mnamon/frontend/src/shared/ui/logo.tsx` from the `logo_lex` / `logo_terra` tokens,
 so it follows the theme.
 
 ## How the files were made

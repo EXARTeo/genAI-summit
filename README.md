@@ -15,7 +15,7 @@ cp .env.example .env        # then fill in your keys
 uv sync                     # installs the repo tooling (ruff, pytest, pre-commit)
 ```
 
-Run the product (backend + Postgres + Redis + Langfuse; see [product/README.md](product/README.md)):
+Run the product (backend + Postgres + Redis + Langfuse; see [mnamon/README.md](mnamon/README.md)):
 
 ```bash
 cp .env.example .env        # the ONE env file (optional: dev defaults are built in)
@@ -54,7 +54,7 @@ genAI-summit/
 ├── presentations/       # YAML decks -> branded .pptx (scripts/build-decks.*)
 ├── docs/                # Project documentation
 ├── scripts/             # Setup and check scripts (bash + PowerShell)
-├── <product>/           # The product (named with its branding): one folder per service
+├── mnamon/              # The product (Mnamon, named after the brand): one folder per service
 │   ├── <service>/       #   each with its own Dockerfile and code
 │   └── docker-compose.yaml  # wraps all the services
 ├── tests/               # Repo-level pytest checks

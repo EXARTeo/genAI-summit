@@ -22,7 +22,7 @@ from pipeline.steps import StepRunner
 from harness.memory.entries import MemoryRecord
 
 REPO = Path(__file__).resolve().parents[2]
-CASE = REPO / "product" / "mlflow-seed" / "cases" / "SYS-001"
+CASE = REPO / "mnamon" / "mlflow-seed" / "cases" / "SYS-001"
 SYSTEM_ID = "SYS-001"
 AUDIT_ID = "AUD-1"
 KB = "2026.11.14-1"

@@ -7,7 +7,7 @@ $envFile = if (Test-Path .env) { '.env' } else { '.env.example' }
 $cmd = if ($args.Count -gt 0) { $args[0] } else { 'up' }
 $rest = if ($args.Count -gt 1) { $args[1..($args.Count - 1)] } else { @() }
 $composeArgs = if ($cmd -eq 'up') { @('up', '-d', '--build') + $rest } else { @($cmd) + $rest }
-$full = @('compose', '--env-file', $envFile, '-f', 'product/docker-compose.yaml') + $composeArgs
+$full = @('compose', '--env-file', $envFile, '-f', 'mnamon/docker-compose.yaml') + $composeArgs
 # Docker writes progress to stderr; under 'Stop', Windows PowerShell 5.1 turns
 # that into a terminating error once stderr is redirected. Judge by exit code.
 $ErrorActionPreference = 'Continue'

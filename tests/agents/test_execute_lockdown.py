@@ -47,7 +47,7 @@ from harness.filesystem import workspace as workspace_module
 from harness.tools import gates
 from harness.tools.builtins import BUILTIN_BY_NAME
 
-SERVICE_SRC = Path(__file__).resolve().parents[2] / "product" / "agents"
+SERVICE_SRC = Path(__file__).resolve().parents[2] / "mnamon" / "agents"
 RUNNER_URL = "https://sandbox_runner:8090"
 PROBE_MODEL = "openai:gpt-4o-mini"
 

@@ -22,7 +22,7 @@ from core.database import (
 )
 from core.settings import settings
 
-SERVICE_ROOT = Path(__file__).resolve().parents[2] / "product" / "backend"
+SERVICE_ROOT = Path(__file__).resolve().parents[2] / "mnamon" / "backend"
 
 
 async def _system(client, sid: str = "SYS-001", name: str = "CV screener") -> dict:

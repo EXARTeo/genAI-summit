@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FRONTEND_TOKENS = ROOT / "product" / "frontend" / "src" / "styles" / "theme" / "tokens.css"
+FRONTEND_TOKENS = ROOT / "mnamon" / "frontend" / "src" / "styles" / "theme" / "tokens.css"
 
 
 def _export_tokens():

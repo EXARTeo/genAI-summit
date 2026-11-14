@@ -25,8 +25,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-# tests/agents/ -> repo root -> product/agents (the service's import root).
-SERVICE_ROOT = Path(__file__).resolve().parents[2] / "product" / "agents"
+# tests/agents/ -> repo root -> mnamon/agents (the service's import root).
+SERVICE_ROOT = Path(__file__).resolve().parents[2] / "mnamon" / "agents"
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVICE_ROOT))
 

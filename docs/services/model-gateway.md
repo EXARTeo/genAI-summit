@@ -1,6 +1,6 @@
 # model-gateway
 
-`product/model-gateway/` (FastAPI, port 8000 in the container, published on `127.0.0.1:8200` for the demo).
+`mnamon/model-gateway/` (FastAPI, port 8000 in the container, published on `127.0.0.1:8200` for the demo).
 
 ## Why it exists
 
@@ -109,8 +109,8 @@ loader, `predict.py` validation and pipeline, `chatbot.py`, `latency.py`), `rout
 Tests in `tests/model_gateway/` (own `pytest.ini`) fake the model loader: no MLflow, no network.
 
 ```powershell
-cd product/model-gateway; uv venv .venv; uv pip install -r requirements.txt --python .venv; cd ../..
-product\model-gateway\.venv\Scripts\python -m pytest tests/model_gateway
+cd mnamon/model-gateway; uv venv .venv; uv pip install -r requirements.txt --python .venv; cd ../..
+mnamon\model-gateway\.venv\Scripts\python -m pytest tests/model_gateway
 ```
 
 The `mlflow-skinny`, `scikit-learn`, `pandas`, `numpy` and `cloudpickle` pins in `requirements.txt`

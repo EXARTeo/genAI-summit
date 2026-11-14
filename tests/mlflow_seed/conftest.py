@@ -1,4 +1,4 @@
-"""Put product/mlflow-seed on sys.path and share small, cached case builds."""
+"""Put mnamon/mlflow-seed on sys.path and share small, cached case builds."""
 
 import os
 import sys
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-SEED_DIR = Path(__file__).resolve().parents[2] / "product" / "mlflow-seed"
+SEED_DIR = Path(__file__).resolve().parents[2] / "mnamon" / "mlflow-seed"
 CASES = SEED_DIR / "cases"
 sys.path.insert(0, str(SEED_DIR))
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")

@@ -1,6 +1,6 @@
 # Frontend: audit workflow UX
 
-The audit-workflow pages of `product/frontend/` (see the frontend page for the scaffold, information
+The audit-workflow pages of `mnamon/frontend/` (see the frontend page for the scaffold, information
 architecture, design rules and mock mode). Three features, each `src/features/<feature>/{components,hooks,handlers,lib,pages}`;
 pages are mounted by thin route views in `src/pages/*View.tsx`. Agent memory is not shown in the UI: the agents
 decide what to remember.

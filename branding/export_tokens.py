@@ -21,7 +21,7 @@ BRANDING_DIR = Path(__file__).resolve().parent
 BRAND_FILE = BRANDING_DIR / "brand.json"
 DEFAULT_OUT = BRANDING_DIR / "dist" / "tokens.css"
 FRONTEND_OUT = (
-    BRANDING_DIR.parent / "product" / "frontend" / "src" / "styles" / "theme" / "tokens.css"
+    BRANDING_DIR.parent / "mnamon" / "frontend" / "src" / "styles" / "theme" / "tokens.css"
 )
 
 

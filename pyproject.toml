@@ -46,11 +46,11 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-# product/backend's, product/agents' and product/reg-memory's top-level packages (each service runs
+# mnamon/backend's, mnamon/agents' and mnamon/reg-memory's top-level packages (each service runs
 # with its folder on sys.path).
 known-first-party = [
     "core", "engine", "harness", "router", "schema", "utils", "main",
-    "seedlib", "seedmodels", "seed",  # product/mlflow-seed
+    "seedlib", "seedmodels", "seed",  # mnamon/mlflow-seed
 ]
 
 [tool.ruff.lint.per-file-ignores]

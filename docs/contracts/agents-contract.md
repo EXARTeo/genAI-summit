@@ -3,9 +3,9 @@
 The backend never calls a model. It starts runs on the **agents service**, reads
 their **AG-UI event stream** (SSE), stores it and fans it out to browsers. This page
 is what the agents service must implement. The client side is
-[`product/backend/utils/agents.py`](../../product/backend/utils/agents.py) (its docstring repeats
+[`mnamon/backend/utils/agents.py`](../../mnamon/backend/utils/agents.py) (its docstring repeats
 this contract) and the run engine is
-[`product/backend/utils/inference_runs.py`](../../product/backend/utils/inference_runs.py).
+[`mnamon/backend/utils/inference_runs.py`](../../mnamon/backend/utils/inference_runs.py).
 
 ## Endpoints
 

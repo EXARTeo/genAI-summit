@@ -1,4 +1,4 @@
-# Test copy of product/mlflow-seed/cases/SYS-001/plugins/cv-ranker (used when the seed case is absent).
+# Test copy of mnamon/mlflow-seed/cases/SYS-001/plugins/cv-ranker (used when the seed case is absent).
 # SYS-001 cv-ranker input (= cv-parser output) as a generative spec.
 # Schema: docs/architecture/synthetic-data.md § 4. All values are synthetic.
 version: 2

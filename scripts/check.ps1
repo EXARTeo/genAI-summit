@@ -14,21 +14,21 @@ foreach ($step in $steps) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-# Service suites: each in its own venv (product/<service>/.venv), created on
+# Service suites: each in its own venv (mnamon/<service>/.venv), created on
 # first run; the tests live in tests/<service>/ (dashes as underscores).
 foreach ($service in 'backend', 'agents', 'reg-memory', 'model-gateway', 'mlflow-seed', 'sandbox') {
     Write-Host "==> $service tests"
-    $venv = "product\$service\.venv"
+    $venv = "mnamon\$service\.venv"
     if (-not (Test-Path $venv)) {
         uv venv $venv --python 3.12
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     $python = Join-Path $venv 'Scripts\python.exe'
-    uv pip install --quiet --python $python -r "product\$service\requirements.txt"
+    uv pip install --quiet --python $python -r "mnamon\$service\requirements.txt"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     if ($service -eq 'sandbox') {
         # synthkit is the image's `synthkit` command; the exec tests run it.
-        uv pip install --quiet --python $python -e "product\sandbox\synthkit"
+        uv pip install --quiet --python $python -e "mnamon\sandbox\synthkit"
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     & $python -m pytest "tests\$($service -replace '-', '_')" -q

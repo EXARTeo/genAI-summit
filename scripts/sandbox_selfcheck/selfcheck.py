@@ -24,8 +24,8 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-CASES = REPO / "product" / "mlflow-seed" / "cases"
-COMPOSE = ["docker", "compose", "--env-file", ".env.example", "-f", "product/docker-compose.yaml"]
+CASES = REPO / "mnamon" / "mlflow-seed" / "cases"
+COMPOSE = ["docker", "compose", "--env-file", ".env.example", "-f", "mnamon/docker-compose.yaml"]
 PLUGINS = {
     "SYS-001": "cv-ranker",
     "SYS-002": "credit-scorer",
@@ -66,7 +66,7 @@ def b64(path: Path) -> str:
 def sys002_holdout() -> Path:
     """The provider's labelled evaluation split (same generator, seed and split as the seed
     job). Stands in for the holdout an auditor asks the provider for (Art. 10(3))."""
-    sys.path.insert(0, str(REPO / "product" / "mlflow-seed"))
+    sys.path.insert(0, str(REPO / "mnamon" / "mlflow-seed"))
     from sklearn.model_selection import train_test_split  # noqa: PLC0415
 
     from seedlib.sampler import Dictionary, generate  # noqa: PLC0415

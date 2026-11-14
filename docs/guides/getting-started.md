@@ -27,7 +27,7 @@ All configuration comes from environment variables, loaded from `.env` locally. 
 
 ## Run
 
-The product's services run with Docker Compose from the product folder (`product/` until it is named). Its variables are in the same single [`.env.example`](../../.env.example) at the repo root (one `.env` for everything, sections per service, sponsor keys at the top); services and ports in [product/README.md](../../product/README.md).
+The product's services run with Docker Compose from the product folder `mnamon/` (named after the brand, *Mnamon*). Its variables are in the same single [`.env.example`](../../.env.example) at the repo root (one `.env` for everything, sections per service, sponsor keys at the top); services and ports in [mnamon/README.md](../../mnamon/README.md).
 
 ```bash
 ./scripts/stack.sh up       # Windows: .\scripts\stack.ps1 up (WSL Docker if needed)

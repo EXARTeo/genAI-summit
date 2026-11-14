@@ -1,7 +1,7 @@
 # TEST FIXTURE ONLY (tests/agents): a deep agent with two sub-agents, every MCP
 # gateway tool, the sandbox and the conversation's files, so the suite exercises
 # the harness end to end. The service itself ships no agent; the product agent
-# goes in product/agents/definitions/<slug>/.
+# goes in mnamon/agents/definitions/<slug>/.
 id: assistant
 slug: assistant
 name: Assistant

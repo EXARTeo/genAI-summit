@@ -23,8 +23,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-# tests/backend/ -> repo root -> product/backend (the service's import root).
-SERVICE_ROOT = Path(__file__).resolve().parents[2] / "product" / "backend"
+# tests/backend/ -> repo root -> mnamon/backend (the service's import root).
+SERVICE_ROOT = Path(__file__).resolve().parents[2] / "mnamon" / "backend"
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVICE_ROOT))
 
