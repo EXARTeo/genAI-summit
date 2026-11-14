@@ -75,6 +75,10 @@ class Theme:
     body_font: str
     logo_on_light: Path | None
     logo_on_dark: Path | None
+    # Title and closing slides: the brand hero is always the dark palette (ink), whatever
+    # the deck theme, because the logo's lex half only reads on ink.
+    hero_bg: RGBColor
+    hero_fg: RGBColor
 
 
 # --------------------------------------------------------------------------- brand
@@ -103,6 +107,7 @@ def load_theme(mode: str, brand_file: Path = BRANDING_DIR / "brand.json") -> The
     if missing:
         raise DeckError(f"brand.json colours.{mode} is missing {missing}")
     logo = brand.get("logo", {})
+    hero = brand.get("colors", {}).get("dark", palette)
     return Theme(
         brand_name=brand.get("name", ""),
         colors={k: _rgb(palette[k]) for k in COLOR_KEYS},
@@ -110,6 +115,8 @@ def load_theme(mode: str, brand_file: Path = BRANDING_DIR / "brand.json") -> The
         body_font=brand.get("fonts", {}).get("body", "Calibri"),
         logo_on_light=_existing(logo.get("on_light")),
         logo_on_dark=_existing(logo.get("on_dark")),
+        hero_bg=_rgb(hero["background"]),
+        hero_fg=_rgb(hero["text"]),
     )
 
 
@@ -235,9 +242,8 @@ BODY_H = SLIDE_H - BODY_TOP - Inches(1.0)
 # --------------------------------------------------------------------------- layouts
 
 
-def _hero(slide: Slide, spec: dict[str, Any], theme: Theme, bg_key: str, fg_key: str) -> None:
-    c = theme.colors
-    bg, fg = c[bg_key], c[fg_key]
+def _hero(slide: Slide, spec: dict[str, Any], theme: Theme) -> None:
+    bg, fg = theme.hero_bg, theme.hero_fg
     _background(slide, bg)
     _logo(slide, theme, bg, MARGIN, Inches(0.6), fg)
     _text(
@@ -271,11 +277,11 @@ def _hero(slide: Slide, spec: dict[str, Any], theme: Theme, bg_key: str, fg_key:
 
 
 def _layout_title(slide: Slide, spec: dict[str, Any], theme: Theme, **_: Any) -> None:
-    _hero(slide, spec, theme, "primary", "primary_foreground")
+    _hero(slide, spec, theme)
 
 
 def _layout_closing(slide: Slide, spec: dict[str, Any], theme: Theme, **_: Any) -> None:
-    _hero(slide, spec, theme, "primary", "primary_foreground")
+    _hero(slide, spec, theme)
 
 
 def _layout_section(slide: Slide, spec: dict[str, Any], theme: Theme, **_: Any) -> None:

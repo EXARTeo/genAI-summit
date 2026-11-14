@@ -35,7 +35,7 @@ slides:
 
 | Layout | Required | Optional | Looks like |
 | --- | --- | --- | --- |
-| `title` | `title` | `subtitle`, `meta` | Full `primary` background, logo, big title |
+| `title` | `title` | `subtitle`, `meta` | Brand hero: ink background (the dark palette in both themes), logo, big title |
 | `section` | `title` | `subtitle` | `surface` background with an accent bar |
 | `bullets` | `title`, `bullets` | | Title + bullet list. A bullet can be `{text, sub: [...]}` for sub-points |
 | `two-column` | `title`, `left`, `right` | each column: `heading`, `bullets` | Two bullet columns |
