@@ -322,6 +322,17 @@ class ConversationFilesSettings(BaseSettings):
     )
 
 
+class MemorySettings(BaseSettings):
+    """Agent memory per audited system (``harness/memory``, table ``system_memories``)."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    # New entries per system; updates to an existing entry always go through.
+    max_entries_per_system: int = Field(
+        200, ge=1, le=10000, validation_alias="MEMORY_MAX_ENTRIES_PER_SYSTEM"
+    )
+
+
 class SummarizationSettings(BaseSettings):
     """Context compaction: summarize at 95% of a model's window.
 
@@ -474,6 +485,7 @@ class Settings(BaseSettings):
     model_profiles: ModelProfileSettings = Field(default_factory=ModelProfileSettings)
     filesystem: FilesystemSettings = Field(default_factory=FilesystemSettings)
     conversation_files: ConversationFilesSettings = Field(default_factory=ConversationFilesSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
     summarization: SummarizationSettings = Field(default_factory=SummarizationSettings)
     rate_limit_retry: RateLimitRetrySettings = Field(default_factory=RateLimitRetrySettings)
     agui: AguiSettings = Field(default_factory=AguiSettings)

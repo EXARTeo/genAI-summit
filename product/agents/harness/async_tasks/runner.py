@@ -260,6 +260,11 @@ def task_context(task: Mapping[str, Any], run_id: str) -> dict[str, Any]:
         "branch_thread_id": task["branch_thread_id"],
         "async_task_id": task["task_id"],
         "interactive": inherited.interactive,
+        **{
+            key: value
+            for key in ("system_id", "audit_id", "step")
+            if (value := getattr(inherited, key))
+        },
     }
 
 

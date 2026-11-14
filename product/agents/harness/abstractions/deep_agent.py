@@ -17,6 +17,7 @@ only says what differs (model, prompt, sub-agents, gates):
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -64,6 +65,13 @@ from harness.filesystem import (
     resolve_branch_thread_id,
     workspace_write_deny,
 )
+from harness.memory import (
+    MemoryBinding,
+    SystemMemoryFiles,
+    SystemMemoryStore,
+    memory_binding_from_context,
+)
+from harness.memory.binding import MEMORY_CONTEXT_KEYS
 from harness.middlewares import (
     RetryOnRateLimitMiddleware,
     ToolErrorMiddleware,
@@ -79,12 +87,16 @@ from harness.prompt_engineering import (
     task_sections,
 )
 from harness.prompt_engineering.prompts.capabilities_prompt import delegating_subagent_prompt
+from harness.prompt_engineering.prompts.memory_prompt import memory_prompt
 from harness.tools.ask_user import ASK_USER_TOOL_NAME
 from harness.tools.gates import resolve_interrupt_on, strip_reserved_names
 from harness.tools.present_artifact import PresentedFiles
 from harness.tools.registry import NativeToolContext, build_auto_attach_tools
 
 logger = get_logger(__name__)
+
+#: The memory tools a narrowed sub-agent tool list still gets.
+MEMORY_TOOL_NAMES = ("remember", "forget")
 
 STREAMING_MODES = Literal["updates", "messages", "tasks"]
 SubAgentsT = Sequence[Any] | Mapping[str, Any] | None
@@ -191,6 +203,10 @@ class DeepAgent(BaseAgent, ABC):
         # drained by the normalizer into PRESENT_ARTIFACT events.
         self.presented = PresentedFiles()
         self.checkpointer: Any = None
+        # The audited system's memory (``system_id`` in the context), resolved
+        # by ``ensure_built``: the mount, and the index the prompt carries.
+        self._memory_files: SystemMemoryFiles | None = None
+        self._memory_index: str | None = None
         self.sub_agents: SubAgentsT = None
         self.agent: Any = None
         self.async_task_node = None
@@ -246,7 +262,79 @@ class DeepAgent(BaseAgent, ABC):
             files=self.conversation_files,
             reference_dir=self.reference_dir,
             branch_thread_id=resolve_branch_thread_id(self.context, self.run_config),
+            memory=self._memory_files,
         )
+
+    # ---------------------------------------------------------------------
+    # The audited system's memory
+    # ---------------------------------------------------------------------
+    def memory_store(self) -> Any:
+        """The typed store behind ``/memory/`` and the memory tools (a seam for tests)."""
+        return SystemMemoryStore(get_runtime_pool())
+
+    def _memory_binding(self) -> MemoryBinding | None:
+        """Whose memory this run uses, from the run context (never the model)."""
+        node = self.async_task_node
+        agent_name = f"{self.name}/{'/'.join(node.path)}" if node and node.path else self.name
+        return memory_binding_from_context(
+            self.context,
+            agent_name=agent_name,
+            thread_id=self.run_config.get("configurable", {}).get("thread_id"),
+        )
+
+    async def _prepare_memory(self) -> None:
+        """Bind ``/memory/`` and load ``MEMORY.md`` for the prompt. Fail-open:
+        a memory outage costs the lessons, never the run."""
+        binding = self._memory_binding()
+        if binding is None:
+            return
+        files = SystemMemoryFiles(
+            self.memory_store(),
+            binding,
+            max_entries=settings.memory.max_entries_per_system,
+            loop=asyncio.get_running_loop(),
+        )
+        try:
+            index, records = await files.index_text()
+        except Exception as exc:
+            logger.warning(
+                "system_memory_index_unavailable",
+                "Could not load the system memory index; building without it",
+                agent_slug=self.name,
+                system_id=binding.system_id,
+                failure_reason=type(exc).__name__,
+            )
+            index, records = "_System memory is unavailable for this run._", []
+        self._memory_files = files
+        self._memory_index = index
+        logger.info(
+            "system_memory_bound",
+            "Bound the run to its system memory",
+            agent_slug=self.name,
+            system_id=binding.system_id,
+            audit_id=binding.audit_id,
+            step=binding.step,
+            entries=len(records),
+        )
+
+    def _with_memory_prompt(self, prompt: Any) -> Any:
+        """A blocking sub-agent's prompt plus the memory section (unchanged without memory)."""
+        if self._memory_files is None or not (prompt is None or isinstance(prompt, str)):
+            return prompt
+        section = memory_prompt(self.prompt_context())
+        return f"{(prompt or '').strip()}\n\n{section}".strip()
+
+    def _with_memory_tools(self, tools: Sequence[Any]) -> list[Any]:
+        """``tools`` plus the run's memory tools that a narrowed tool list left out."""
+        if self._memory_files is None:
+            return list(tools)
+        names = {getattr(t, "name", None) for t in tools}
+        extra = [
+            t
+            for t in self._builtin_tools()
+            if getattr(t, "name", None) in MEMORY_TOOL_NAMES and t.name not in names
+        ]
+        return [*tools, *extra]
 
     @property
     def reference_dir(self) -> Path | None:
@@ -277,6 +365,8 @@ class DeepAgent(BaseAgent, ABC):
             files=self.conversation_files if conversation_id else None,
             presented=self.presented,
             async_task_id=self.async_task_id,
+            memory=self._memory_files.binding if self._memory_files else None,
+            memory_store=self._memory_files.store if self._memory_files else None,
         )
 
     def _builtin_tools(self) -> list[Any]:
@@ -337,6 +427,8 @@ class DeepAgent(BaseAgent, ABC):
             has_ask_user=bool(self.client_id and has_conversation) and self.async_task_id is None,
             has_reference=self.reference_dir is not None,
             sandbox_enabled=settings.filesystem.sandbox_execution_active,
+            memory_index=self._memory_index if self._memory_files is not None else None,
+            memory_audit_id=self._memory_files.binding.audit_id if self._memory_files else None,
             now=datetime.now(UTC),
         )
 
@@ -527,7 +619,10 @@ class DeepAgent(BaseAgent, ABC):
         if self.async_task_node is not None:
             return self.async_task_node.inherited
         return InheritedContext(
-            interactive=self.interactive, trace=trace_carrier(self.config.get("trace"))
+            interactive=self.interactive,
+            trace=trace_carrier(self.config.get("trace")),
+            # The audited system travels with the tree, so every task shares its memory.
+            **{key: self.context[key] for key in MEMORY_CONTEXT_KEYS if self.context.get(key)},
         )
 
     def _launch_token(self) -> str:
@@ -618,6 +713,7 @@ class DeepAgent(BaseAgent, ABC):
         for level in chain:
             node_model = level.get("model") or node_model
             node_tools = _without_ask_user(level["tools"]) if "tools" in level else node_tools
+        node_tools = self._with_memory_tools(node_tools)
         spec = chain[-1]
         gates = self._subagent_gates(spec.get("interrupt_on"), own_gates)
         children = [
@@ -707,7 +803,9 @@ class DeepAgent(BaseAgent, ABC):
                 continue
             spec = dict(raw)
             children = spec.pop(SUBAGENTS_KEY, None) or []
-            spec["tools"] = _without_ask_user(spec["tools"]) if "tools" in spec else list(inherited)
+            spec["tools"] = self._with_memory_tools(
+                _without_ask_user(spec["tools"]) if "tools" in spec else list(inherited)
+            )
             if "interrupt_on" in spec:
                 spec["interrupt_on"] = self._subagent_gates(spec["interrupt_on"], own_gates)
             stack = list(spec.get("middleware") or [])
@@ -726,6 +824,7 @@ class DeepAgent(BaseAgent, ABC):
             spec["middleware"] = self._ensure_platform_middleware(
                 ensure_planning_and_filesystem(stack, backend, permissions)
             )
+            spec["system_prompt"] = self._with_memory_prompt(spec.get("system_prompt"))
             prepared.append(spec)
         if not any(
             isinstance(s, Mapping) and s.get("name") == GENERAL_PURPOSE_SUBAGENT["name"]
@@ -743,6 +842,7 @@ class DeepAgent(BaseAgent, ABC):
         so it too runs without ``ask_user`` and with the platform middleware."""
         return {
             **GENERAL_PURPOSE_SUBAGENT,
+            "system_prompt": self._with_memory_prompt(GENERAL_PURPOSE_SUBAGENT["system_prompt"]),
             "model": model,
             "tools": list(tools),
             "middleware": self._ensure_platform_middleware(
@@ -800,7 +900,9 @@ class DeepAgent(BaseAgent, ABC):
         children = spec.pop(SUBAGENTS_KEY, None) or []
         model = spec.get("model") or parent_model
         resolved_model = resolve_model(model)
-        tools = _without_ask_user(spec["tools"]) if "tools" in spec else list(parent_tools)
+        tools = self._with_memory_tools(
+            _without_ask_user(spec["tools"]) if "tools" in spec else list(parent_tools)
+        )
         gates = _merge_fs_interrupt_on(
             _build_interrupt_on_from_permissions(permissions, backend),
             self._subagent_gates(spec.get("interrupt_on"), own_gates),
@@ -825,6 +927,7 @@ class DeepAgent(BaseAgent, ABC):
                 )
             )
             system_prompt = delegating_subagent_prompt(system_prompt)
+        system_prompt = self._with_memory_prompt(system_prompt)
         stack.append(ModelRefusalMiddleware())
         built: dict[str, Any] = {
             "name": spec["name"],
@@ -875,6 +978,7 @@ class DeepAgent(BaseAgent, ABC):
         if self.agent is not None:
             return
         logger.info("deep_agent_build_started", "Deep agent build started", agent_slug=self.name)
+        await self._prepare_memory()
         self.sub_agents = self.register_subagents()
         self.agent = self.register_agent()
         logger.info(

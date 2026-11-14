@@ -48,6 +48,11 @@ class PromptContext:
     #: shown in its task panel (the drill-down) and its last message is the
     #: result handed back to its parent, so it gets the sub-agent wording.
     narrate_as_subagent: bool = False
+    #: The audited system's ``MEMORY.md``, loaded when the agent was built;
+    #: None when the run is not bound to a system (no ``/memory/`` mount).
+    memory_index: str | None = None
+    #: The audit ``remember`` records into; None means the memory is read-only.
+    memory_audit_id: str | None = None
     #: Wall-clock for the run, injected rather than read inside a prompt so the
     #: composed text is deterministic under test.
     now: datetime | None = None

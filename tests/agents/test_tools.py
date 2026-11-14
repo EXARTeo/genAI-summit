@@ -47,12 +47,14 @@ def full_context(conversation_files: ConversationFiles) -> registry.NativeToolCo
     )
 
 
-def test_the_roster_is_the_four_native_tools_in_order():
+def test_the_roster_is_the_native_tools_in_order():
     assert list(registry.NATIVE_TOOLS) == [
         "render_chart",
         "view_image",
         "present_artifact",
         "ask_user",
+        "remember",
+        "forget",
     ]
     assert all(defn.auto_attach for defn in registry.NATIVE_TOOLS.values())
 

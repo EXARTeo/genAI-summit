@@ -30,6 +30,7 @@ from harness.observability import init_langfuse, shutdown_langfuse
 from router.agent_protocol import router as agent_protocol_router
 from router.catalog import router as catalog_router
 from router.inference import router as inference_router
+from router.memory import router as memory_router
 from router.tasks import router as tasks_router
 
 configure_logging()
@@ -120,4 +121,5 @@ async def health() -> dict[str, str]:
 app.include_router(agent_protocol_router)
 app.include_router(catalog_router)
 app.include_router(inference_router)
+app.include_router(memory_router)
 app.include_router(tasks_router)

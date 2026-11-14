@@ -59,6 +59,10 @@ BUILTIN_TOOLS: tuple[BuiltinTool, ...] = (
     BuiltinTool("view_image"),
     BuiltinTool("render_chart"),
     BuiltinTool("present_artifact"),
+    # System memory (only on a run with a system_id): recording is free, deleting
+    # is a human's call.
+    BuiltinTool("remember"),
+    BuiltinTool("forget", hitl_default=True),
     BuiltinTool("ask_user", gateable=False),
 )
 

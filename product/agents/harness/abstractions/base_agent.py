@@ -20,6 +20,7 @@ from core.logging import get_logger
 from core.settings import settings
 from harness.agui.emitter import encode, is_agui_events
 from harness.checkpointer import get_checkpointer
+from harness.memory.binding import validate_memory_context
 from harness.observability import trace_run_config
 from utils.mcp_tools import get_tool_cache_key
 
@@ -186,6 +187,8 @@ class BaseAgent:
             if val is None or not isinstance(val, str) or not val.strip():
                 raise ValueError(f"Agent config 'context' must include a non-empty '{key}' string.")
             normalised[key] = val.strip()
+        # Optional: the audited system whose memory the run shares.
+        validate_memory_context(normalised)
         return normalised
 
     # ---------------------------------------------------------------------

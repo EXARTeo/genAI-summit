@@ -48,6 +48,7 @@ def test_the_baseline_gates_the_write_tools_delegation_and_execute():
         "execute": True,
         "task": True,
         "start_async_task": True,
+        "forget": True,
     }
 
 

@@ -25,6 +25,7 @@ from core.settings import settings
 from harness.checkpointer.store import set_checkpointer, set_runtime_pool
 from harness.conversation_files.store import ConversationFileStore
 from harness.filesystem.scratch_store import BranchScratchStore
+from harness.memory.store import SystemMemoryStore
 
 logger = get_logger(__name__)
 
@@ -126,6 +127,8 @@ async def init_durable_checkpointer(app: FastAPI) -> None:
         # nearly every tool call, so they are local SQL on this pool.
         await ConversationFileStore(pool).setup()
         await BranchScratchStore(pool).setup()
+        # The audited systems' agent memory (harness/memory).
+        await SystemMemoryStore(pool).setup()
 
     serde = None
     aes_key = cfg.aes_key.get_secret_value()

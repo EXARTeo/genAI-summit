@@ -20,9 +20,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from harness.conversation_files import ConversationFiles
+from harness.memory.store import MemoryBinding, MemoryStoreProtocol
 from harness.tools.ask_user import build_ask_user_tool
 from harness.tools.charts import build_render_chart_tool
+from harness.tools.forget import build_forget_tool
 from harness.tools.present_artifact import PresentedFiles, build_present_artifact_tool
+from harness.tools.remember import build_remember_tool
 from harness.tools.view_image import build_view_image_tool
 
 
@@ -43,6 +46,9 @@ class NativeToolContext:
     #: A background task's run never asks the user anything: only the
     #: orchestrator may pause on a question.
     async_task_id: str | None = None
+    #: The run's system memory (``system_id`` in the context), or None.
+    memory: MemoryBinding | None = None
+    memory_store: MemoryStoreProtocol | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +121,32 @@ register_native_tool(
         auto_attach=True,
         builder=lambda ctx: (
             build_ask_user_tool() if ctx.conversation_id and not ctx.async_task_id else None
+        ),
+    )
+)
+
+
+# remember / forget: the audited system's memory; only on a run bound to a
+# system and an audit (without an audit the memory is read-only).
+register_native_tool(
+    NativeToolDef(
+        name="remember",
+        auto_attach=True,
+        builder=lambda ctx: (
+            build_remember_tool(binding=ctx.memory, store=ctx.memory_store)
+            if ctx.memory is not None and ctx.memory.can_write and ctx.memory_store is not None
+            else None
+        ),
+    )
+)
+register_native_tool(
+    NativeToolDef(
+        name="forget",
+        auto_attach=True,
+        builder=lambda ctx: (
+            build_forget_tool(binding=ctx.memory, store=ctx.memory_store)
+            if ctx.memory is not None and ctx.memory.can_write and ctx.memory_store is not None
+            else None
         ),
     )
 )

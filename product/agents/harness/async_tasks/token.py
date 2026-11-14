@@ -99,6 +99,11 @@ class InheritedContext(BaseModel):
     interactive: bool = True
     # The spawning run's Langfuse trace; every run of the subtree nests under it.
     trace: TraceCarrier | None = None
+    # The audited system (and audit, step) the tree works on: every task shares
+    # that system's memory (harness/memory).
+    system_id: str | None = Field(default=None, max_length=128)
+    audit_id: str | None = Field(default=None, max_length=128)
+    step: str | None = Field(default=None, max_length=64)
 
 
 class LaunchClaims(BaseModel):

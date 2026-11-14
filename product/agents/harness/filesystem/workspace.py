@@ -17,7 +17,7 @@ import asyncio
 from pathlib import Path
 
 from deepagents import FilesystemPermission
-from deepagents.backends import CompositeBackend, FilesystemBackend
+from deepagents.backends import CompositeBackend, FilesystemBackend, StoreBackend
 from deepagents.backends.protocol import SandboxBackendProtocol
 
 from core.settings import settings
@@ -30,6 +30,8 @@ from harness.conversation_files.paths import (
 from harness.filesystem.sandbox_backend import RemoteSandboxBackend
 from harness.filesystem.scratch_backend import BranchScratchBackend
 from harness.filesystem.scratch_store import BranchScratchStore
+from harness.memory.entries import MEMORY_ROOT
+from harness.memory.files import SystemMemoryFiles, memory_namespace
 
 # Write-deny rules over the built-in filesystem tools, shared by every deep
 # agent. Confinement is mainly structural (CompositeBackend + virtual mounts);
@@ -70,6 +72,7 @@ def build_workspace_backend(
     files: ConversationFiles,
     reference_dir: Path | None = None,
     branch_thread_id: str | None = None,
+    memory: SystemMemoryFiles | None = None,
 ) -> CompositeBackend:
     """This run's ``CompositeBackend``. Nothing in it is a directory a run can write::
 
@@ -79,6 +82,8 @@ def build_workspace_backend(
         /large_tool_results/    → agent_runtime rows   (offloaded tool results, read-only)
         /conversation_history/  → agent_runtime rows   (offloaded history, read-only)
         /reference/             → the agent's definition folder (read-only, optional)
+        /memory/                → agent_runtime rows   (the audited system's memory,
+                                  only with a system_id; MEMORY.md derived)
         default (/…)            → agent_runtime rows   (the branch scratch store)
                                   via BranchScratchBackend, or RemoteSandboxBackend
                                   (the same + `execute`, when sandbox execution is active)
@@ -138,4 +143,9 @@ def build_workspace_backend(
         # The agent's definition ships in the image: build-time content,
         # identical for every client and not writable at runtime.
         routes["/reference/"] = FilesystemBackend(root_dir=str(reference_dir), virtual_mode=True)
+    if memory is not None:
+        # One system's memory, shared by every run on any audit of it. The
+        # namespace is fixed per run: the factory ignores the runtime.
+        namespace = memory_namespace(memory.binding.system_id)
+        routes[MEMORY_ROOT] = StoreBackend(store=memory, namespace=lambda _rt: namespace)
     return CompositeBackend(default=default_backend, routes=routes)

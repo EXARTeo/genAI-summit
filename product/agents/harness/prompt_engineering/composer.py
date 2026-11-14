@@ -13,10 +13,11 @@ one answer to "what does the prompt look like":
    ``ask_user``, ``execute``, and background delegation when async sub-agents are on
 4. efficient file work
 5. working out loud: short updates to the user between tool calls
-6. the current date and time
+6. the audited system's memory and its ``MEMORY.md`` (only with a ``system_id``)
+7. the current date and time
 
-Stable sections first, volatile last: 1-5 are fixed for a given agent and run,
-so a provider can cache that prefix, while 6 changes every minute. Reversing
+Stable sections first, volatile last: 1-6 are fixed for a given agent and run,
+so a provider can cache that prefix, while 7 changes every minute. Reversing
 those two would cost the cache on every request — see ``temporal_prompt``.
 
 Every section returns "" when its feature is off, so an agent with nothing
@@ -29,6 +30,7 @@ from harness.prompt_engineering.context import PromptContext
 from harness.prompt_engineering.prompts.capabilities_prompt import capabilities_prompt
 from harness.prompt_engineering.prompts.efficiency_prompt import efficiency_prompt
 from harness.prompt_engineering.prompts.filesystem_prompt import filesystem_prompt
+from harness.prompt_engineering.prompts.memory_prompt import memory_prompt
 from harness.prompt_engineering.prompts.progress_prompt import progress_prompt
 from harness.prompt_engineering.prompts.temporal_prompt import temporal_prompt
 
@@ -40,6 +42,7 @@ _SECTIONS = (
     ("capabilities", capabilities_prompt),
     ("efficiency", efficiency_prompt),
     ("progress", progress_prompt),
+    ("memory", memory_prompt),
     ("temporal", temporal_prompt),
 )
 
@@ -70,6 +73,7 @@ def compose_system_prompt(instructions: str | None, context: PromptContext) -> s
 _TASK_SECTIONS = (
     ("efficiency", efficiency_prompt),
     ("progress", progress_prompt),
+    ("memory", memory_prompt),
 )
 
 
