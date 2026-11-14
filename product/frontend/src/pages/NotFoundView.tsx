@@ -16,7 +16,7 @@ export default function NotFoundView() {
         }
         action={
           <Button asChild>
-            <Link to="/systems">Back to systems</Link>
+            <Link to="/">Back to home</Link>
           </Button>
         }
         className="border-none"

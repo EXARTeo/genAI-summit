@@ -84,7 +84,7 @@ export function DataTable<T>({
                     style={{ width: c.width }}
                     aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                     className={cn(
-                      'border-b border-border px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted',
+                      'border-b border-border px-4 py-2 text-xs font-medium text-muted',
                       c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left',
                     )}
                   >

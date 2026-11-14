@@ -19,8 +19,6 @@ import {
   Button,
   ErrorState,
   Field,
-  KeyValue,
-  Select,
   Sheet,
   Skeleton,
   Switch,
@@ -44,51 +42,52 @@ export interface ApprovalDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** Full-screen check that pops after an approval. */
+/** Calm success state after an approval: one ripple, a drawn check, one line of copy. */
 function ApprovedBurst() {
   return (
     <motion.div
-      className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-surface/80 backdrop-blur-sm"
+      className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-surface/90"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
     >
-      <div className="relative grid place-items-center">
-        {[0, 1, 2].map((i) => (
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative grid place-items-center">
           <motion.span
-            key={i}
-            className="absolute size-24 rounded-full border-2 border-success"
-            initial={{ scale: 0.6, opacity: 0.8 }}
-            animate={{ scale: 2.4 + i * 0.5, opacity: 0 }}
-            transition={{ duration: 1.1, delay: i * 0.15, ease: 'easeOut' }}
+            className="absolute size-14 rounded-full border border-primary"
+            initial={{ scale: 1, opacity: 0.6 }}
+            animate={{ scale: 1.9, opacity: 0 }}
+            transition={{ duration: 0.9, ease: 'easeOut' }}
           />
-        ))}
-        <motion.span
-          className="grid size-24 place-items-center rounded-full bg-success text-white shadow-lift"
-          initial={{ scale: 0, rotate: -90 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 360, damping: 16 }}
-        >
-          <svg viewBox="0 0 24 24" className="size-12" fill="none">
-            <motion.path
-              d="M5 12.5l4.5 4.5L19 7.5"
-              stroke="currentColor"
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 0.45, delay: 0.2 }}
-            />
-          </svg>
-        </motion.span>
+          <motion.span
+            className="grid size-14 place-items-center rounded-full bg-primary text-primary-foreground"
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <svg viewBox="0 0 24 24" className="size-7" fill="none">
+              <motion.path
+                d="M5 12.5l4.5 4.5L19 7.5"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.35, delay: 0.12 }}
+              />
+            </svg>
+          </motion.span>
+        </div>
         <motion.div
-          className="absolute top-32 whitespace-nowrap text-lg font-semibold"
-          initial={{ y: 8, opacity: 0 }}
+          className="text-center"
+          initial={{ y: 4, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.35 }}
+          transition={{ delay: 0.2, duration: 0.2 }}
         >
-          Approved. The agent continues.
+          <div className="text-base font-semibold">Approved</div>
+          <div className="text-sm text-muted">The agent continues with the next step.</div>
         </motion.div>
       </div>
     </motion.div>
@@ -97,6 +96,23 @@ function ApprovedBurst() {
 
 const DECISION_ICON = { approved: Check, changes_requested: MessageSquareWarning, rejected: X };
 const DECISION_VARIANT = { approved: 'primary', changes_requested: 'warning', rejected: 'danger' } as const;
+const DECISION_COPY: Record<Decision, { effect: string; submit: string; on: string }> = {
+  approved: {
+    effect: 'The agent continues past this gate.',
+    submit: 'Approve and continue',
+    on: 'border-primary/70 bg-primary/[0.06] [&_.icon]:bg-primary [&_.icon]:text-primary-foreground',
+  },
+  changes_requested: {
+    effect: 'The agent revises and asks you again.',
+    submit: 'Request changes',
+    on: 'border-warning/70 bg-warning/[0.06] [&_.icon]:bg-warning [&_.icon]:text-warning-foreground',
+  },
+  rejected: {
+    effect: 'The run stops here.',
+    submit: 'Reject run',
+    on: 'border-danger/70 bg-danger/[0.06] [&_.icon]:bg-danger [&_.icon]:text-white',
+  },
+};
 
 export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDrawerProps) {
   const { data: audit, isLoading, error, refetch } = useAudit(auditId ?? undefined);
@@ -161,11 +177,12 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
             Later
           </Button>
           <Button
+            variant={draft.decision ? DECISION_VARIANT[draft.decision] : 'primary'}
             onClick={submit}
             loading={decide.isPending}
             disabled={!draft.decision || (draft.decision === 'approved' && blocked)}
           >
-            Submit decision
+            {draft.decision ? DECISION_COPY[draft.decision].submit : 'Choose a decision'}
           </Button>
         </div>
       }
@@ -176,18 +193,20 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
         {error && <ErrorState error={error} onRetry={() => void refetch()} compact />}
         {audit && (
           <div className="space-y-5">
-            <KeyValue
-              columns={3}
-              items={[
-                { label: 'Audit', value: audit.id, mono: true },
-                { label: 'kb_version', value: audit.data.kbVersion ?? '–', mono: true },
-                { label: 'Trigger', value: audit.data.trigger ?? 'manual' },
-              ]}
-            />
-            <TraceLink
-              traceId={audit.data.stageTraces?.[stage?.id ?? ''] ?? audit.data.traceId}
-              label="Open this step in Langfuse"
-            />
+            <div className="space-y-0.5 text-xs text-muted">
+              <div className="num flex items-center gap-3">
+                <span className="font-mono">{audit.id}</span>
+                <span className="font-mono">kb {audit.data.kbVersion ?? '–'}</span>
+                <TraceLink
+                  className="ml-auto"
+                  traceId={audit.data.stageTraces?.[stage?.id ?? ''] ?? audit.data.traceId}
+                  label="Step trace"
+                />
+              </div>
+              {audit.data.trigger && audit.data.trigger !== 'manual' && (
+                <div className="truncate">Triggered by {audit.data.trigger}</div>
+              )}
+            </div>
 
             <Tabs defaultValue="summary">
               <Tabs.List>
@@ -198,8 +217,8 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
               <Tabs.Content value="summary" className="space-y-3">
                 {gate === 'datasets' && datasetAnalysis && (
                   <>
-                    <div className="flex items-center gap-2 text-sm">
-                      Gates overall{' '}
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      Validation gates{' '}
                       <Badge
                         tone={
                           overallGateStatus(datasetAnalysis.gates) === 'pass'
@@ -217,13 +236,21 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                     </div>
                     <GateCards gates={datasetAnalysis.gates} />
                     {spec && spec.assumptions.length > 0 && (
-                      <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-                        <div className="font-medium text-warning">LLM assumptions in the spec</div>
-                        {spec.assumptions.map((a) => (
-                          <div key={a.field}>
-                            <span className="font-mono text-xs">{a.field}</span> · {a.what}
-                          </div>
-                        ))}
+                      <div className="rounded-lg border border-border p-3 text-sm">
+                        <div className="mb-1.5 text-xs font-medium text-muted">
+                          Check these: values the LLM assumed, not taken from your documents
+                        </div>
+                        <ul className="space-y-1">
+                          {spec.assumptions.map((a) => (
+                            <li key={a.field} className="flex gap-2">
+                              <span className="mt-2 size-1 shrink-0 rounded-full bg-warning" />
+                              <span>
+                                <span className="font-mono text-xs">{a.field}</span>{' '}
+                                <span className="text-muted">·</span> {a.what}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </>
@@ -277,24 +304,39 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
               </Tabs.Content>
             </Tabs>
 
-            <div className="space-y-4 rounded-xl border border-border bg-surface-muted/40 p-4">
-              <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-4 border-t border-border pt-5">
+              <div>
+                <h3 className="text-sm font-semibold">Your decision</h3>
+                <p className="text-xs text-muted">
+                  Logged with your name; nothing runs past the gate until you decide.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Decision">
                 {(Object.keys(DECISIONS) as Decision[]).map((d) => {
                   const Icon = DECISION_ICON[d];
                   const on = draft.decision === d;
+                  const disabled = d === 'approved' && blocked;
                   return (
-                    <motion.div key={d} whileTap={{ scale: 0.96 }}>
-                      <Button
-                        className={cn('w-full', !on && 'opacity-80')}
-                        variant={on ? DECISION_VARIANT[d] : 'secondary'}
-                        leftIcon={<Icon />}
-                        onClick={() => choose(d)}
-                        disabled={d === 'approved' && blocked}
-                        aria-pressed={on}
-                      >
-                        {DECISIONS[d].label}
-                      </Button>
-                    </motion.div>
+                    <button
+                      key={d}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={disabled}
+                      onClick={() => choose(d)}
+                      className={cn(
+                        'flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
+                        on ? DECISION_COPY[d].on : 'border-border hover:border-text/25',
+                      )}
+                    >
+                      <span className="icon grid size-6 shrink-0 place-items-center rounded-full bg-surface-muted text-muted transition-colors">
+                        <Icon className="size-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">{DECISIONS[d].label}</span>
+                        <span className="block text-2xs text-muted">{DECISION_COPY[d].effect}</span>
+                      </span>
+                    </button>
                   );
                 })}
               </div>
@@ -303,15 +345,29 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                 error={touched && !draft.reasonCategory ? 'Required' : undefined}
                 hint={REASONS.find((r) => r.value === draft.reasonCategory)?.hint}
               >
-                <Select
-                  value={draft.reasonCategory ?? undefined}
-                  onValueChange={(v) =>
-                    setDraft((x) => ({ ...x, reasonCategory: v as DecisionDraft['reasonCategory'] }))
-                  }
-                  options={REASONS.map((r) => ({ value: r.value, label: r.label, description: r.hint }))}
-                  placeholder="Why this decision?"
-                  aria-label="Reason category"
-                />
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Reason category">
+                  {REASONS.map((r) => {
+                    const on = draft.reasonCategory === r.value;
+                    return (
+                      <button
+                        key={r.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        title={r.hint}
+                        onClick={() => setDraft((x) => ({ ...x, reasonCategory: r.value }))}
+                        className={cn(
+                          'h-7 rounded-full border px-2.5 text-xs font-medium transition-colors duration-150',
+                          on
+                            ? 'border-text/80 bg-text text-background'
+                            : 'border-border text-muted hover:border-text/25 hover:text-text',
+                        )}
+                      >
+                        {r.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </Field>
               <Field label="Comment" hint="Becomes the memory's rationale if you save it.">
                 <Textarea
@@ -321,13 +377,13 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                   placeholder={draft.decision === 'approved' ? 'Optional note' : 'What should change?'}
                 />
               </Field>
-              <div className="space-y-2 rounded-lg border border-border bg-surface p-3">
+              <div className="space-y-2 rounded-lg border border-border p-3">
                 <label className="flex items-center gap-3 text-sm">
                   <Switch
                     checked={draft.memoryScope !== 'none'}
                     onCheckedChange={(on) => setDraft((x) => ({ ...x, memoryScope: on ? 'system' : 'none' }))}
                   />
-                  <Brain className="size-4 text-info" />
+                  <Brain className="size-4 text-muted" />
                   Save as memory for {audit.systemId}
                 </label>
                 {draft.memoryScope !== 'none' && (

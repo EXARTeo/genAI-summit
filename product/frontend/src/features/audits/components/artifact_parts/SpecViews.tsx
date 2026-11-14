@@ -151,25 +151,39 @@ export function GateCards({ gates }: { gates: DatasetAnalysisData['gates'] }) {
             >
               <div
                 className={cn(
-                  'flex h-full flex-col items-center gap-1.5 rounded-xl border p-3 text-center',
-                  tone.pill,
+                  'flex h-full flex-col gap-2 rounded-lg border bg-surface p-3',
+                  status === 'pass'
+                    ? 'border-border'
+                    : status === 'warn'
+                      ? 'border-warning/50'
+                      : 'border-danger/50',
+                  status === 'warn' && 'bg-warning/[0.04]',
+                  status === 'fail' && 'bg-danger/[0.04]',
                 )}
               >
-                <motion.span
-                  initial={{ scale: 0, rotate: -45 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{
-                    type: 'spring',
-                    stiffness: 420,
-                    damping: 18,
-                    delay: 0.15 + GATE_ORDER.indexOf(g) * 0.09,
-                  }}
-                  className={cn('grid size-8 place-items-center rounded-full text-white', tone.bg)}
-                >
-                  <Icon className="size-4" />
-                </motion.span>
-                <span className="text-xs font-semibold text-text">{GATE_LABELS[g].label}</span>
-                <span className="text-[11px] uppercase tracking-wide">{status}</span>
+                <div className="flex items-center justify-between">
+                  <motion.span
+                    initial={{ scale: 0.6, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{
+                      duration: 0.22,
+                      ease: [0.16, 1, 0.3, 1],
+                      delay: 0.1 + GATE_ORDER.indexOf(g) * 0.06,
+                    }}
+                    className={cn('grid size-5 place-items-center rounded-full', tone.pill)}
+                  >
+                    <Icon className="size-3" strokeWidth={2.5} />
+                  </motion.span>
+                  <span className={cn('text-2xs font-semibold uppercase tracking-wide', tone.text)}>
+                    {status}
+                  </span>
+                </div>
+                <div>
+                  <div className="text-sm font-medium">{GATE_LABELS[g].label}</div>
+                  <div className="mt-0.5 line-clamp-2 text-2xs text-muted">
+                    {r?.note ?? GATE_LABELS[g].checks}
+                  </div>
+                </div>
               </div>
             </Tooltip>
           </motion.div>
@@ -189,7 +203,7 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
           <tr>
             <th />
             {coverage.cols.map((c) => (
-              <th key={c} className="px-1 pb-1 font-mono font-normal text-muted">
+              <th key={c} className="px-1 pb-1.5 text-left font-mono text-2xs font-normal text-muted">
                 {c}
               </th>
             ))}
@@ -198,7 +212,7 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
         <tbody>
           {coverage.rows.map((r, i) => (
             <tr key={r}>
-              <th className="pr-2 text-right font-mono font-normal text-muted">{r}</th>
+              <th className="pr-3 text-right font-mono text-2xs font-normal text-muted">{r}</th>
               {coverage.cols.map((c, j) => {
                 const n = coverage.counts[i][j];
                 const low = n < coverage.minPerCell;
@@ -212,11 +226,10 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: (i * coverage.cols.length + j) * 0.03 }}
                         className={cn(
-                          'grid h-10 w-20 place-items-center rounded-md font-semibold',
+                          'num grid h-9 w-20 place-items-center rounded-md text-xs font-medium',
                           low && 'ring-2 ring-danger',
-                          n / max > 0.55 ? 'text-primary-foreground' : 'text-text',
                         )}
-                        style={{ background: `rgb(var(--rgb-primary) / ${0.12 + 0.78 * (n / max)})` }}
+                        style={{ background: `rgb(var(--rgb-primary) / ${0.06 + 0.4 * (n / max)})` }}
                       >
                         {n}
                       </motion.div>
@@ -228,7 +241,10 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
           ))}
         </tbody>
       </table>
-      <p className="mt-1 text-xs text-muted">min_per_cell = {coverage.minPerCell}; darker = more rows.</p>
+      <p className="mt-2 text-2xs text-muted">
+        Rows per cell · stronger tint = more rows · cells under min_per_cell ({coverage.minPerCell}) are
+        ringed red.
+      </p>
     </div>
   );
 }
@@ -248,22 +264,25 @@ export function TwinPairViewer({ data }: { data: DatasetAnalysisData }) {
               type="button"
               onClick={() => setMode(t.mode)}
               className={cn(
-                'rounded-xl border p-3 text-left transition-all',
+                'rounded-lg border p-3 text-left transition-colors duration-150',
                 mode === t.mode
-                  ? 'border-primary bg-primary/5 shadow-glow'
-                  : 'border-border hover:border-primary/40',
+                  ? 'border-primary/60 bg-primary/[0.04] ring-1 ring-primary/30'
+                  : 'border-border hover:border-text/20',
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase text-muted">Mode {t.mode}</span>
-                {strong ? <Badge tone="danger">effect</Badge> : <Badge tone="success">no effect</Badge>}
+                <span className="text-2xs font-medium text-muted">Mode {t.mode}</span>
+                {strong ? <Badge tone="danger">effect</Badge> : <Badge>no effect</Badge>}
               </div>
-              <div className="mt-1 font-medium">{t.label}</div>
+              <div className="mt-1 text-sm font-medium">{t.label}</div>
               <div className="text-xs text-muted">{t.description}</div>
-              <div className="mt-2 font-mono text-sm">
-                Δ {t.meanDelta.toFixed(3)} · flips {Math.round(t.flipRate * 100)}%
+              <div className="num mt-3 flex items-baseline gap-3">
+                <span className={cn('text-lg font-semibold', strong && 'text-danger')}>
+                  {t.meanDelta.toFixed(3)}
+                </span>
+                <span className="text-xs text-muted">Δ score · {Math.round(t.flipRate * 100)}% flip</span>
               </div>
-              <div className="font-mono text-[11px] text-muted">{formatCI(t.ci, 3)}</div>
+              <div className="num font-mono text-2xs text-muted">{formatCI(t.ci, 3)}</div>
             </button>
           );
         })}
@@ -328,8 +347,8 @@ export function DatasetAnalysisView({ data }: { data: DatasetAnalysisData }) {
   const overall = overallGateStatus(data.gates);
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-mono text-xs text-muted">{data.datasetId}</span>
+      <div className="mb-5 flex flex-wrap items-center gap-2 text-sm">
+        <span className="num font-mono text-2xs text-muted">{data.datasetId}</span>
         <Badge>{data.rows.toLocaleString()} rows</Badge>
         <Badge>{data.pairs.toLocaleString()} pairs</Badge>
         <Badge tone={gateTone(overall)} icon={overall === 'fail' ? <ShieldAlert /> : undefined}>

@@ -93,7 +93,7 @@ export function Sheet({
           )}
         >
           <Header title={title} description={description} />
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-4">{children}</div>
           {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

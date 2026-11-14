@@ -4,7 +4,7 @@ import { Badge, KeyValue } from '@/shared/ui';
 import type { ModelProfileData } from '../../lib/types';
 import { SimpleTable, SubHeading } from './common';
 
-const PRIMARY = 'rgb(var(--rgb-primary))';
+const NEUTRAL = 'rgb(var(--rgb-text) / 0.22)';
 const WARN = 'rgb(var(--rgb-warning))';
 const MUTED = 'rgb(var(--rgb-muted))';
 
@@ -36,6 +36,10 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
       >
         Feature sensitivity
       </SubHeading>
+      <p className="-mt-1 mb-2 text-xs text-muted">
+        How much the score moves when each feature is perturbed. Amber = a known proxy for a protected
+        attribute.
+      </p>
       <div className="h-64 w-full" role="img" aria-label="Feature sensitivity bar chart">
         <ResponsiveContainer>
           <BarChart
@@ -47,6 +51,7 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
             <XAxis
               type="number"
               domain={[0, 'dataMax']}
+              hide
               tick={{ fill: MUTED, fontSize: 11 }}
               axisLine={false}
               tickLine={false}
@@ -54,7 +59,7 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
             <YAxis
               type="category"
               dataKey="feature"
-              width={150}
+              width={180}
               tick={({ x, y, payload }) => {
                 const r = rows.find((f) => f.feature === payload.value);
                 return (
@@ -65,7 +70,7 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
                     textAnchor="end"
                     fontSize={12}
                     fill={r?.protectedProxy ? WARN : 'rgb(var(--rgb-text))'}
-                    fontFamily="var(--font-mono)"
+                    style={{ fontFamily: "'JetBrains Mono Variable', ui-monospace, monospace" }}
                   >
                     {r?.protectedProxy ? '⚠ ' : ''}
                     {payload.value}
@@ -90,13 +95,14 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
             />
             <Bar
               dataKey="score"
-              radius={[0, 4, 4, 0]}
+              radius={[0, 3, 3, 0]}
+              barSize={14}
               isAnimationActive
               animationDuration={700}
               label={{ position: 'right', fill: MUTED, fontSize: 11, formatter: (v: number) => v.toFixed(2) }}
             >
               {rows.map((r) => (
-                <Cell key={r.feature} fill={r.protectedProxy && r.score >= 0.05 ? WARN : PRIMARY} />
+                <Cell key={r.feature} fill={r.protectedProxy && r.score >= 0.05 ? WARN : NEUTRAL} />
               ))}
             </Bar>
           </BarChart>

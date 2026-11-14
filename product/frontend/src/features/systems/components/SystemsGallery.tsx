@@ -10,18 +10,18 @@ import {
   Input,
   PageHeader,
   Select,
-  SkeletonCard,
+  Skeleton,
 } from '@/shared/ui';
 import { useSystems } from '../hooks/useSystems';
 import { RISK_META } from '../lib/styles';
-import { SystemCard } from './SystemCard';
+import { SystemCard, SystemTableHeader } from './SystemCard';
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return (
-    <Card className="px-4 py-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <AnimatedNumber value={value} className={`mt-1 block text-2xl font-semibold ${tone ?? ''}`} />
-    </Card>
+    <div className="px-4 py-3">
+      <div className="text-xs text-muted">{label}</div>
+      <AnimatedNumber value={value} className={`num mt-0.5 block text-2xl font-semibold ${tone ?? ''}`} />
+    </div>
   );
 }
 
@@ -50,19 +50,18 @@ export function SystemsGallery() {
   return (
     <div>
       <PageHeader
-        icon={<Boxes />}
         title="AI systems"
         description="Every system in scope of the AI Act, with its dossier, plugins and audit status."
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Card className="mb-6 grid grid-cols-2 divide-border lg:grid-cols-4 lg:divide-x">
         <Stat label="Systems" value={stats.total} />
-        <Stat label="High risk" value={stats.high} tone="text-danger" />
-        <Stat label="Awaiting approval" value={stats.awaiting} tone="text-warning" />
-        <Stat label="Open gaps" value={stats.gaps} tone="text-primary" />
-      </div>
+        <Stat label="High risk" value={stats.high} />
+        <Stat label="Awaiting approval" value={stats.awaiting} tone={stats.awaiting ? 'text-warning' : ''} />
+        <Stat label="Open gaps" value={stats.gaps} tone={stats.gaps ? 'text-danger' : ''} />
+      </Card>
 
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="w-full max-w-xs">
           <Input
             leftIcon={<Search />}
@@ -88,11 +87,18 @@ export function SystemsGallery() {
       {error ? (
         <ErrorState title="Could not load systems" error={error} onRetry={() => refetch()} />
       ) : isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Card className="divide-y divide-border">
           {Array.from({ length: 4 }, (_, i) => (
-            <SkeletonCard key={i} />
+            <div key={i} className="flex items-center gap-4 px-4 py-4">
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-48" />
+                <Skeleton className="h-3 w-72" />
+              </div>
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-32" />
+            </div>
           ))}
-        </div>
+        </Card>
       ) : systems.length === 0 ? (
         <EmptyState
           icon={<Boxes />}
@@ -104,16 +110,14 @@ export function SystemsGallery() {
           }
         />
       ) : (
-        <motion.div
-          variants={staggerList()}
-          initial="initial"
-          animate="animate"
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-        >
-          {systems.map((s) => (
-            <SystemCard key={s.id} system={s} />
-          ))}
-        </motion.div>
+        <Card className="overflow-hidden">
+          <SystemTableHeader />
+          <motion.ul variants={staggerList()} initial="initial" animate="animate">
+            {systems.map((s) => (
+              <SystemCard key={s.id} system={s} />
+            ))}
+          </motion.ul>
+        </Card>
       )}
     </div>
   );

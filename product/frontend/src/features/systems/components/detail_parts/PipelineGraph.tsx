@@ -20,22 +20,22 @@ function StageNode({ data }: NodeProps<Node<StageData>>) {
   return (
     <div
       className={cn(
-        'flex w-48 items-center gap-2.5 rounded-xl border bg-surface px-3 py-2.5 shadow-card',
-        data.highlighted ? 'glow-border border-transparent shadow-glow' : 'border-border',
+        'flex w-48 items-center gap-2.5 rounded-lg border bg-surface px-3 py-2.5 shadow-card',
+        data.highlighted ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border',
       )}
     >
       <Handle type="target" position={Position.Left} className="!border-border !bg-surface" />
       <div
         className={cn(
           'grid size-8 shrink-0 place-items-center rounded-lg',
-          data.human ? 'bg-warning/15 text-warning' : 'bg-primary/10 text-primary',
+          data.human ? 'bg-surface-muted text-text' : 'bg-surface-muted text-muted',
         )}
       >
         {data.human ? <User className="size-4" /> : <Cpu className="size-4" />}
       </div>
       <div className="min-w-0">
         <div className="truncate text-xs font-semibold">{data.label}</div>
-        <div className="truncate font-mono text-[10px] text-muted">{data.sub}</div>
+        <div className="truncate font-mono text-2xs text-muted">{data.sub}</div>
       </div>
       <Handle type="source" position={Position.Right} className="!border-border !bg-surface" />
     </div>

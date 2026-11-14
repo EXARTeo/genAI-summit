@@ -44,7 +44,7 @@ export function Select({
         id={id}
         aria-label={aria['aria-label']}
         className={cn(
-          'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 text-sm shadow-sm transition-colors',
+          'flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 text-sm transition-colors',
           'focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15 disabled:opacity-60 data-[placeholder]:text-muted',
           className,
         )}

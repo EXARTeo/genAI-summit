@@ -41,9 +41,7 @@ export function FolderTab({ systemId }: { systemId: string }) {
       <div className="space-y-4">
         <Card className="p-2">
           <div className="flex items-center justify-between px-2 py-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              /systems/{systemId}
-            </span>
+            <span className="text-xs font-semibold text-text/80">/systems/{systemId}</span>
             {files.data && <Badge>{files.data.length} files</Badge>}
           </div>
           {files.isLoading ? (

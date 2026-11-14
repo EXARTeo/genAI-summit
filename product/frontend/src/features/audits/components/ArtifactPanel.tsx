@@ -105,9 +105,7 @@ function StepHeader({
         <p className="text-sm text-muted">{stage.description}</p>
       </div>
       <div className="flex items-center gap-3 pt-1 text-xs text-muted">
-        {state === 'done' && duration != null && (
-          <span className="num font-mono">{formatDuration(duration)}</span>
-        )}
+        {state === 'done' && duration != null && <span className="num">{formatDuration(duration)}</span>}
         {state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}
       </div>
     </div>

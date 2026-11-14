@@ -280,14 +280,16 @@ function RecentFindings({ auditId }: { auditId?: string }) {
                   <span className={cn('h-8 w-0.5 shrink-0 rounded-full', TONE_CLASSES[tone].bg)} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{f.title}</div>
-                    <div className="num truncate font-mono text-2xs text-muted">{f.requirement}</div>
+                    <div className="num flex min-w-0 items-center gap-1.5 text-2xs text-muted">
+                      <span className="truncate font-mono">{f.requirement}</span>
+                      {f.metric && (
+                        <span className="hidden shrink-0 sm:inline">
+                          · {f.metric.name}{' '}
+                          <span className="font-medium text-text">{f.metric.value.toFixed(2)}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {f.metric && (
-                    <span className="num hidden text-right text-xs text-muted sm:block">
-                      {f.metric.name}{' '}
-                      <span className="font-medium text-text">{f.metric.value.toFixed(2)}</span>
-                    </span>
-                  )}
                   <VerdictPill verdict={f.verdict} />
                 </Link>
               </li>

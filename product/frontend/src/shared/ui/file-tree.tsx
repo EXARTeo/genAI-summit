@@ -34,7 +34,7 @@ export function buildTree(entries: FileTreeEntry[]): Node {
 }
 
 export function fileIcon(name: string) {
-  if (/\.(ya?ml|json|py|toml)$/i.test(name)) return <FileCode2 className="text-accent" />;
+  if (/\.(ya?ml|json|py|toml)$/i.test(name)) return <FileCode2 className="text-muted" />;
   if (/\.(csv|tsv|xlsx?)$/i.test(name)) return <FileSpreadsheet className="text-success" />;
   if (/\.(md|txt|pdf|docx?)$/i.test(name)) return <FileText className="text-info" />;
   return <File className="text-muted" />;

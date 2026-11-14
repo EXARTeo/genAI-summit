@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { Activity, Gauge, Scale, ShieldCheck, Users } from 'lucide-react';
+import { Activity, ArrowUpRight, Gauge, Scale, ShieldCheck, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { formatRelative } from '@/shared/lib/format';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import {
@@ -10,7 +11,6 @@ import {
   EmptyState,
   GlowCard,
   KeyValue,
-  ProgressRing,
   StatusPill,
   Timeline,
 } from '@/shared/ui';
@@ -96,10 +96,7 @@ export function OverviewTab({ system }: { system: System }) {
       </motion.div>
 
       <motion.div variants={listItem}>
-        <GlowCard
-          active={audit?.status === 'running' || audit?.status === 'awaiting_approval'}
-          className="h-full"
-        >
+        <GlowCard active={audit?.status === 'running'} className="h-full">
           <CardHeader
             icon={<Activity />}
             title="Last audit"
@@ -107,29 +104,37 @@ export function OverviewTab({ system }: { system: System }) {
           />
           <CardContent>
             {audit ? (
-              <div className="flex items-center gap-5">
-                <ProgressRing
-                  size={88}
-                  stroke={7}
-                  value={total ? f!.supports / total : audit.status === 'running' ? 0.35 : 0}
-                  label={total ? `${f!.supports}/${total}` : '…'}
-                />
-                <div className="space-y-2 text-sm">
-                  <StatusPill status={audit.status} />
-                  {f && (
-                    <ul className="space-y-1 text-muted">
-                      <li>
-                        <span className="font-semibold text-success">{f.supports}</span> support compliance
-                      </li>
-                      <li>
-                        <span className="font-semibold text-danger">{f.gaps}</span> indicate a gap
-                      </li>
-                      <li>
-                        <span className="font-semibold text-warning">{f.inconclusive}</span> inconclusive
-                      </li>
-                    </ul>
-                  )}
-                </div>
+              <div className="space-y-4">
+                <StatusPill status={audit.status} />
+                {f && total > 0 && (
+                  <>
+                    <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" aria-hidden>
+                      <span className="bg-danger" style={{ flex: f.gaps }} />
+                      <span className="bg-warning" style={{ flex: f.inconclusive }} />
+                      <span className="bg-success" style={{ flex: f.supports }} />
+                    </div>
+                    <dl className="num grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          ['Gaps', f.gaps, 'text-danger'],
+                          ['Inconclusive', f.inconclusive, 'text-warning'],
+                          ['Supports', f.supports, 'text-success'],
+                        ] as const
+                      ).map(([label, n, tone]) => (
+                        <div key={label}>
+                          <dt className="text-2xs text-muted">{label}</dt>
+                          <dd className={`text-xl font-semibold ${n > 0 ? tone : ''}`}>{n}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </>
+                )}
+                <Link
+                  to="/audits"
+                  className="inline-flex items-center gap-1 text-xs text-muted hover:text-text"
+                >
+                  See audits <ArrowUpRight className="size-3" />
+                </Link>
               </div>
             ) : (
               <EmptyState

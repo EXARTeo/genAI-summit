@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTML
 import { cn } from '@/shared/lib/utils';
 
 const field =
-  'w-full rounded-lg border border-border bg-surface px-3 text-sm text-text shadow-sm transition-[border-color,box-shadow] duration-200 placeholder:text-muted/70 focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger/70';
+  'w-full rounded-lg border border-border bg-surface px-3 text-sm text-text transition-[border-color,box-shadow] duration-150 placeholder:text-muted/70 focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger/70';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   leftIcon?: ReactNode;
@@ -15,14 +15,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <input
         ref={ref}
         aria-invalid={invalid || undefined}
-        className={cn(field, 'h-9', leftIcon && 'pl-9', className)}
+        className={cn(field, 'h-8', leftIcon && 'pl-8', className)}
         {...props}
       />
     );
     if (!leftIcon) return input;
     return (
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted [&_svg]:size-4">
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted [&_svg]:size-3.5">
           {leftIcon}
         </span>
         {input}

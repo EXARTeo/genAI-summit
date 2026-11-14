@@ -17,6 +17,7 @@ export interface PageHeaderProps {
   actions?: ReactNode;
   /** Badges etc. next to the title. */
   meta?: ReactNode;
+  /** @deprecated Headers are text-only; ignored. */
   icon?: ReactNode;
   className?: string;
 }
@@ -28,7 +29,6 @@ export function PageHeader({
   breadcrumbs,
   actions,
   meta,
-  icon,
   className,
 }: PageHeaderProps) {
   return (
@@ -51,11 +51,6 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 items-start gap-3">
-          {icon && (
-            <div className="mt-0.5 hidden size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-muted sm:grid [&_svg]:size-4">
-              {icon}
-            </div>
-          )}
           <div className="min-w-0">
             {eyebrow && <div className="mb-0.5 font-mono text-2xs text-muted">{eyebrow}</div>}
             <div className="flex flex-wrap items-center gap-2">

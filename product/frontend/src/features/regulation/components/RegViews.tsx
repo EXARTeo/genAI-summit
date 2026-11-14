@@ -35,8 +35,8 @@ export function SourceRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        'w-full rounded-xl border bg-surface p-3 text-left transition-colors',
-        selected ? 'border-primary shadow-glow' : 'border-border hover:border-primary/40',
+        'w-full rounded-lg border bg-surface p-3 text-left transition-colors',
+        selected ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border hover:border-text/20',
       )}
     >
       <div className="flex flex-wrap items-center gap-1.5">
@@ -160,7 +160,7 @@ export function SourceDetail({
       </div>
       {changed.length > 0 && (
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Latest diff</h3>
+          <h3 className="mb-2 text-xs font-semibold text-text/80">Latest diff</h3>
           <DiffViewer
             docId={s.id}
             from={changed[changed.length - 1].version - 1}
@@ -169,7 +169,7 @@ export function SourceDetail({
         </div>
       )}
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Text v{version}</h3>
+        <h3 className="mb-2 text-xs font-semibold text-text/80">Text v{version}</h3>
         {text.isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : text.data ? (
@@ -219,7 +219,7 @@ export function RegChangeCard({ c }: { c: RegChange }) {
 
         {c.affected.length > 0 ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
+            <div className="flex items-center gap-2 text-xs font-semibold text-text/80">
               Affected systems{' '}
               <span className={cn('size-2 rounded-full', TONE_CLASSES[JUDGE[worst].tone].bg)} /> worst:{' '}
               {JUDGE[worst].label}

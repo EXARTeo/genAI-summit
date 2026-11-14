@@ -48,28 +48,28 @@ export const TONE_CLASSES: Record<
   { pill: string; dot: string; text: string; ring: string; bg: string }
 > = {
   success: {
-    pill: 'bg-success/15 text-success border-success/30',
+    pill: 'bg-success/10 text-success border-success/20',
     dot: 'bg-success',
     text: 'text-success',
     ring: 'ring-success/40',
     bg: 'bg-success',
   },
   danger: {
-    pill: 'bg-danger/15 text-danger border-danger/30',
+    pill: 'bg-danger/10 text-danger border-danger/20',
     dot: 'bg-danger',
     text: 'text-danger',
     ring: 'ring-danger/40',
     bg: 'bg-danger',
   },
   warning: {
-    pill: 'bg-warning/15 text-warning border-warning/30',
+    pill: 'bg-warning/10 text-warning border-warning/20',
     dot: 'bg-warning',
     text: 'text-warning',
     ring: 'ring-warning/40',
     bg: 'bg-warning',
   },
   info: {
-    pill: 'bg-info/15 text-info border-info/30',
+    pill: 'bg-info/10 text-info border-info/20',
     dot: 'bg-info',
     text: 'text-info',
     ring: 'ring-info/40',

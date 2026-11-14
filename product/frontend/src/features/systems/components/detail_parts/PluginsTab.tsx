@@ -90,9 +90,7 @@ function PluginCardView({
             </p>
           )}
           <div>
-            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">
-              Expected behaviour
-            </div>
+            <div className="mb-1 text-xs font-medium text-muted">Expected behaviour</div>
             <p className="mb-2 text-sm">{exp.task}</p>
             <div className="space-y-1.5">
               <List items={exp.must} icon={<CheckCircle2 />} cls="text-success" />

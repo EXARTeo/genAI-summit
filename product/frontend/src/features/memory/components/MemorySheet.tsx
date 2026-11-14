@@ -18,7 +18,7 @@ export function MemorySheet() {
       description={entry ? `${scopeLabel(entry.scope)} memory the agent applied` : undefined}
       width="w-[min(34rem,100vw)]"
     >
-      <div className="pt-4">
+      <div>
         {isLoading && <Skeleton className="h-64" />}
         {entry && <MemoryDetail entry={entry} all={data!} compact />}
         {data && !entry && (

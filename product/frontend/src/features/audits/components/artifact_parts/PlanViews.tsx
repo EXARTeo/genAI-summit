@@ -63,7 +63,7 @@ export function ScenariosView({ data }: { data: ScenariosData }) {
             <Badge tone={PRIORITY[s.priority]}>{s.priority}</Badge>
           </div>
           <div className="font-medium">{s.title}</div>
-          <div className="font-mono text-[11px] text-muted">{s.requirement}</div>
+          <div className="font-mono text-2xs text-muted">{s.requirement}</div>
         </div>,
         <span className="font-mono text-xs">{s.template}</span>,
         s.groups.join(', ') || '–',

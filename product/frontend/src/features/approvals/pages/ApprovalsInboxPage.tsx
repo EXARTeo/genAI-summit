@@ -1,10 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Hand, Inbox } from 'lucide-react';
+import { Hand, Inbox } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatRelative } from '@/shared/lib/format';
 import { listItem } from '@/shared/lib/motion';
-import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, SkeletonCard } from '@/shared/ui';
+import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, Skeleton } from '@/shared/ui';
 import { ApprovalDrawer } from '../components/ApprovalDrawer';
 import { useOpenGates } from '../hooks/useApprovals';
 import type { OpenGate } from '../lib/approvals';
@@ -22,58 +22,66 @@ export function ApprovalsInboxPage() {
     <div>
       <PageHeader
         title="Approvals"
-        description="Human-in-the-loop gates: agents propose, you approve. Every decision is logged and can become memory."
-        icon={<Inbox />}
+        description="Human-in-the-loop gates: agents propose, you decide. Every decision is logged and can become a lesson."
         meta={gates.length > 0 ? <Badge tone="warning">{gates.length} open</Badge> : undefined}
       />
-      {isLoading && <SkeletonCard />}
+      {isLoading && <Skeleton className="h-20 rounded-xl" />}
       {error && <ErrorState error={error} onRetry={() => void refetch()} />}
       {!isLoading && !error && gates.length === 0 && (
         <EmptyState
           icon={<Inbox />}
           title="Inbox zero"
-          description="When an agent needs a decision it waits here for you."
+          description="When an agent needs a decision it pauses and waits here for you."
+          action={
+            <Button asChild variant="secondary">
+              <Link to="/audits">See audits</Link>
+            </Button>
+          }
         />
       )}
-      <div className="grid gap-3">
-        <AnimatePresence initial={false}>
-          {gates.map((g) => (
-            <motion.div
-              key={`${g.auditId}-${g.gate}`}
-              variants={listItem}
-              initial="initial"
-              animate="animate"
-              exit={{ opacity: 0, x: 40, transition: { duration: 0.25 } }}
-              layout
-            >
-              <Card className="approval-pulse flex flex-wrap items-center gap-4 border-warning/40 p-4">
-                <span className="grid size-10 place-items-center rounded-full bg-warning/15 text-warning">
-                  <Hand className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{g.label}</span>
-                    <span className="font-mono text-xs text-muted">{g.systemId}</span>
-                    <span className="text-sm">{g.systemName}</span>
-                    <span className="text-sm text-muted">· {g.auditTitle}</span>
-                  </div>
-                  <div className="text-sm text-muted">{GATE_COPY[g.gate] ?? 'A decision is needed.'}</div>
-                  <div className="text-xs text-muted">waiting {formatRelative(g.waitingSince)}</div>
-                </div>
-                <Link
-                  to={`/audits/${encodeURIComponent(g.auditId)}`}
-                  className="text-sm text-primary hover:underline"
+      {gates.length > 0 && (
+        <Card className="overflow-hidden">
+          <ul>
+            <AnimatePresence initial={false}>
+              {gates.map((g) => (
+                <motion.li
+                  key={`${g.auditId}-${g.gate}`}
+                  variants={listItem}
+                  initial="initial"
+                  animate="animate"
+                  exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
+                  layout
+                  className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border px-4 py-4 last:border-b-0"
                 >
-                  Open run
-                </Link>
-                <Button variant="warning" rightIcon={<ArrowRight />} onClick={() => setActive(g)}>
-                  Review
-                </Button>
-              </Card>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+                  <span className="approval-pulse grid size-8 shrink-0 place-items-center rounded-full bg-warning/15 text-warning">
+                    <Hand className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      <span className="text-sm font-medium">{g.label}</span>
+                      <span className="text-sm text-muted">
+                        {g.systemName} · {g.auditTitle}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted">
+                      {GATE_COPY[g.gate] ?? 'A decision is needed.'}{' '}
+                      <span className="num">Waiting {formatRelative(g.waitingSince)}.</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to={`/audits/${encodeURIComponent(g.auditId)}`}>Open run</Link>
+                    </Button>
+                    <Button variant="warning" size="sm" onClick={() => setActive(g)}>
+                      Review & decide
+                    </Button>
+                  </div>
+                </motion.li>
+              ))}
+            </AnimatePresence>
+          </ul>
+        </Card>
+      )}
       <ApprovalDrawer
         auditId={active?.auditId ?? null}
         gate={active?.gate ?? null}

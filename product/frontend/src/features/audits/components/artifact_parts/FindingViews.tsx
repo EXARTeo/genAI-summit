@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
 import { Badge, KeyValue, Markdown } from '@/shared/ui';
-import { TONE_CLASSES, ciCrosses, formatCI, trafficTone } from '../../lib/styling';
+import { TONE_CLASSES, ciCrosses, formatCI, trafficTone, verdictStyle } from '../../lib/styling';
 import type { CriticData, Finding, FindingsData, ReportData } from '../../lib/types';
 import { CitationChip, ConfidenceBar, MemoryChips, SubHeading, VerdictPill } from './common';
 
@@ -26,35 +26,38 @@ function CIBar({ metric }: { metric: NonNullable<Finding['metric']> }) {
   const pct = (v: number) => `${((v - min) / span) * 100}%`;
   const crosses = metric.threshold != null && ciCrosses(metric.ci, metric.threshold);
   return (
-    <div className="rounded-lg border border-border p-3">
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="text-muted">{metric.name}</span>
-        <span className="font-mono font-semibold">{metric.value.toFixed(2)}</span>
+    <div className="rounded-lg border border-border bg-surface-muted/30 p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs text-muted">{metric.name}</span>
+        <span className="num text-xl font-semibold tracking-tight">{metric.value.toFixed(2)}</span>
       </div>
-      <div className="relative my-3 h-2 rounded-full bg-surface-muted">
+      <div className="relative my-4 h-1.5 rounded-full bg-border/60">
         <motion.div
-          className={cn('absolute inset-y-0 rounded-full', crosses ? 'bg-warning/60' : 'bg-primary/50')}
+          className={cn('absolute inset-y-0 rounded-full', crosses ? 'bg-warning/70' : 'bg-text/30')}
           initial={{ left: pct(metric.value), right: `calc(100% - ${pct(metric.value)})` }}
           animate={{ left: pct(metric.ci[0]), right: `calc(100% - ${pct(metric.ci[1])})` }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         />
         <span
-          className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface bg-primary"
+          className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface bg-text"
           style={{ left: pct(metric.value) }}
         />
         {metric.threshold != null && (
           <span
-            className="absolute -top-1.5 h-5 w-0.5 bg-danger"
+            className="absolute -top-2 h-[22px] w-0.5 rounded-full bg-danger"
             style={{ left: pct(metric.threshold) }}
             title={`threshold ${metric.threshold}`}
           />
         )}
       </div>
-      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted">
-        <span className="font-mono">{formatCI(metric.ci)}</span>
+      <div className="num flex flex-wrap justify-between gap-2 text-2xs text-muted">
+        <span>
+          95% CI <span className="font-mono text-text">{formatCI(metric.ci).replace(/^95% CI /, '')}</span>
+        </span>
         {metric.threshold != null && (
-          <span>
-            threshold <span className="font-mono text-danger">{metric.threshold}</span> ·{' '}
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-0.5 rounded-full bg-danger" />
+            threshold <span className="font-mono text-text">{metric.threshold}</span> ·{' '}
             {metric.thresholdSource}
           </span>
         )}
@@ -66,15 +69,21 @@ function CIBar({ metric }: { metric: NonNullable<Finding['metric']> }) {
 export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
-    <motion.div variants={listItem} className="rounded-xl border border-border bg-surface">
+    <motion.div
+      variants={listItem}
+      className={cn(
+        'overflow-hidden rounded-lg border bg-surface',
+        open ? 'border-text/15' : 'border-border',
+      )}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start gap-3 p-4 text-left"
+        className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface-muted/40"
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-muted">{f.id}</span>
+            <span className="num font-mono text-2xs text-muted">{f.id}</span>
             <VerdictPill verdict={f.verdict} />
             {f.critic?.adjusted && (
               <Badge tone="warning" icon={<RotateCcw />}>
@@ -82,10 +91,10 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
               </Badge>
             )}
           </div>
-          <div className="mt-1 font-medium">{f.title}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
+          <div className="mt-1.5 text-sm font-medium">{f.title}</div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
             <ConfidenceBar value={f.confidence} />
-            <span className="font-mono text-[11px] text-muted">{f.requirement}</span>
+            <span className="font-mono text-2xs text-muted">{f.requirement}</span>
           </div>
         </div>
         <ChevronDown
@@ -96,7 +105,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="space-y-1 border-t border-border px-4 pb-4 pt-3"
+          className="border-t border-border px-4 pb-4 pt-4"
         >
           {f.metric && <CIBar metric={f.metric} />}
           <SubHeading>Reasoning</SubHeading>
@@ -105,7 +114,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
           <ul className="space-y-1.5 text-sm">
             {f.evidence.map((e) => (
               <li key={e.text} className="flex gap-2">
-                <FlaskConical className="mt-0.5 size-4 shrink-0 text-primary" />
+                <FlaskConical className="mt-0.5 size-3.5 shrink-0 text-muted" />
                 <span>
                   {e.text}
                   {e.ci && <span className="ml-1 font-mono text-xs text-muted">{formatCI(e.ci, 3)}</span>}
@@ -118,7 +127,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
           <ul className="space-y-1.5 text-sm">
             {f.counterEvidence.map((c) => (
               <li key={c} className="flex gap-2">
-                <Swords className="mt-0.5 size-4 shrink-0 text-warning" />
+                <Swords className="mt-0.5 size-3.5 shrink-0 text-muted" />
                 {c}
               </li>
             ))}
@@ -127,7 +136,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
           <ul className="space-y-1.5 text-sm">
             {f.wouldChangeIf.map((c) => (
               <li key={c} className="flex gap-2">
-                <ShieldQuestion className="mt-0.5 size-4 shrink-0 text-info" />
+                <ShieldQuestion className="mt-0.5 size-3.5 shrink-0 text-muted" />
                 {c}
               </li>
             ))}
@@ -145,7 +154,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
             ))}
           </div>
           {f.memoryApplied && (
-            <div className="pt-2">
+            <div className="pt-3">
               <MemoryChips ids={f.memoryApplied} />
             </div>
           )}
@@ -162,15 +171,24 @@ export function FindingsView({ data }: { data: FindingsData }) {
   );
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {Object.entries(counts).map(([v, n]) => (
-          <span key={v} className="inline-flex items-center gap-1.5">
-            <VerdictPill verdict={v} />
-            <span className="text-sm font-semibold">×{n}</span>
-          </span>
+      <div className="mb-4 flex h-1.5 overflow-hidden rounded-full" aria-label="Verdict mix">
+        {data.findings.map((f) => (
+          <span
+            key={f.id}
+            title={`${f.id}: ${f.verdict.replace(/_/g, ' ')}`}
+            className={cn(
+              'h-full flex-1 border-r-2 border-surface last:border-r-0',
+              TONE_CLASSES[verdictStyle(f.verdict).tone].bg,
+            )}
+          />
         ))}
       </div>
-      <motion.div variants={staggerList(0.07)} initial="initial" animate="animate" className="space-y-3">
+      <p className="sr-only">
+        {Object.entries(counts)
+          .map(([v, n]) => `${n} ${v.replace(/_/g, ' ')}`)
+          .join(', ')}
+      </p>
+      <motion.div variants={staggerList(0.05)} initial="initial" animate="animate" className="space-y-2">
         {data.findings.map((f, i) => (
           <FindingCard key={f.id} f={f} defaultOpen={i === 0} />
         ))}
@@ -184,8 +202,8 @@ const OUTCOME = { upheld: 'success', weakened: 'warning', overturned: 'danger' }
 export function CriticView({ data }: { data: CriticData }) {
   return (
     <div>
-      <p className="mb-3 flex gap-2 rounded-lg border border-border bg-surface-muted/60 p-3 text-sm">
-        <Gavel className="mt-0.5 size-4 shrink-0 text-primary" />
+      <p className="mb-4 flex gap-2 rounded-lg border border-border bg-surface-muted/40 p-3 text-sm">
+        <Gavel className="mt-0.5 size-4 shrink-0 text-muted" />
         {data.summary}
       </p>
       <motion.ul variants={staggerList(0.07)} initial="initial" animate="animate" className="space-y-2">
@@ -235,11 +253,7 @@ export function ReportView({ data }: { data: ReportData }) {
                 variants={listItem}
                 className="flex items-center gap-3 rounded-lg border border-border p-3"
               >
-                <span className={cn('relative size-4 shrink-0 rounded-full', tone.bg)}>
-                  {t.light === 'red' && (
-                    <span className={cn('absolute inset-0 animate-ping rounded-full opacity-50', tone.bg)} />
-                  )}
-                </span>
+                <span className={cn('size-2.5 shrink-0 rounded-full', tone.bg)} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">
                     {t.title} <span className="font-mono text-xs text-muted">{t.requirement}</span>

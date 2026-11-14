@@ -42,10 +42,11 @@ const STATE_LABEL: Record<StepState, string> = {
 };
 
 function Node({ state, gate, flash }: { state: StepState; gate: boolean; flash: boolean }) {
+  // Done gates look like any done step: amber is reserved for "needs a human now".
   const base = 'relative z-10 grid size-5 shrink-0 place-items-center rounded-full';
   if (state === 'done') {
     return (
-      <span className={cn(base, gate ? 'bg-warning/15 text-warning' : 'bg-primary/15 text-primary')}>
+      <span className={cn(base, 'bg-primary/15 text-primary')}>
         {flash ? (
           <svg viewBox="0 0 24 24" className="size-3" fill="none" aria-hidden>
             <motion.path
@@ -157,7 +158,7 @@ export function AuditPipeline({ audit, selected, onSelect, onReview }: AuditPipe
                       Gate
                     </span>
                   )}
-                  <span className="num ml-auto shrink-0 font-mono text-2xs text-muted">
+                  <span className="num ml-auto shrink-0 text-2xs text-muted">
                     {state === 'done' && durations[s.id] != null
                       ? formatDuration(durations[s.id])
                       : state === 'active'
