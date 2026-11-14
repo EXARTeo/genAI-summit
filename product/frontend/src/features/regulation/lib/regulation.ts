@@ -3,7 +3,7 @@ import type { Tone } from '@/features/audits/lib/styling';
 import type { Binding, JudgeDecision, RegChange, RegSource } from './types';
 
 export function bindingLabel(b: Binding): { label: string; tone: Tone } {
-  if (b === true) return { label: 'Binding', tone: 'danger' };
+  if (b === true) return { label: 'Binding', tone: 'info' };
   if (b === 'internal') return { label: 'Internal policy', tone: 'info' };
   return { label: 'Non-binding', tone: 'neutral' };
 }

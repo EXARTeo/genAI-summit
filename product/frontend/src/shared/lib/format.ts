@@ -4,6 +4,8 @@ const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 export function formatRelative(iso: string | null | undefined, now: Date = new Date()): string {
   if (!iso) return '';
   const diff = (new Date(iso).getTime() - now.getTime()) / 1000;
+  // Timestamps a little in the future are clock skew (or demo fixtures), never "in 30 minutes".
+  if (diff > 0 && diff < 86400) return 'just now';
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ['year', 31536000],
     ['month', 2592000],
