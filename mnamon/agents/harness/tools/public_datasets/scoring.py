@@ -1,7 +1,9 @@
 """Deterministic match scoring: public dataset vs one plugin's data dictionary.
 
-Score in [0, 1] = weighted sum of: schema coverage (model fields mapped), protected
-and proxy fields present, label match, task match, size, licence, recency. Every
+Score in [0, 1] = weighted sum of: schema coverage (model fields mapped), the
+fields the approved test scenarios need, protected and proxy fields present (the
+scenarios' protected attributes when there are scenarios), label match, task
+match, size, licence, recency. Every
 part is in ``breakdown`` so the human sees why a candidate ranks where it does.
 No LLM here; :mod:`rerank` may add an explanation on top.
 """
@@ -18,7 +20,8 @@ from harness.tools.public_datasets.context import DOMAINS, domains_for
 from harness.tools.public_datasets.models import Candidate, Column, Field, SystemContext
 
 WEIGHTS = {
-    "schema": 0.30,
+    "schema": 0.20,
+    "scenario_fields": 0.10,  # = schema coverage when there are no scenarios yet
     "protected": 0.15,
     "label": 0.15,
     "relevance": 0.10,
@@ -292,16 +295,27 @@ def _recency_score(updated: str) -> float:
     return round(max(0.2, 1.0 - age / 30.0), 3)
 
 
+def _sensitive(ctx: SystemContext) -> list[str]:
+    """Protected + proxy fields to look for: the scenarios' own when they name some."""
+    if not ctx.scenario_protected:
+        return ctx.protected + ctx.proxies
+    proxies = [p for p in ctx.proxies if p in ctx.scenario_fields]
+    return list(dict.fromkeys([*ctx.scenario_protected, *proxies]))
+
+
 def score_candidate(ctx: SystemContext, cand: Candidate) -> dict[str, Any]:
     mapping = match_columns(ctx, cand.columns)
     model_fields = ctx.model_fields
-    sensitive = ctx.protected + ctx.proxies
+    sensitive = _sensitive(ctx)
     schema = _coverage(model_fields, mapping)
+    needed = ctx.scenario_fields
+    scenario_fields = _coverage(needed, mapping) if needed else schema
     protected = _coverage(sensitive, mapping) if sensitive else 0.5
     label, label_entry = label_match(ctx, cand)
     licence, lic_status, lic_score = licence_status(cand.licence)
     breakdown = {
         "schema": round(schema, 3),
+        "scenario_fields": round(scenario_fields, 3),
         "protected": round(protected, 3),
         "label": round(label, 3),
         "relevance": _relevance(ctx, cand),
@@ -311,7 +325,7 @@ def score_candidate(ctx: SystemContext, cand: Candidate) -> dict[str, Any]:
         "recency": _recency_score(cand.updated),
     }
     if not cand.columns:  # web hit with no schema: cannot be matched, listed for a human
-        breakdown["schema"] = breakdown["protected"] = 0.0
+        breakdown["schema"] = breakdown["scenario_fields"] = breakdown["protected"] = 0.0
     score = sum(WEIGHTS[k] * v for k, v in breakdown.items())
     flags: list[str] = []
     if lic_status == "non_commercial":
@@ -340,6 +354,7 @@ def score_candidate(ctx: SystemContext, cand: Candidate) -> dict[str, Any]:
         "mapping": mapping,
         "label": label_entry,
         "gaps": [f for f in model_fields if f not in mapping],
+        "scenario_gaps": [f for f in needed if f not in mapping],
         "protected_missing": [f for f in sensitive if f not in mapping],
         "flags": flags,
         "fetchable": bool(cand.download),

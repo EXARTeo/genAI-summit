@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 
@@ -84,6 +84,30 @@ class SystemContext:
     protected: list[str] = field(default_factory=list)
     proxies: list[str] = field(default_factory=list)
     training_data: str = ""
+    # What the approved test scenarios need (empty = no scenarios yet: the whole dictionary).
+    scenario_fields: list[str] = field(default_factory=list)
+    scenario_protected: list[str] = field(default_factory=list)
+    use_cases: list[str] = field(default_factory=list)
+
+    def with_scenarios(self, scenarios: list[dict[str, Any]] | None) -> SystemContext:
+        """This context narrowed to what ``scenarios`` need (fields, protected attributes, uses)."""
+        if not scenarios:
+            return self
+        needed: list[str] = []
+        protected: list[str] = []
+        uses: list[str] = []
+        for sc in scenarios:
+            needs = sc.get("data_needs") or {}
+            for name in [*(needs.get("fields") or []), *(sc.get("proxies") or [])]:
+                if name in self.fields and name not in needed:
+                    needed.append(name)
+            for name in [needs.get("attribute"), *(sc.get("protected") or [])]:
+                if name and name in self.fields and name not in protected:
+                    protected.append(name)
+            use = " ".join(str(x) for x in (sc.get("template"), sc.get("metric")) if x)
+            if use and use not in uses:
+                uses.append(use)
+        return replace(self, scenario_fields=needed, scenario_protected=protected, use_cases=uses)
 
     @property
     def model_fields(self) -> list[str]:

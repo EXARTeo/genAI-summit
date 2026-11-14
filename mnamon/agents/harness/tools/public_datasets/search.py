@@ -114,6 +114,11 @@ def search_public_datasets(
         "system": ctx.system_id,
         "plugin": ctx.plugin,
         "protected": ctx.protected + ctx.proxies,
+        "scenario_needs": {
+            "fields": ctx.scenario_fields,
+            "protected": ctx.scenario_protected,
+            "use_cases": ctx.use_cases,
+        },
         "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "queries": queries,
         "sources": status,

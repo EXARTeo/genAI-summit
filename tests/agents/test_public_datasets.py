@@ -246,6 +246,36 @@ def test_context_reads_card_dictionary_and_label():
     assert "credit-g" in q["openml_names"] and "german credit" in q["free_text"]
 
 
+def test_approved_scenarios_narrow_queries_and_scoring():
+    scenarios = [
+        {
+            "template": "counterfactual_twins",
+            "metric": "flip_rate",
+            "protected": ["sex"],
+            "proxies": [],
+            "data_needs": {"fields": ["sex", "monthly_income"], "attribute": "sex"},
+        }
+    ]
+    ctx = _ctx().with_scenarios(scenarios)
+    assert ctx.scenario_protected == ["sex"]
+    assert ctx.scenario_fields == ["sex", "monthly_income"]
+    assert ctx.use_cases == ["counterfactual_twins flip_rate"]
+    assert any(q.endswith(" sex") for q in build_queries(ctx)["free_text"])
+    assert _ctx().with_scenarios(None) == _ctx()
+    has_sex = Candidate(
+        source="openml",
+        source_id="1",
+        name="German credit",
+        url="u",
+        columns=[Column("personal_status", "category", values=["male single"])],
+    )
+    (scored,) = rank(ctx, [has_sex])
+    # Only sex is asked for now: the scenario's protected attribute is all that must be there.
+    assert scored["protected_missing"] == []
+    assert scored["scenario_gaps"] == ["monthly_income"]
+    assert "credit_history_months" in rank(_ctx(), [has_sex])[0]["protected_missing"]
+
+
 # -- scoring -----------------------------------------------------------------------
 
 
@@ -306,6 +336,7 @@ def test_scoring_maps_schema_and_ranks_the_matching_dataset_first():
     assert "credit_history_months" in top["protected_missing"]
     assert set(top["breakdown"]) == {
         "schema",
+        "scenario_fields",
         "protected",
         "label",
         "relevance",

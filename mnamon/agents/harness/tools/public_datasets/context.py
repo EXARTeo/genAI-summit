@@ -182,6 +182,10 @@ def build_queries(ctx: SystemContext) -> dict[str, list[str]]:
     for label in ctx.label_names[:2]:
         if domains:
             free.append(f"{DOMAINS[domains[0]]['queries'][0]} {label}".strip())
+    # The approved scenarios' protected attributes: datasets that carry them.
+    for attr in ctx.scenario_protected[:2]:
+        if domains:
+            free.append(f"{DOMAINS[domains[0]]['queries'][0]} {attr.replace('_', ' ')}")
     if not free:  # no domain hint: fall back to the card's own words
         words = [w for w in ctx.name.lower().split() if len(w) > 3]
         free.append(" ".join(words[:3]) or ctx.plugin.replace("-", " "))

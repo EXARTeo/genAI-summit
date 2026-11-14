@@ -91,8 +91,14 @@ def _summary(result: dict[str, Any], top: int = 5) -> dict[str, Any]:
 
 
 def run_search(
-    audit_id: str, plugin: str | None = None, *, api: InternalAPI | None = None, **kwargs: Any
+    audit_id: str,
+    plugin: str | None = None,
+    *,
+    api: InternalAPI | None = None,
+    scenarios: list[dict[str, Any]] | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
+    """Search per plugin; ``scenarios`` (the approved plan) narrows what a match must carry."""
     api = api or InternalAPI()
     detail = api.audit(audit_id)
     system_id = (detail.get("system") or {}).get("id", "")
@@ -103,7 +109,7 @@ def run_search(
         return {"error": f"no plugin with a data dictionary{f' named {plugin}' if plugin else ''}"}
     out = []
     for ctx in contexts:
-        result = search_public_datasets(ctx, **kwargs)
+        result = search_public_datasets(ctx.with_scenarios(scenarios), **kwargs)
         artifact = api.post_artifact(audit_id, ARTIFACT_KIND, ctx.plugin, result)
         out.append({"artifact_id": artifact.get("id"), **_summary(result)})
     return {"status": "proposed: a human picks one candidate per plugin", "results": out}
