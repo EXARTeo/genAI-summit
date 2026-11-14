@@ -1,49 +1,60 @@
 # Frontend: audit workflow UX
 
-The audit-workflow pages of `product/frontend/` (see the frontend page for the scaffold, design
-system and mock mode). Four features, each `src/features/<feature>/{components,hooks,handlers,lib,pages}`,
-mounted by thin route views in `src/pages/*View.tsx`.
+The audit-workflow pages of `product/frontend/` (see the frontend page for the scaffold, information
+architecture, design rules and mock mode). Four features, each `src/features/<feature>/{components,hooks,handlers,lib,pages}`;
+pages are mounted by thin route views in `src/pages/*View.tsx`. Memory has no page of its own.
 
 | Route | Feature | What |
 | --- | --- | --- |
-| `/audits` | `audits` | Audit runs with progress ring, status, current step, kb_version, trigger, Langfuse link |
-| `/audits/:auditId` | `audits` | **Audit run page** (below) |
+| `/audits` | `audits` | Audit runs table: system and title, id, kb_version, trace, current step (live spinner or status), trigger, progress bar, updated |
+| `/audits/:auditId[?step=<stage>]` | `audits` | **Audit run page** (below); `?step=` deep-links and pins a step |
 | `/approvals` | `approvals` | Inbox of every open HITL gate; opens the approval drawer |
-| `/memory?entry=MEM-…` | `memory` | Memory ledger (org + per system), entry detail, approve / promote / retire / re-activate |
+| `/systems/:id/lessons?entry=MEM-…` | `memory` | Per-system lessons (`MemoryBrowser` scope `system:<id>`): approve / promote org-wide / retire / re-activate |
+| `/settings?tab=rules&entry=MEM-…` | `memory` | Organisation rules (`MemoryBrowser` scope `org`) |
+| any `applied MEM-…` chip | `memory` | Global side sheet with the entry (`MemorySheet`) |
 | `/regulation?tab=changes\|sources&source=…` | `regulation` | Regulation-change inbox and reg-memory sources with versions, text and diffs |
 
 ## Audit run page
 
-- **Left: live vertical Stepper** of the engineer pipeline, 13 steps in `lib/pipeline.ts` (`STAGES`):
+- **Header**: system · title, status, ids (system, kb, card version, trigger) and *Full trace*, *Replay run* or
+  *Review & decide*. A finished run adds a summary strip: gaps, supports, inconclusive, not assessable, total agent time.
+- **Left: the pipeline console** (`AuditPipeline`): a progress bar with "Step n of 13 · elapsed", then one compact
+  row per step (node, label, GATE tag, duration or *running* / *waiting*); the selected and the current step expand
+  with their description. The engineer pipeline has 13 steps in `lib/pipeline.ts` (`STAGES`):
   `load_context → profile_model → plan_scenarios → analyse_scenarios → ⏸ approve_scenarios → draft_spec →
   generate_data → analyse_datasets → ⏸ approve_datasets → run_tests → analyse → critic → report`.
   `stepState(stage, audit)` maps the audit's `(stage, status)` onto `done | active | pending | blocked |
   needs-approval`; backend stage names may also be artifact kinds (`dataset_analysis` → `analyse_datasets`).
-  Running steps show `AgentThinking`; a step that turns done flashes once and draws its check; gates pulse
-  amber with a "Review & decide" button. Each step shows its duration and a Langfuse trace link
-  (`audit.data.stageTraces[stage]`). The page polls every 1.5 s while the run is live and follows the live
+  Running steps show a spinner and shimmer; a step that turns done flashes once and draws its check; an open
+  gate is the only amber thing on the page, with a "Review & decide" button. Done gates look like any done step.
+  The step header on the right shows its duration and Langfuse trace link (`audit.data.stageTraces[stage]`). The page polls every 1.5 s while the run is live and follows the live
   step until the user pins another one. A finished audit has **Replay run** (client-side walk through every
   step, pausing on the gates) for the demo.
-- **Right: the selected step's artifact** (latest non-superseded version per `kind/name`), with version,
-  status, author and trace link:
+- **Right: the selected step's artifact** under a step header ("Step n of 13", label, description, duration,
+  trace); latest non-superseded version per `kind/name`, with version, status and author. A running step shows a
+  spinner over a skeleton of the artifact:
   - `context`: system, requirements (test vs document review), plugins, memory applied, files read with versions.
-  - `model_profile`: feature-sensitivity bar chart (protected proxies in amber with ⚠), decision-boundary flip rates.
+  - `model_profile`: feature-sensitivity bar chart (neutral bars; protected proxies in amber with ⚠, so the problem
+    reads at a glance), decision-boundary flip rates.
   - `scenarios` / `scenario_analysis`: test table with memory chips; coverage per requirement, diff vs last plan, risks, not-testable list.
   - `generation_spec`: YAML with each node's `provenance` block tinted, `llm_assumption` in amber, plus the assumption list and the spec diff.
-  - `dataset_analysis`: the five gates as animated pass/warn/fail cards (metrics in tooltips), coverage heatmap (cells under `min_per_cell` ringed red), twin modes a/b/c with mean Δ, flip rate and CI, and a side-by-side twin-pair viewer.
-  - `finding`: verdict pills, confidence bar, metric CI on a number line with the org threshold, evidence, counter-evidence, "would change if", provision citations and `applied MEM-…` chips (link to the ledger), critic adjustment badge.
+  - `dataset_analysis`: the five gates as calm cards (status icon + label, the gate's note; warn/fail get a tinted border; metrics in tooltips), coverage heatmap (teal tint by count, cells under `min_per_cell` ringed red), twin modes a/b/c with mean Δ (red when the CI excludes 0), flip rate and CI, and a side-by-side twin-pair viewer.
+  - `finding`: a verdict-mix bar, then one card per finding: verdict pill, confidence bar, metric CI on a number line with the org threshold, evidence, counter-evidence, "would change if", provision citations and `applied MEM-…` chips (open the memory side sheet), critic adjustment badge.
   - `critic`: upheld / weakened / overturned per finding with confidence deltas.
   - `report`: Engineer and Management tabs; management shows traffic lights per requirement.
   - Unknown kinds fall back to JSON.
 
 ## Approval drawer
 
-Sheet with Summary (gates + LLM assumptions, or the scenario summary), Analysis (the reviewed artifacts),
-Diffs (spec / plan diff), then **Approve / Request changes / Reject**, a **mandatory reason category**
-(`wrong_fact`, `wrong_interpretation`, `missing_info`, `wrong_metric`, `unrealistic_data`, `org_policy`,
-`other`), a comment (required to reject or request changes) and "save as memory for this system / propose
-org-wide" switches (sent as `edits.memory.scope`). Approve is disabled when a blocking dataset gate failed.
-Approval plays a check-and-ripple animation; a toast shows the memory proposal path the backend returns.
+Sheet with a one-line context (audit id, kb, trigger, step trace), Summary (gates + "check these" LLM
+assumptions, or the scenario summary), Analysis (the reviewed artifacts), Diffs (spec / plan diff), then
+**Your decision**: three decision cards (**Approve / Request changes / Reject**, each with its consequence),
+a **mandatory reason category** as chips (`wrong_fact`, `wrong_interpretation`, `missing_info`, `wrong_metric`,
+`unrealistic_data`, `org_policy`, `other`), a comment (required to reject or request changes) and "save as memory
+for this system / propose org-wide" switches (sent as `edits.memory.scope`). The submit button names the action
+and takes its colour ("Approve and continue", "Request changes", "Reject run"). Approve is disabled when a
+blocking dataset gate failed. Approval shows a calm success state (one ripple, a drawn check); a toast shows the
+memory proposal path the backend returns. The drawer also opens from Home and the approvals inbox.
 Body: `POST /v1/audits/{id}/approvals` (`lib/approvals.ts: toApprovalIn`).
 
 ## API and mocks
