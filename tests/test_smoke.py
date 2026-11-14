@@ -16,7 +16,7 @@ REQUIRED_FILES = [
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
-    ".github/workflows/ci.yml",
+    ".github/workflows/pipeline.yml",
 ]
 
 

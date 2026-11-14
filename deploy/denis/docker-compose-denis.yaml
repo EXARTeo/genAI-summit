@@ -1,0 +1,398 @@
+# Production stack for Dennis (Docker Swarm, deployed by Portainer as a Git stack).
+#
+# Source of truth lives here; CD (.github/workflows/pipeline.yml, job cd-deploy)
+# replaces __GHCR_NAMESPACE__ / __IMAGE_TAG__ with the images it just published
+# and pushes the result to the deploy repo Portainer pulls, then calls the stack
+# webhook. Never edit the copy in the deploy repo. Guide: docs/guides/deploy-denis.md.
+#
+# Differences from product/docker-compose.yaml (local):
+# - Prebuilt ARM64 images from GHCR, no `build:`.
+# - Swarm semantics: no depends_on/conditions (services restart until their
+#   dependencies answer), deploy.restart_policy / resources instead of
+#   restart / mem_limit, tmpfs as mounts, no published ports.
+# - Reuses what already runs on Dennis: Langfuse (overlay `langfuse`), the MCP
+#   gateway (overlay `mcp_gateway`), Nginx Proxy Manager (overlay `proxy`,
+#   routes the public hostname to `frontend:8080`). No Langfuse of its own.
+# - Every secret comes from the Portainer stack's environment variables
+#   (`${VAR:?}` refuses to deploy when one is missing); none is in git.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+x-restart: &restart
+  restart_policy:
+    condition: any
+    delay: 5s
+  update_config:
+    order: start-first
+    failure_action: rollback
+  rollback_config:
+    order: stop-first
+
+x-python-health: &python-health
+  interval: 15s
+  timeout: 5s
+  retries: 4
+
+services:
+
+  frontend: # 8080, reached only through NPM (proxy network)
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_frontend:__IMAGE_TAG__
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 4
+    read_only: true
+    volumes:
+      - type: tmpfs
+        target: /tmp
+    cap_drop: [ALL]
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 128M}
+    networks:
+      - edge     # backend:8000 (/api)
+      - proxy    # NPM -> frontend:8080
+
+  backend: # 8000
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_backend:__IMAGE_TAG__
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:?set in Portainer}
+      DATABASE_URL: postgresql+asyncpg://app:${POSTGRES_PASSWORD:?set in Portainer}@postgres:5432/app
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set in Portainer}
+      AGENTS_SERVICE_URL: http://agents:8003
+      AGENTS_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:?set in Portainer}
+      AUDIT_PIPELINE_AUTOSTART: "true"
+      ASYNC_TASKS_ENABLED: "true"
+      # The public https origin only (production refuses localhost origins).
+      CORS_ALLOWED_ORIGINS: ${SITE_URL:?set in Portainer, e.g. https://audit.magenticx.com}
+      TRUST_FORWARDED_FOR: "true"   # behind NPM -> frontend nginx
+      LANGFUSE_HOST: http://langfuse-web:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?set in Portainer}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?set in Portainer}
+      SEED_CASES_DIR: /seed-cases
+      REG_MEMORY_URL: http://reg-memory:8010
+      REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:?set in Portainer}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      APP_PUBLIC_URL: ${SITE_URL:?set in Portainer}
+    volumes:
+      - seed_cases:/seed-cases:ro
+    healthcheck:
+      <<: *python-health
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=4).status == 200 else 1)"]
+      start_period: 60s
+    user: "1000:1000"
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 768M}
+    networks:
+      - backend
+      - edge
+      - langfuse
+
+  agents: # 8003
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_agents:__IMAGE_TAG__
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:?set in Portainer}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?set in Portainer}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_MODEL_REASONING: ${GEMINI_MODEL_REASONING:-}
+      AGENTS_FAKE_LLM: ${AGENTS_FAKE_LLM:-false}
+      REG_MEMORY_URL: http://reg-memory:8010
+      REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:?set in Portainer}
+      PIPELINE_MAX_REDOS: ${PIPELINE_MAX_REDOS:-3}
+      PIPELINE_MAX_AUTO_REDOS: ${PIPELINE_MAX_AUTO_REDOS:-1}
+      PIPELINE_PUBLIC_DATA_ENABLED: ${PIPELINE_PUBLIC_DATA_ENABLED:-true}
+      CHANGE_JUDGE_MODEL: ${CHANGE_JUDGE_MODEL:-gemini}
+      OUMI_API_KEY: ${OUMI_API_KEY:-}
+      OUMI_BASE_URL: ${OUMI_BASE_URL:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      BACKEND_INTERNAL_URL: http://backend:8000
+      AGENT_RUNTIME_DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD:?set in Portainer}@postgres:5432/agent_runtime
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set in Portainer}
+      INTERNAL_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:?set in Portainer}
+      # Exactly 32 characters (openssl rand -hex 16). Never change it once data exists.
+      LANGGRAPH_AES_KEY: ${LANGGRAPH_AES_KEY:?set in Portainer}
+      ASYNC_SUBAGENTS_ENABLED: "true"
+      MEMORY_MAX_ENTRIES_PER_SYSTEM: ${MEMORY_MAX_ENTRIES_PER_SYSTEM:-200}
+      MCP_GATEWAY_URL: http://mcp_gateway:8005/sse   # Dennis' shared gateway
+      SANDBOX_RUNNER_URL: http://sandbox_runner:8090  # ours, not Dennis' shared one
+      SANDBOX_EXECUTION_ENABLED: "true"
+      LANGFUSE_BASE_URL: http://langfuse-web:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?set in Portainer}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?set in Portainer}
+    healthcheck:
+      <<: *python-health
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/health', timeout=4).status == 200 else 1)"]
+      start_period: 90s
+    user: "1000:1000"
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 2G}
+    networks:
+      - backend
+      - edge          # Gemini API, public dataset catalogues
+      - langfuse
+      - mcp_gateway
+      - sandbox_net
+
+  reg-memory: # 8010
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_reg-memory:__IMAGE_TAG__
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:?set in Portainer}
+      REG_MEMORY_DATA_DIR: /data
+      REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:?set in Portainer}
+      REG_MEMORY_BOOTSTRAP_ON_START: "true"
+      REG_MEMORY_WATCH_INTERVAL_MINUTES: ${REG_MEMORY_WATCH_INTERVAL_MINUTES:-60}
+      REG_MEMORY_DISCOVERY_ENABLED: ${REG_MEMORY_DISCOVERY_ENABLED:-true}
+      REG_MEMORY_DEMO_MIRROR_URL: ${REG_MEMORY_DEMO_MIRROR_URL:-http://localhost:8010/demo/mirror/art6-guidelines.html}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?set in Portainer}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_WEBHOOK_SECRET: ${FIRECRAWL_WEBHOOK_SECRET:-}
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_CHAT_ID: ""
+      BACKEND_INTERNAL_URL: http://backend:8000
+      BACKEND_INTERNAL_SECRET: ${AGENTS_INTERNAL_SECRET:?set in Portainer}
+    volumes:
+      - reg-memory-data:/data
+    healthcheck:
+      <<: *python-health
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8010/health', timeout=4).status == 200 else 1)"]
+      start_period: 30s
+    user: "1000:1000"
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 768M}
+    networks:
+      - backend
+      - edge          # public EU sites
+
+  mlflow: # 5000
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_mlflow:__IMAGE_TAG__
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in Portainer}
+      MLFLOW_DB_HOST: postgres
+      MLFLOW_DB_NAME: mlflow
+      MLFLOW_WORKERS: ${MLFLOW_WORKERS:-2}
+      MLFLOW_ALLOWED_HOSTS: mlflow,mlflow:*,localhost,localhost:*,127.0.0.1,127.0.0.1:*
+    volumes:
+      - mlflow_artifacts:/mlartifacts
+    healthcheck:
+      <<: *python-health
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health', timeout=4).status == 200 else 1)"]
+      start_period: 90s
+    user: "1000:1000"
+    cap_drop: [ALL]
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 1G}
+    networks:
+      - backend
+      - sandbox_models
+
+  mlflow-seed: # one-shot job: trains + registers the demo models, then exits 0
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_mlflow-seed:__IMAGE_TAG__
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      SEED_CASES_DIR: /seed-cases
+      SEED_FORCE: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - seed_cases:/seed-cases
+    user: "1000:1000"
+    cap_drop: [ALL]
+    logging: *logging
+    deploy:
+      # Retried while mlflow is still starting; never restarted after success.
+      restart_policy:
+        condition: on-failure
+        delay: 20s
+        max_attempts: 15
+    networks:
+      - backend
+
+  model-gateway: # 8000
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_model-gateway:__IMAGE_TAG__
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:?set in Portainer}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_GATEWAY_TOKEN: ${MODEL_GATEWAY_TOKEN:?set in Portainer}
+      MODEL_GATEWAY_RATE_LIMIT_RPS: ${MODEL_GATEWAY_RATE_LIMIT_RPS:-5}
+      MODEL_GATEWAY_LATENCY_MS: ${MODEL_GATEWAY_LATENCY_MS:-0}
+    healthcheck:
+      <<: *python-health
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=4).status == 200 else 1)"]
+      start_period: 30s
+    user: "1000:1000"
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 1G}
+    networks:
+      - backend
+      - sandbox_models
+
+  sandbox_runner: # 8090: the agents' `execute` + synthkit; no internet
+    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_sandbox:__IMAGE_TAG__
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:?set in Portainer}
+      TRUSTED_PROXY_SECRET: ${AGENTS_INTERNAL_SECRET:?set in Portainer}
+      SANDBOX_DEFAULT_TIMEOUT_SECONDS: ${SANDBOX_DEFAULT_TIMEOUT_SECONDS:-120}
+      SANDBOX_MAX_TIMEOUT_SECONDS: ${SANDBOX_MAX_TIMEOUT_SECONDS:-900}
+      SANDBOX_MEMORY_MB: ${SANDBOX_MEMORY_MB:-3072}
+      SANDBOX_MAX_OUTPUT_BYTES: ${SANDBOX_MAX_OUTPUT_BYTES:-1048576}
+      SANDBOX_MAX_DISK_BYTES: ${SANDBOX_MAX_DISK_BYTES:-268435456}
+      SANDBOX_MAX_CONCURRENT: ${SANDBOX_MAX_CONCURRENT:-2}
+      SANDBOX_THREADS: ${SANDBOX_THREADS:-2}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_GATEWAY_URL: http://model-gateway:8000
+      MODEL_GATEWAY_TOKEN: ${MODEL_GATEWAY_TOKEN:?set in Portainer}
+    healthcheck:
+      <<: *python-health
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/health', timeout=4).status == 200 else 1)"]
+      start_period: 30s
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    volumes:
+      - type: tmpfs
+        target: /work
+        tmpfs: {size: 536870912, mode: 01777}
+      - type: tmpfs
+        target: /tmp
+        tmpfs: {size: 536870912, mode: 01777}
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 4G, pids: 512}
+    networks:
+      - sandbox_net
+      - sandbox_models
+
+  postgres: # 5432
+    image: postgres:16.14-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in Portainer}
+      POSTGRES_DB: app
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Swarm ignores shm_size: a tmpfs /dev/shm instead.
+      - type: tmpfs
+        target: /dev/shm
+        tmpfs: {size: 268435456}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 1G}
+    networks:
+      - backend
+
+  redis: # 6379
+    image: redis:7.4.9-alpine
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?set in Portainer}
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set in Portainer}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    user: "999:999"
+    cap_drop: [ALL]
+    logging: *logging
+    deploy:
+      <<: *restart
+      resources:
+        limits: {memory: 320M}
+    networks:
+      - backend
+
+volumes:
+  postgres-data:
+  reg-memory-data:
+  mlflow_artifacts:
+  seed_cases:
+
+networks:
+  # Data plane, no route out.
+  backend:
+    driver: overlay
+    internal: true
+  # Egress (Gemini, public EU sites) and frontend -> backend.
+  edge:
+    driver: overlay
+  # agents <-> sandbox_runner only.
+  sandbox_net:
+    driver: overlay
+    internal: true
+  # sandbox_runner -> mlflow, model-gateway only (the model under test).
+  sandbox_models:
+    driver: overlay
+    internal: true
+  # Already on Dennis (shared with other stacks):
+  langfuse:      # Dennis' Langfuse: http://langfuse-web:3000
+    external: true
+  mcp_gateway:   # Dennis' MCP gateway: http://mcp_gateway:8005/sse
+    external: true
+  proxy:         # Nginx Proxy Manager
+    external: true
