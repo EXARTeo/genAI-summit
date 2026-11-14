@@ -1,10 +1,12 @@
 /**
- * A message's files (magenticx `message_parts/MessageAttachments.tsx`): image thumbnails and file
- * tiles that open the preview; each has download and, in a chat about a system, "Save to
- * <system> folder" (`POST /v1/systems/{id}/files/from-attachment`).
+ * A message's files (magenticx `message_parts/MessageAttachments.tsx`): file chips (a 40 px
+ * accent tile, the name and the type) above image thumbnails, all opening the preview. Each keeps
+ * our ⋯ menu instead of magenticx's hover buttons: Preview, Download and, in a chat about a
+ * system, "Save to <system> folder" (`POST /v1/systems/{id}/files/from-attachment`).
  */
 import {
   Download,
+  Eye,
   FileCode2,
   FileImage,
   FileSpreadsheet,
@@ -17,6 +19,7 @@ import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { DropdownMenu, IconButton, toast } from '@/shared/ui';
 import { downloadAttachmentBlob, saveAttachmentToSystem } from '../../handlers/chat';
+import { triggerBrowserDownload } from '../../lib/download';
 import { formatBytes, imageSrc, previewKind } from '../../lib/attachments';
 import type { AttachmentOut } from '../../lib/types';
 import { useChatUi } from '../chatContext';
@@ -33,12 +36,7 @@ export async function downloadAttachment(conversationId: string, messageId: stri
   if (!a.blobId) return;
   try {
     const blob = await downloadAttachmentBlob(conversationId, messageId, a.blobId);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = a.name;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    triggerBrowserDownload(blob, a.name);
   } catch {
     toast.error(`Could not download ${a.name}`);
   }
@@ -64,6 +62,10 @@ function useSaveToSystem() {
   return { systemId, systemName, save, saving };
 }
 
+/** The ⋯ trigger: shown on hover / focus with a pointer, always on touch screens. */
+const MENU_TRIGGER =
+  'size-7 shrink-0 text-muted hover:bg-hover hover:text-text data-[state=open]:opacity-100 opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100';
+
 export function MessageAttachments({
   attachments,
   messageId,
@@ -78,18 +80,14 @@ export function MessageAttachments({
   if (!attachments.length) return null;
   const images = attachments.filter((a) => imageSrc(a));
   const files = attachments.filter((a) => !imageSrc(a));
+  const end = align === 'end';
+  const preview = (a: AttachmentOut) => openPreview({ kind: 'sent', attachment: a, messageId });
 
-  const menu = (a: AttachmentOut) => (
+  const menu = (a: AttachmentOut, className?: string) => (
     <DropdownMenu
-      trigger={
-        <IconButton label="File actions" size="icon-sm" icon={<MoreHorizontal />} className="shrink-0" />
-      }
+      trigger={<IconButton label={`Actions for ${a.name}`} icon={<MoreHorizontal />} className={className} />}
       items={[
-        {
-          label: 'Preview',
-          icon: <FileText />,
-          onSelect: () => openPreview({ kind: 'sent', attachment: a, messageId }),
-        },
+        { label: 'Preview', icon: <Eye />, onSelect: () => preview(a) },
         {
           label: 'Download',
           icon: <Download />,
@@ -112,55 +110,76 @@ export function MessageAttachments({
   );
 
   return (
-    <div className={cn('flex flex-col gap-2', align === 'end' ? 'items-end' : 'items-start')}>
-      {images.length > 0 && (
-        <div className={cn('flex flex-wrap gap-2', align === 'end' && 'justify-end')}>
-          {images.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => openPreview({ kind: 'sent', attachment: a, messageId })}
-              className="overflow-hidden rounded-lg border border-border bg-surface-muted transition-colors hover:border-primary/40"
-              aria-label={`Preview ${a.name}`}
-            >
-              <img
-                src={imageSrc(a) ?? ''}
-                alt={a.name}
-                className="size-24 object-cover [image-rendering:auto]"
-              />
-            </button>
-          ))}
-        </div>
-      )}
+    <div
+      className={cn('flex max-w-[85%] flex-col gap-3', end ? 'items-end self-end' : 'items-start')}
+      data-testid="message-attachments"
+    >
       {files.length > 0 && (
-        <div className={cn('flex flex-wrap gap-2', align === 'end' && 'justify-end')}>
+        <div className={cn('flex flex-col gap-2', end ? 'items-end' : 'items-start')}>
           {files.map((a) => {
-            const Icon = a.origin === 'generated' ? Sparkles : fileIconFor(a);
+            const generated = a.origin === 'generated';
+            const Icon = generated ? Sparkles : fileIconFor(a);
+            const meta = [generated ? 'Generated' : null, a.mime || 'File', formatBytes(a.size)]
+              .filter(Boolean)
+              .join(' · ');
             return (
               <div
                 key={a.id}
-                className="group flex w-60 items-center gap-2.5 rounded-lg border border-border bg-surface py-1.5 pl-2 pr-1 transition-colors hover:border-primary/40"
+                className="group/file flex w-64 items-center gap-1 rounded-2xl border border-border/50 bg-surface-sunken/30 py-2.5 pl-3 pr-1.5 text-xs transition-colors hover:bg-surface-sunken/60 md:w-80"
               >
                 <button
                   type="button"
-                  onClick={() => openPreview({ kind: 'sent', attachment: a, messageId })}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  onClick={() => preview(a)}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  aria-label={`Preview ${a.name}`}
                 >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-muted text-muted">
-                    <Icon className="size-4" />
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/90 text-primary-foreground">
+                    <Icon className="size-4" aria-hidden />
                   </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-medium">{a.title ?? a.name}</span>
-                    <span className="block truncate text-2xs text-muted">
-                      {a.origin === 'generated' ? 'Generated · ' : ''}
-                      {formatBytes(a.size)}
-                    </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-text/90">{a.title ?? a.name}</span>
+                    <span className="block truncate text-muted/80">{meta}</span>
                   </span>
                 </button>
-                {menu(a)}
+                {menu(a, MENU_TRIGGER)}
               </div>
             );
           })}
+        </div>
+      )}
+      {images.length > 0 && (
+        <div className={cn('grid grid-cols-2 gap-3', end && 'justify-items-end')}>
+          {images.map((a, i) => (
+            <div
+              key={a.id}
+              className={cn(
+                'group/file relative',
+                images.length % 2 === 1 && i === images.length - 1 && images.length > 1 && 'col-span-2',
+                images.length === 1 && 'col-span-2',
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => preview(a)}
+                className="group/img relative block overflow-hidden rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                aria-label={`Preview ${a.name}`}
+              >
+                <img
+                  src={imageSrc(a) ?? ''}
+                  alt={a.name}
+                  className="h-28 w-40 object-cover transition-transform duration-200 group-hover/img:scale-[1.02] md:h-32 md:w-48"
+                />
+                <span className="absolute inset-0 grid place-items-center opacity-0 transition-opacity group-hover/img:opacity-100 group-focus-visible/img:opacity-100">
+                  <span className="grid size-8 place-items-center rounded-full border border-border/50 bg-background/95 text-text shadow-pop">
+                    <Eye className="size-4" aria-hidden />
+                  </span>
+                </span>
+              </button>
+              <div className="absolute right-1 top-1">
+                {menu(a, cn(MENU_TRIGGER, 'bg-background/90 hover:bg-background'))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
