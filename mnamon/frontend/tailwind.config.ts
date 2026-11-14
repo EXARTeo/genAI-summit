@@ -43,7 +43,7 @@ const config: Config = {
         hover: { DEFAULT: 'var(--hover-surface)', strong: 'var(--hover-surface-strong)' },
         shell: { frame: 'var(--shell-frame)', card: 'var(--shell-card)' },
         topbar: 'var(--topbar-bg)',
-        scrim: 'var(--scrim)',
+        scrim: { DEFAULT: 'var(--scrim)', strong: 'var(--scrim-strong)' },
         'switch-thumb': 'var(--switch-thumb)',
         'nav-active': 'var(--nav-active-bg)',
       },

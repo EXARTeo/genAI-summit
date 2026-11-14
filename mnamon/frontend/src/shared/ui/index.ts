@@ -40,3 +40,14 @@ export { Toaster, toast } from './toaster';
 export { AnimatedNumber, type AnimatedNumberProps } from './animated-number';
 export { AgentThinking, type AgentThinkingProps } from './agent-thinking';
 export { Logo, LogoMark, PRODUCT_DESCRIPTOR, PRODUCT_NAME, Wordmark } from './logo';
+export { FileChip, fileKindIcon, type FileAction, type FileChipProps } from './file-chip';
+export { ImageLightbox, type ImageLightboxProps, type LightboxImage } from './image-lightbox';
+export { ImageGrid, type GridImage, type ImageGridProps } from './image-grid';
+export {
+  FilePreviewBody,
+  FilePreviewPanel,
+  downloadPreviewFile,
+  type FilePreviewBodyProps,
+  type FilePreviewPanelProps,
+  type PreviewFile,
+} from './file-preview';

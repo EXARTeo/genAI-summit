@@ -1,0 +1,37 @@
+/* Code highlighting: highlight.js classes on our tokens (chat code blocks, file previews). */
+.hljs-comment,
+.hljs-quote {
+  color: rgb(var(--rgb-muted));
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-type {
+  color: rgb(var(--rgb-primary));
+}
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-addition {
+  color: rgb(var(--rgb-success));
+}
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet {
+  color: rgb(var(--rgb-warning));
+}
+.hljs-title,
+.hljs-section,
+.hljs-function .hljs-title {
+  color: rgb(var(--rgb-info));
+}
+.hljs-deletion {
+  color: rgb(var(--rgb-danger));
+}
+.hljs-meta,
+.hljs-variable,
+.hljs-params {
+  color: rgb(var(--rgb-text));
+}

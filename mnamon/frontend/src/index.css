@@ -26,6 +26,7 @@
 @import './styles/scrollbars.css';
 @import './styles/toast.css';
 @import './styles/markdown.css';
+@import './styles/highlight.css';
 @import './styles/flow.css';
 
 @import 'tailwindcss/base';

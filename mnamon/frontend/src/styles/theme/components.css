@@ -25,6 +25,8 @@
 
   /* Modal overlays (dialogs, sheets, mobile drawer). */
   --scrim: rgb(var(--ink-black) / 0.4);
+  /* Image lightbox and file preview: a near-opaque dark stage in both themes. */
+  --scrim-strong: rgb(var(--ink-black) / 0.82);
 
   /* Toasts (sonner). */
   --toast-radius: var(--radius-2xl);
@@ -52,5 +54,6 @@
   --shell-frame: color-mix(in srgb, rgb(var(--background)) 40%, rgb(var(--ink-black)));
   --shell-card-shadow: 0 12px 40px -16px rgb(var(--ink-black) / 0.7);
   --scrim: rgb(var(--ink-black) / 0.6);
+  --scrim-strong: rgb(var(--ink-black) / 0.86);
   --skeleton-shine: rgb(var(--foreground) / 0.06);
 }

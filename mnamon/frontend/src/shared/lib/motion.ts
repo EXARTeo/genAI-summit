@@ -68,3 +68,27 @@ export const collapse: Variants = {
   animate: { height: 'auto', opacity: 1, transition: { duration: durations.base, ease: easeOut } },
   exit: { height: 0, opacity: 0, transition: { duration: durations.fast } },
 };
+
+/**
+ * Panels we draw ourselves (the image lightbox, the file preview): magenticx's `panel` preset.
+ * The card settles from a slight scale and drop (expo-out in, accelerate out); the backdrop fades.
+ * Under reduced motion `MotionConfig reducedMotion="user"` drops the transforms, so both only fade.
+ */
+export const panelBackdrop: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.2, ease: easeOut } },
+  exit: { opacity: 0, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } },
+};
+
+export const panelContent: Variants = {
+  initial: { opacity: 0, scale: 0.97, y: 8 },
+  animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
+  exit: { opacity: 0, scale: 0.98, y: 4, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } },
+};
+
+/** One image handing over to the next inside the lightbox. */
+export const imageSwap: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: durations.base, ease: easeOut } },
+  exit: { opacity: 0, transition: { duration: durations.fast } },
+};
