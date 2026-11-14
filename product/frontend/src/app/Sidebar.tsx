@@ -68,8 +68,10 @@ function NavEntry({
           <>
             {isActive && (
               <motion.span
-                layoutId={`${layoutGroup}-active`}
-                layout="position"
+                // Glides between rows on navigation only. Keyed by the rail state so a
+                // collapse/expand (rows reflow while the width animates) never animates it:
+                // with one id the pill drifted up to the toggle row and back.
+                layoutId={`${layoutGroup}-${collapsed ? 'collapsed' : 'expanded'}-active`}
                 aria-hidden
                 data-indicator="page"
                 className="absolute inset-0 z-0 rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/[0.16]"
