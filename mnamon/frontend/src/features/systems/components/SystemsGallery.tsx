@@ -12,7 +12,9 @@ import {
   Select,
   Skeleton,
 } from '@/shared/ui';
+import { useAudits } from '@/features/audits/hooks/useAudits';
 import { useSystems } from '../hooks/useSystems';
+import { withLastAudits } from '../lib/adapters';
 import { RISK_META } from '../lib/styles';
 import { SystemCard, SystemTableHeader } from './SystemCard';
 
@@ -26,7 +28,9 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
 }
 
 export function SystemsGallery() {
-  const { data, isLoading, error, refetch } = useSystems();
+  const { data: raw, isLoading, error, refetch } = useSystems();
+  const { data: audits } = useAudits();
+  const data = useMemo(() => (raw ? withLastAudits(raw, audits ?? []) : raw), [raw, audits]);
   const [q, setQ] = useState('');
   const [risk, setRisk] = useState('all');
 

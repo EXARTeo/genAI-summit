@@ -1,0 +1,83 @@
+[
+  {
+    "id": "SYS-001",
+    "name": "CV Screener",
+    "status": "active",
+    "data": {
+      "card": {
+        "id": "SYS-001",
+        "name": "CV Screener",
+        "role": "provider",
+        "components": ["SYS-001.cv-parser", "SYS-001.cv-ranker"],
+        "deployment": {
+          "since": "2025-03",
+          "users": "in-house recruiters",
+          "status": "pilot",
+          "countries": ["GR"]
+        },
+        "provenance": "declared_by_human",
+        "risk_class": "high_risk",
+        "annex_basis": "Annex III 4(a)",
+        "card_version": 1,
+        "organisation": "Example Recruiting S.A. (fictional)",
+        "known_proxies": [],
+        "org_thresholds": {
+          "selection_rate_ratio": ">= 0.80",
+          "equal_opportunity_gap": "<= 0.05",
+          "counterfactual_flip_rate": "<= 0.02"
+        },
+        "human_oversight": "recruiter reviews every shortlist; no automatic rejection",
+        "affected_persons": "job applicants (EU and non-EU nationals living in Greece)",
+        "declared_metrics": {
+          "accuracy_vs_history": ">= 0.65"
+        },
+        "intended_purpose": "Rank applicants for software-engineering roles from their CVs and propose a shortlist. A recruiter reviews every shortlist before anyone is contacted or rejected.",
+        "protected_attributes": ["sex", "age_band", "nationality"]
+      },
+      "source": "seed"
+    },
+    "createdAt": "2026-11-14T21:03:17.458920Z",
+    "updatedAt": "2026-11-14T21:03:17.458920Z"
+  },
+  {
+    "id": "SYS-002",
+    "name": "Consumer Credit Scorer",
+    "status": "active",
+    "data": {
+      "card": {
+        "id": "SYS-002",
+        "name": "Consumer Credit Scorer",
+        "role": "provider",
+        "components": ["SYS-002.credit-scorer"],
+        "deployment": {
+          "since": "2024-06",
+          "users": "branch credit officers",
+          "status": "production",
+          "countries": ["GR", "CY"]
+        },
+        "provenance": "declared_by_human",
+        "risk_class": "high_risk",
+        "annex_basis": "Annex III 5(b)",
+        "card_version": 1,
+        "organisation": "Aegean Consumer Finance S.A. (fictional)",
+        "known_proxies": ["credit_history_months"],
+        "org_thresholds": {
+          "accuracy_gap": "<= 0.05",
+          "selection_rate_ratio": ">= 0.80",
+          "equal_opportunity_gap": "<= 0.05"
+        },
+        "human_oversight": "credit officer decides; scores below 0.5 are a recommendation to decline",
+        "affected_persons": "consumer-loan applicants aged 18-75",
+        "declared_metrics": {
+          "roc_auc": ">= 0.93",
+          "accuracy": ">= 0.90"
+        },
+        "intended_purpose": "Estimate the probability that an applicant for an unsecured consumer loan (EUR 500-100,000) repays it. A credit officer sees the score and the reason codes and makes the final decision.",
+        "protected_attributes": ["sex", "age_band"]
+      },
+      "source": "seed"
+    },
+    "createdAt": "2026-11-14T21:03:17.458920Z",
+    "updatedAt": "2026-11-14T21:03:17.458920Z"
+  }
+]

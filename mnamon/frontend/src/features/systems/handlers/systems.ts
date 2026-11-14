@@ -1,12 +1,19 @@
 // API calls for the systems feature. Hooks (../hooks) wrap these in react-query.
 import { api } from '@/shared/lib/api';
+import type { Audit } from '@/features/audits/lib/types';
+import { toSystem, toSystems } from '../lib/adapters';
 import { systemApi } from '../lib/routes';
 import type { FileEvent, FileWriteResult, System, WorkspaceFile, WorkspaceFileContent } from '../lib/types';
 
-export const fetchSystems = (signal?: AbortSignal) => api.get<System[]>(systemApi.list(), { signal });
+export const fetchSystems = (signal?: AbortSignal) =>
+  api.get<System[]>(systemApi.list(), { signal }).then(toSystems);
 
 export const fetchSystem = (id: string, signal?: AbortSignal) =>
-  api.get<System>(systemApi.get(id), { signal });
+  api.get<System>(systemApi.get(id), { signal }).then(toSystem);
+
+/** Start an audit of the system (POST /v1/systems/{id}/audits); the pipeline runs in the background. */
+export const startAudit = (id: string, body: { stage?: string; data?: Record<string, unknown> }) =>
+  api.post<Audit>(systemApi.audits(id), body);
 
 export const fetchFiles = (id: string, signal?: AbortSignal) =>
   api.get<WorkspaceFile[]>(systemApi.files(id), { signal });

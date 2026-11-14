@@ -56,7 +56,7 @@ export function ApprovalsInboxPage() {
                   <span className="approval-pulse grid size-8 shrink-0 place-items-center rounded-full bg-warning/15 text-warning">
                     <Hand className="size-4" />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-56">
                     <div className="flex flex-wrap items-baseline gap-x-2">
                       <span className="text-sm font-medium">{g.label}</span>
                       <span className="text-sm text-muted">
@@ -68,7 +68,7 @@ export function ApprovalsInboxPage() {
                       <span className="num">Waiting {formatRelative(g.waitingSince)}.</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="ml-auto flex items-center gap-2">
                     <Button asChild variant="ghost" size="sm">
                       <Link to={`/audits/${encodeURIComponent(g.auditId)}`}>Open run</Link>
                     </Button>

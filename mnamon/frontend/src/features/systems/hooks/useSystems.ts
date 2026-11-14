@@ -6,6 +6,7 @@ import {
   fetchFileVersions,
   fetchSystem,
   fetchSystems,
+  startAudit,
   writeTextFile,
   uploadFile,
 } from '../handlers/systems';
@@ -85,6 +86,21 @@ export function useAddRule(systemId: string) {
       qc.invalidateQueries({ queryKey: systemKeys.versions(systemId, businessRulesPath(v.plugin)) });
       qc.invalidateQueries({ queryKey: systemKeys.files(systemId) });
       qc.invalidateQueries({ queryKey: systemKeys.events(systemId) });
+    },
+  });
+}
+
+/** Start an audit of a system; the new audit is returned (navigate to it). */
+export function useStartAudit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { systemId: string; systemName?: string }) =>
+      startAudit(v.systemId, {
+        stage: 'load_context',
+        data: { title: 'Audit', systemName: v.systemName ?? v.systemId, trigger: 'manual' },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['audits'] });
     },
   });
 }

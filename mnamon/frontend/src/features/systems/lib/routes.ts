@@ -16,6 +16,7 @@ export const systemApi = {
   versions: (id: string, path: string) =>
     `/v1/systems/${encodeURIComponent(id)}/files/${encodePath(path)}/versions`,
   events: (id: string) => `/v1/systems/${encodeURIComponent(id)}/events`,
+  audits: (id: string) => `/v1/systems/${encodeURIComponent(id)}/audits`,
 };
 
 function encodePath(path: string): string {

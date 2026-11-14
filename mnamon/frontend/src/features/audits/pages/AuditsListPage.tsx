@@ -5,6 +5,7 @@ import { formatRelative } from '@/shared/lib/format';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
 import { AgentThinking, Card, EmptyState, ErrorState, PageHeader, Skeleton, StatusPill } from '@/shared/ui';
+import { StartAuditMenu } from '@/features/systems/components/StartAuditButton';
 import { TraceLink } from '../components/artifact_parts/common';
 import { useAudits } from '../hooks/useAudits';
 import { STAGES, progress, stageIndex, statusLabel } from '../lib/pipeline';
@@ -19,6 +20,7 @@ export function AuditsListPage() {
       <PageHeader
         title="Audits"
         description="Agent audit runs: context, scenarios, synthetic data, tests, findings and reports, each step traced in Langfuse."
+        actions={<StartAuditMenu />}
       />
       {error && <ErrorState error={error} onRetry={() => void refetch()} />}
       {isLoading && (
@@ -38,7 +40,8 @@ export function AuditsListPage() {
         <EmptyState
           icon={<ClipboardCheck />}
           title="No audits yet"
-          description="Start an audit from a system page."
+          description="Start an audit of a system: the agent loads its context and plans the tests."
+          action={<StartAuditMenu />}
         />
       )}
       {data && data.length > 0 && (

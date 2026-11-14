@@ -5,6 +5,7 @@ import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { useSystem } from '../hooks/useSystems';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
 import { riskMeta } from '../lib/styles';
+import { StartAuditButton } from './StartAuditButton';
 import { FolderTab } from './detail_parts/FolderTab';
 import { OverviewTab } from './detail_parts/OverviewTab';
 import { PluginsTab } from './detail_parts/PluginsTab';
@@ -50,7 +51,12 @@ export function SystemDetail() {
             <StatusPill status={system.status} />
           </>
         }
-        actions={<ChatAboutButton systemId={system.id} label="Chat about this system" />}
+        actions={
+          <>
+            <ChatAboutButton systemId={system.id} label="Chat about this system" />
+            <StartAuditButton systemId={system.id} systemName={system.name} />
+          </>
+        }
       />
       <Tabs value={active} onValueChange={(v) => navigate(systemRoutes.detail(system.id, v as SystemTab))}>
         <Tabs.List>
