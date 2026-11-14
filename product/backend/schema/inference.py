@@ -25,7 +25,8 @@ class InferenceStartPayload(BaseModel):
     """``POST /v1/inference/runs/start``.
 
     * ``new`` — a new conversation with ``agentSlug`` (+ optional ``agentName``,
-      ``title``) and its first ``message``;
+      ``title``, ``systemId`` / ``auditId`` for a scoped chat) and its first
+      ``message``;
     * ``send`` — ``message`` continues ``conversationId`` under
       ``parentMessageId``; ``agentSlug`` switches the agent for this turn
       (default: the conversation's);
@@ -41,6 +42,9 @@ class InferenceStartPayload(BaseModel):
     agentSlug: str | None = Field(default=None, pattern=AGENT_SLUG_PATTERN)
     agentName: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=300)
+    # `new` only: the audited system / audit the conversation is about.
+    systemId: str | None = Field(default=None, max_length=64)
+    auditId: str | None = Field(default=None, max_length=64)
     conversationId: str | None = None
     parentMessageId: str | None = None
     targetMessageId: str | None = None

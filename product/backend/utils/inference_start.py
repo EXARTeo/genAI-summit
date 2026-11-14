@@ -28,6 +28,7 @@ from core.database import ConversationTable, MessageTable
 from schema.conversations import ConversationSummary
 from schema.inference import InferenceStartPayload, InferenceStartResponse
 from schema.messages import MessageIn, MessageOut
+from utils.audits import validate_conversation_subject
 from utils.conversations import _preview, init_conv, init_message, resolve_conversation_title
 from utils.inference import resolve_inference_message_path
 from utils.inference_runs import (
@@ -91,6 +92,7 @@ async def _new_conversation(
     if not payload.agentSlug:
         raise _bad_request("agentSlug is required for new inference starts.")
     first_message = _require_message(payload)
+    await validate_conversation_subject(db, payload.systemId, payload.auditId)
     conversation = await init_conv(
         db,
         client_id=client_id,
@@ -98,6 +100,8 @@ async def _new_conversation(
         agent_name=payload.agentName,
         title=resolve_conversation_title(payload.title, first_message, payload.agentName),
         first_message=first_message,
+        system_id=payload.systemId,
+        audit_id=payload.auditId,
     )
     conversation = await _reload(db, client_id, conversation)
     first = next((m for m in conversation.messages if m.sender == "user"), None)

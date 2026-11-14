@@ -270,6 +270,12 @@ async def test_an_invalid_slug_is_refused_before_anything_is_written(client):
     assert (await client.post(START, json=body)).status_code == 422
 
 
+async def test_a_new_scoped_chat_needs_an_existing_system(client):
+    body = {**_new_body(), "systemId": "SYS-404"}
+    assert (await client.post(START, json=body)).status_code == 404
+    assert (await client.get("/v1/conversations")).json()["items"] == []
+
+
 async def test_runs_are_invisible_to_another_browser(client, other_client, run_sessions):
     run_id = await seed_queued_run(run_sessions, CLIENT_ID)
     mine = await client.get("/v1/inference/runs", params={"status": "active"})
