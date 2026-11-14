@@ -280,7 +280,9 @@ On a new RegChange: `POST {BACKEND_INTERNAL_URL}/internal/regulation/changes` (s
 items with diffs, impacted requirements; `X-Internal-Secret` = `BACKEND_INTERNAL_SECRET`) and a
 Telegram `sendMessage` to `TELEGRAM_CHAT_ID` (summary + affected provisions + requirements; inline
 buttons come later). The result (`sent`, `skipped`, `failed`, `http_<code>`) is stored in the change
-and the check. The backend endpoint does not exist yet: keep `BACKEND_INTERNAL_URL` empty until it does.
+and the check. In compose `BACKEND_INTERNAL_URL` is `http://backend:8000` and reg-memory's own Telegram is off:
+the backend stores the change and sends it to Telegram with Accept / Reject / Open buttons
+([backend § Telegram approvals](backend-systems.md#telegram-approvals)); the UI reads it through `/v1/regulation`.
 
 ## Demo: live regulation change in seconds
 

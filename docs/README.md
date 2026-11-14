@@ -11,6 +11,7 @@ docs/
 | Folder | Page | What it covers |
 | --- | --- | --- |
 | `guides/` | [Getting started](guides/getting-started.md) | Install, configure and run the project locally |
+| `guides/` | [Telegram approvals](guides/telegram.md) | Create the bot, get the chat id, approve/reject HITL gates from Telegram |
 | `architecture/` | [Architecture](architecture/README.md) | AI Act Governance Copilot: MVP scope, containers, pipelines, decisions |
 | `architecture/` | [Agent context and memory](architecture/agent-context.md) | reg-memory scope, system dossier, plugins (target card + docs + training-data description), per-system + general memory, Postgres-backed filesystem and audit ledger |
 | `architecture/` | [Synthetic test data](architecture/synthetic-data.md) | How `generate_data` builds schema-correct, business-realistic test data: LLM-drafted GenerationSpec → DAG sampler + rule enforcement, twins and edge cases per template, validation gates, Data Card, sandbox libraries, MVP cut |

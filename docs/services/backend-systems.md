@@ -17,7 +17,7 @@ It is not user-visible and the backend has no memory routes.
 
 | File | Holds |
 | --- | --- |
-| `core/database/models.py`, migrations `0003_systems_audits`, `0004_drop_memory_namespaces` | the tables below + `conversations.system_id` / `audit_id`; 0004 deletes the old `memory:*` rows (data only) |
+| `core/database/models.py`, migrations `0003_systems_audits`, `0004_drop_memory_namespaces`, `0005_regulation_telegram` | the tables below + `conversations.system_id` / `audit_id`; 0004 deletes the old `memory:*` rows (data only) |
 | `utils/workspace.py` | versioned files: path safety, write (new version, no-op on same bytes), tree, read, versions, delete, ledger, `dossier_version` |
 | `utils/systems.py` | systems CRUD, the write body (JSON or multipart), attachment → system folder |
 | `utils/audits.py` | audits, artifacts (versioning + supersede), approvals (decision + reason) |
@@ -39,6 +39,8 @@ Few typed columns (what is filtered or joined on); everything else in JSONB `dat
 | `audits` | `system_id`, `status`, `stage`, `created_by` | `data`: `dossier_version` (locked at creation), `plugin_ids`, `kb_version`, ... |
 | `audit_artifacts` | `audit_id`, `kind`, `name`, `version`, `status`, `parent_id`, `created_by` | `data`, `file_refs` (workspace paths, MLflow URIs, trace ids) |
 | `approvals` | `audit_id`, `artifact_id`, `gate`, `decision`, `reason_category`, `comment`, `decided_by`, `at` | `edits` JSONB; append-only |
+| `regulation_changes` | `id` (reg-memory's RC id), `status` | `data`: reg-memory's payload, the decision (`decidedBy`, `reason`), per-system `affected` |
+| `telegram_prompts` | `id` (callback token), `kind`, `key`, `status`, `decision`, `decided_by` | `data` (what it decides, reject state), `messages` (sent chat / message ids) |
 
 **Namespaces:** `system:<id>` (the system folder; plugins under `plugins/<name>/`).
 
@@ -98,6 +100,72 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 
 The agent cannot write the system folder, except `datasets/public/<slug>/` (the four files above) for a public dataset a human approved.
 
+## Audit data and status
+
+`status` is one of `open | running | waiting_approval | done | failed` (422 otherwise; the older
+`completed` / `rejected` / `cancelled` / `error` are mapped to `done` / `failed`). `GET /v1/audits` and
+`GET /v1/audits/{id}` return `data` with the fields the UI reads, passed through when the pipeline set them
+(camelCase, or the snake_case `kb_version`, `card_version`, `trace_id`, `stage_traces`, `stage_durations`)
+and derived otherwise: `systemName` (the system's name), `title` (`Audit of <name>`), `kbVersion`,
+`cardVersion`, `traceId`, `stageTraces` (`{}`), `stageDurations` (`{}`), `trigger` (`manual`), `summary`.
+
+**Resuming the pipeline.** An approval of a pipeline gate (`public_data`, `scenarios`, `datasets`), from the
+UI or from Telegram, is forwarded after it is recorded to the agents service's `POST /audits/{id}/resume`
+(`utils/audit_pipeline.py`: `system_id`, `gate`, `decision`, `reasonCategory`, `comment`, `edits`,
+`artifactId`, `decidedBy`). Best effort: a pipeline that is not waiting (409) or down is logged; the
+approval stays recorded.
+
+## Regulation proxy (`/v1/regulation`)
+
+The browser cannot reach reg-memory (internal, `X-Internal-Secret`), so the backend proxies it
+(`router/regulation.py` -> `utils/regulation.py`, `REG_MEMORY_URL` + `REG_MEMORY_INTERNAL_SECRET`) and maps
+its shapes to the frontend types (`features/regulation/lib/types.ts`). Rate-limited like `/v1/systems`;
+reg-memory down = 502, unknown id = 404.
+
+| Route | Does |
+| --- | --- |
+| `GET /v1/regulation/sources` | catalog + each source's main-document versions (fetch log collapsed to one entry per version) as `RegSource[]` |
+| `GET …/documents/{id}/text?version=` | `DocText` |
+| `GET …/documents/{id}/diff?from=&to=` | `DocDiff`: unified diff of the two versions' texts (difflib) |
+| `GET …/changes`, `GET …/changes/{id}` | `RegChange`, newest first. `changeType` mapped (`editorial`; `new_interpretation` → `clarification`; `date`, `scope` → `scope_change`; `substantive` → `new_obligation`; removed → `repeal`; the most severe wins), `provisions` = changed node ids, `fromVersion` / `toVersion` = the source's document version in the two releases, `status` = our decision, else `accepted` once the candidate release was activated. Extras: `impactedRequirements`, `judge`, `decidedBy` |
+| `POST …/changes/{id}/decision` `{status, reason?}` | `accepted` activates the candidate release in reg-memory; `rejected` records it; already decided = 409 |
+| `POST …/changes/{id}/systems/{systemId}` `{decision}` | human override of the judge decision for one system |
+| `GET …/releases`, `POST …/releases/{v}/activate`, `POST …/check-now`, `GET …/provisions[/{id}]`, `GET …/requirements` | pass-through (reg-memory's own shapes) |
+
+**Not in reg-memory yet: the per-system change judge.** `affected` is `[]` and `judge` is `pending` until a
+judge (or a human override) writes `regulation_changes.data.affected`.
+
+`POST /internal/regulation/changes` (internal secret): reg-memory announces a RegChange (`BACKEND_INTERNAL_URL`,
+compose default `http://backend:8000`); the payload is stored in `regulation_changes` (idempotent per id)
+and announced on Telegram. `GET /v1/agents` proxies the agents service's `GET /agents` (502 when it is down).
+
+## Telegram approvals
+
+Every HITL gate is also sent to Telegram with **Approve / Reject / Open in app**; a button records the decision
+exactly like the UI and resumes the agent. Setup: [Telegram guide](../guides/telegram.md).
+Code: `utils/telegram.py` (Bot API over httpx, best effort), `utils/telegram_gates.py` (gates, decisions, the
+long-polling worker), `router/telegram.py` (optional webhook), table `telegram_prompts` (migration `0005`).
+
+| Gate | Sent when | Approve / Reject does |
+| --- | --- | --- |
+| audit `scenarios` / `datasets` | an audit enters `waiting_approval` (`PATCH /v1/audits/{id}` or `/internal/audits/{id}`) | `record_approval` (same as `POST /v1/audits/{id}/approvals`) on the gate's latest reviewed artifact |
+| public dataset pick (`public_data`) | the audit waits at `find_public_data`, or a `public_dataset_candidates` artifact is proposed (one message) | one button per top-3 candidate: approves with `edits.selected` (also set on the artifact) |
+| regulation change | reg-memory POSTs a RegChange | Accept = activate the candidate release; Reject = rejected |
+| chat tool approval | a chat run pauses on a `HITL_INTERRUPT` with `action_requests` (not `ask_user`) | the inference resume queue (same as `POST /v1/inference/runs/{id}/resume`) for every action of the interrupt |
+
+- Messages are compact: system, gate, 2-3 key numbers (scenarios and risks, failed dataset gates, findings) and
+  the link `${APP_PUBLIC_URL}/audits/<id>?step=<step>` (in the text; also a URL button when the URL is public,
+  since Telegram refuses localhost buttons).
+- **Reject** asks why: reason-category buttons, then a ForceReply for a comment (`-` skips it).
+- **Allow-list:** only chats in `TELEGRAM_CHAT_ID` receive gates; a button pressed in any other chat is refused.
+- **Idempotent:** one open prompt per gate (`key`); a gate already decided (in Telegram, in another chat or in
+  the app) answers "Already decided by X". A decision made in the app edits the Telegram message too.
+- Decisions are recorded as `decided_by: telegram:<username>`; the message is edited to "✅ Approved by @x".
+- **Long polling** (`getUpdates`, no public URL needed) starts in the lifespan when `TELEGRAM_BOT_TOKEN` is set;
+  `TELEGRAM_WEBHOOK_URL` (with the required `TELEGRAM_WEBHOOK_SECRET`) switches to the webhook
+  `POST /telegram/webhook`. No token: every Telegram call is a no-op (logged once). `/start` or `/chatid` in a
+  chat answers its id.
+
 ## Settings
 
 | Variable | Default | Meaning |
@@ -106,6 +174,11 @@ The agent cannot write the system folder, except `datasets/public/<slug>/` (the 
 | `WORKSPACE_MAX_FILE_BYTES` | `10485760` | largest single file (413 above) |
 | `WORKSPACE_RATE_LIMIT_MAX_ATTEMPTS` / `_WINDOW_SECONDS` | `240` / `60` | per client, all `/v1` routes above |
 | `INTERNAL_RATE_LIMIT_MAX_ATTEMPTS` / `_WINDOW_SECONDS` | `1200` / `60` | per IP, `/internal` |
+| `REG_MEMORY_URL` / `REG_MEMORY_INTERNAL_SECRET` | `http://reg-memory:8010` / compose dev value | the regulation proxy |
+| `REG_MEMORY_TIMEOUT_SECONDS` / `REG_MEMORY_CHECK_TIMEOUT_SECONDS` | `30` / `300` | reg-memory calls; `check-now` with `wait` |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | empty | Telegram approvals; comma-separated allow-listed chat ids |
+| `TELEGRAM_WEBHOOK_URL` / `TELEGRAM_WEBHOOK_SECRET` | empty | webhook mode instead of long polling |
+| `APP_PUBLIC_URL` | `http://localhost:8080` | base of the "Open in app" links |
 
 ## Not included yet
 

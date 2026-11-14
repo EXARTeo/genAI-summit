@@ -59,7 +59,7 @@ Body: `POST /v1/audits/{id}/approvals` (`lib/approvals.ts: toApprovalIn`).
 | Feature | Calls | Backend |
 | --- | --- | --- |
 | audits, approvals | `GET /v1/audits`, `GET /v1/audits/{id}`, `GET/POST /v1/audits/{id}/approvals` | exists |
-| regulation | `GET /v1/regulation/sources`, `…/documents/{id}/text?version=`, `…/documents/{id}/diff?from&to`, `GET /v1/regulation/changes`, `POST …/changes/{id}/decision`, `POST …/changes/{id}/systems/{systemId}` | **pending** (backend proxy to reg-memory + change judge) |
+| regulation | `GET /v1/regulation/sources`, `…/documents/{id}/text?version=`, `…/documents/{id}/diff?from&to`, `GET /v1/regulation/changes`, `POST …/changes/{id}/decision`, `POST …/changes/{id}/systems/{systemId}` | exists ([backend regulation proxy](backend-systems.md#regulation-proxy-v1regulation)); the per-system change judge is pending (`affected: []`) |
 
 Mock mode serves all of them from the feature fixtures (`lib/mocks.ts`, `lib/mockStore.ts`, `lib/mockRoutes.ts`,
 registered by `src/shared/lib/mocks/handlers/{audit-workflow,regulation-memory}.ts`): a finished

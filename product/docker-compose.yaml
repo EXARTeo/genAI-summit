@@ -110,6 +110,15 @@ services:
       # POST /v1/admin/import-seed reads the seed cases (SYS-00X/, _answer-key/ skipped).
       SEED_CASES_DIR: /seed-cases
       WORKSPACE_MAX_FILE_BYTES: ${WORKSPACE_MAX_FILE_BYTES:-10485760}
+      # /v1/regulation proxies reg-memory (X-Internal-Secret).
+      REG_MEMORY_URL: ${REG_MEMORY_URL:-http://reg-memory:8010}
+      REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:-genai-summit-dev-reg-memory}
+      # Telegram HITL approvals (docs/guides/telegram.md); no token = off.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8080}
     volumes:
       # Written by the mlflow-seed job; read-only here.
       - seed_cases:/seed-cases:ro
@@ -249,10 +258,12 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
       FIRECRAWL_WEBHOOK_SECRET: ${FIRECRAWL_WEBHOOK_SECRET:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-      # RegChange -> backend (best effort); the backend checks it against AGENTS_SERVICE_SECRET.
-      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-}
+      # Telegram goes through the backend (buttons + decisions), so reg-memory sends none itself.
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_CHAT_ID: ""
+      # RegChange -> backend /internal/regulation/changes (stored + Telegram Accept/Reject);
+      # the backend checks the secret against AGENTS_SERVICE_SECRET.
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
       BACKEND_INTERNAL_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
     volumes:
       - reg-memory-data:/data
