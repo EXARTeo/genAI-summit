@@ -1,7 +1,8 @@
 /**
  * Smaller run blocks (magenticx `ArtifactCard`, `TaskRefBlockView`, `TaskSettledMarker` /
  * `ConversationMarkers.TaskMarker`, `plan/PlanChecklist`): a presented artifact (opens the
- * generated attachment it maps to, with Preview / Download on hover), a background task started
+ * generated attachment it maps to in the shared preview, with Preview / Download on hover; a
+ * presented image shows as the image itself and opens the shared lightbox), a background task started
  * or settled, and the agent's plan as a checklist on a rail. magenticx's gradient tile and card
  * fill are flat token surfaces here (no decorative gradients).
  */
@@ -17,13 +18,17 @@ import {
   Loader2,
   Sparkles,
 } from 'lucide-react';
+import { useState } from 'react';
+import { classifyFile } from '@/shared/lib/files';
 import { cn } from '@/shared/lib/utils';
 import { listItem } from '@/shared/lib/motion';
+import { ImageLightbox } from '@/shared/ui';
+import { useAttachmentActions } from '../../hooks/useAttachmentActions';
+import { imageSrc } from '../../lib/attachments';
 import { toTitleCase } from '../../lib/hitl';
 import type { ArtifactBlock, PlanItem, TaskRefBlock, TaskSettledBlock } from '../../lib/timeline';
 import type { AttachmentOut } from '../../lib/types';
 import { useChatUi } from '../chatContext';
-import { downloadAttachment } from './MessageAttachments';
 
 const ROUND_ACTION =
   'grid size-7 place-items-center rounded-full border border-border/50 bg-background/90 text-text shadow-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -37,26 +42,77 @@ export function ArtifactCard({
   attachment?: AttachmentOut;
   messageId: string;
 }) {
-  const { openPreview, conversationId } = useChatUi();
+  const { openPreview } = useChatUi();
+  const { download } = useAttachmentActions();
+  const [expanded, setExpanded] = useState(false);
   const ready = Boolean(attachment);
   const primary = block.title ?? block.filename;
   const secondary = block.summary || block.path;
+  const canPreview = Boolean(attachment) && classifyFile(attachment!).previewable;
   const preview = () => attachment && openPreview({ kind: 'sent', attachment, messageId });
-  const download = () =>
-    attachment && conversationId && void downloadAttachment(conversationId, messageId, attachment);
+  const save = () => attachment && void download(messageId, attachment);
+  // Tapping the card previews when the file can be previewed, else downloads (magenticx).
+  const activate = () => (canPreview ? preview() : save());
+
+  // A presented image is shown as the image itself (magenticx), opening the shared lightbox.
+  const image = attachment ? imageSrc(attachment) : null;
+  if (attachment && image) {
+    return (
+      <motion.figure variants={listItem} initial="initial" animate="animate" className="w-fit max-w-full">
+        <div className="group/artifact relative w-fit max-w-full">
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            aria-label={`View ${primary} larger`}
+            className="block cursor-zoom-in rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <img
+              src={image}
+              alt={block.summary || primary}
+              className="block max-h-[28rem] w-auto max-w-full rounded-2xl border border-border/50 bg-surface-sunken/40 object-contain shadow-sm transition-transform duration-200 group-hover/artifact:scale-[1.01] motion-reduce:transition-none sm:max-w-md"
+            />
+          </button>
+          <button
+            type="button"
+            aria-label={`Download ${primary}`}
+            onClick={save}
+            className={cn(
+              ROUND_ACTION,
+              'absolute right-2.5 top-2.5 size-8 opacity-0 focus-visible:opacity-100 group-hover/artifact:opacity-100 [@media(hover:none)]:opacity-100',
+            )}
+          >
+            <Download className="size-3.5" />
+          </button>
+        </div>
+        <figcaption className="mt-1.5 flex items-center gap-1.5 px-1 text-xs text-muted">
+          <Sparkles className="size-[11px] shrink-0 text-primary/70" aria-hidden />
+          <span className="truncate">{primary}</span>
+        </figcaption>
+        <ImageLightbox
+          images={[
+            { src: image, name: block.filename, alt: block.summary || primary, mime: attachment.mime },
+          ]}
+          index={expanded ? 0 : null}
+          onClose={() => setExpanded(false)}
+          onDownload={save}
+        />
+      </motion.figure>
+    );
+  }
+
   return (
     <motion.div variants={listItem} initial="initial" animate="animate" className="w-full max-w-sm">
       <div
         role={ready ? 'button' : undefined}
         tabIndex={ready ? 0 : undefined}
         aria-label={ready ? `Open ${primary}` : undefined}
-        onClick={ready ? preview : undefined}
+        onClick={ready ? activate : undefined}
         onKeyDown={
           ready
             ? (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  preview();
+                  activate();
                 }
               }
             : undefined
@@ -87,30 +143,30 @@ export function ArtifactCard({
         </div>
         {ready && (
           <div className="pointer-events-none absolute right-2.5 top-2.5 flex items-center gap-1 opacity-0 transition-opacity duration-200 group-focus-within/artifact:pointer-events-auto group-focus-within/artifact:opacity-100 group-hover/artifact:pointer-events-auto group-hover/artifact:opacity-100">
-            <button
-              type="button"
-              aria-label={`Preview ${primary}`}
-              className={ROUND_ACTION}
-              onClick={(e) => {
-                e.stopPropagation();
-                preview();
-              }}
-            >
-              <Eye className="size-3.5" />
-            </button>
-            {conversationId && (
+            {canPreview && (
               <button
                 type="button"
-                aria-label={`Download ${primary}`}
+                aria-label={`Preview ${primary}`}
                 className={ROUND_ACTION}
                 onClick={(e) => {
                   e.stopPropagation();
-                  download();
+                  preview();
                 }}
               >
-                <Download className="size-3.5" />
+                <Eye className="size-3.5" />
               </button>
             )}
+            <button
+              type="button"
+              aria-label={`Download ${primary}`}
+              className={ROUND_ACTION}
+              onClick={(e) => {
+                e.stopPropagation();
+                save();
+              }}
+            >
+              <Download className="size-3.5" />
+            </button>
           </div>
         )}
       </div>

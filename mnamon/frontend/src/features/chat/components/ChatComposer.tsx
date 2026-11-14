@@ -10,6 +10,7 @@
 import { ArrowUp, Loader2, Plus, Square, Target, X } from 'lucide-react';
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -18,12 +19,12 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { Tooltip } from '@/shared/ui';
+import { classifyFile } from '@/shared/lib/files';
+import { FileChip, ImageLightbox, Tooltip } from '@/shared/ui';
 import type { Composer } from '../hooks/useComposer';
-import { formatBytes, previewKind } from '../lib/attachments';
+import type { PendingAttachment } from '../lib/attachments';
 import { matchCommands, type SlashCommand } from '../lib/slashCommands';
-import { useChatUi } from './chatContext';
-import { fileIconFor } from './message_parts/MessageAttachments';
+import { useChatUi, type PreviewTarget } from './chatContext';
 
 export interface ComposerSubject {
   label: string;
@@ -187,69 +188,28 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
         data-busy={running || undefined}
         className="rounded-[1.75rem] border border-border bg-surface shadow-card transition-[border-color,box-shadow] duration-150 focus-within:border-primary/35 focus-within:ring-[3px] focus-within:ring-primary/[0.07]"
       >
-        {(subject || attachments.length > 0) && (
+        {subject && (
           <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3">
-            {subject && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 py-0.5 pl-2 pr-1 text-xs text-primary">
-                <Target className="size-3" />
-                <span>
-                  Discussing: <span className="font-medium">{subject.label}</span>
-                </span>
-                {subject.onClear && (
-                  <button
-                    type="button"
-                    onClick={subject.onClear}
-                    aria-label="Stop discussing this"
-                    className="grid size-4 place-items-center rounded-full hover:bg-primary/15"
-                  >
-                    <X className="size-3" />
-                  </button>
-                )}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 py-0.5 pl-2 pr-1 text-xs text-primary">
+              <Target className="size-3" />
+              <span>
+                Discussing: <span className="font-medium">{subject.label}</span>
               </span>
-            )}
-            {attachments.map((a) => {
-              const Icon = fileIconFor(a);
-              const ready = Boolean(a.dataB64);
-              return (
-                <span
-                  key={a.key}
-                  className="group relative inline-flex max-w-[14rem] items-center gap-1.5 overflow-hidden rounded-lg border border-border bg-surface-muted py-1 pl-1.5 pr-1 text-xs"
+              {subject.onClear && (
+                <button
+                  type="button"
+                  onClick={subject.onClear}
+                  aria-label="Stop discussing this"
+                  className="grid size-4 place-items-center rounded-full hover:bg-primary/15"
                 >
-                  <button
-                    type="button"
-                    className="flex min-w-0 items-center gap-1.5"
-                    onClick={() =>
-                      previewKind(a) !== 'unsupported' && openPreview({ kind: 'pending', attachment: a })
-                    }
-                    aria-label={`Preview ${a.name}`}
-                  >
-                    {ready ? (
-                      <Icon className="size-3.5 shrink-0 text-muted" />
-                    ) : (
-                      <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-                    )}
-                    <span className="truncate">{a.name}</span>
-                    <span className="shrink-0 text-2xs text-muted">{formatBytes(a.size)}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(a.key)}
-                    aria-label={`Remove ${a.name}`}
-                    className="grid size-4 shrink-0 place-items-center rounded text-muted hover:bg-surface hover:text-text"
-                  >
-                    <X className="size-3" />
-                  </button>
-                  {!ready && (
-                    <span
-                      className="absolute bottom-0 left-0 h-0.5 bg-primary transition-[width] duration-150"
-                      style={{ width: `${Math.round(a.progress * 100)}%` }}
-                      aria-hidden
-                    />
-                  )}
-                </span>
-              );
-            })}
+                  <X className="size-3" />
+                </button>
+              )}
+            </span>
           </div>
+        )}
+        {attachments.length > 0 && (
+          <ComposerAttachments attachments={attachments} onRemove={remove} onPreview={openPreview} />
         )}
 
         <textarea
@@ -325,3 +285,100 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     </div>
   );
 });
+
+/**
+ * The files waiting to be sent (magenticx `ChatInputBar` attachment strip): one row that scrolls
+ * sideways with fading edges, images first as 56 px thumbnails (open the lightbox), then file chips
+ * (open the preview). Each chip shows its read progress, a failed read in red, and a remove button.
+ */
+function ComposerAttachments({
+  attachments,
+  onRemove,
+  onPreview,
+}: {
+  attachments: PendingAttachment[];
+  onRemove: (key: string) => void;
+  onPreview: (target: PreviewTarget) => void;
+}) {
+  const ordered = useMemo(() => {
+    const isImage = (a: PendingAttachment) => classifyFile(a).kind === 'image';
+    return [...attachments.filter(isImage), ...attachments.filter((a) => !isImage(a))];
+  }, [attachments]);
+
+  // One object URL per image file, minted when the set of images changes (not on every progress
+  // tick) and revoked with it.
+  const imageFiles = attachments.filter((a) => classifyFile(a).kind === 'image');
+  const imageKeys = imageFiles.map((a) => a.key).join('|');
+  const [thumbs, setThumbs] = useState<Map<string, string>>(() => new Map());
+  useEffect(() => {
+    const created = new Map(imageFiles.map((a) => [a.key, URL.createObjectURL(a.file)] as const));
+    setThumbs(created);
+    return () => created.forEach((url) => URL.revokeObjectURL(url));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageKeys]);
+
+  const images = ordered.filter((a) => thumbs.has(a.key));
+  const [lightbox, setLightbox] = useState<number | null>(null);
+
+  const strip = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = strip.current;
+    if (!el) return;
+    setFade({
+      left: el.scrollLeft > 2,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+    });
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, ordered.length]);
+
+  return (
+    <div className="relative mx-3 mt-3 overflow-hidden rounded-2xl" data-testid="composer-attachments">
+      <div ref={strip} onScroll={measure} className="overflow-x-auto pb-1 pr-6">
+        <div className="flex min-w-max flex-nowrap items-center gap-2">
+          {ordered.map((a) => {
+            const thumb = thumbs.get(a.key);
+            const imageIndex = images.findIndex((x) => x.key === a.key);
+            const previewable = classifyFile(a).previewable;
+            return (
+              <FileChip
+                key={a.key}
+                variant="composer"
+                name={a.name}
+                mime={a.mime}
+                size={a.size}
+                thumbnail={thumb}
+                progress={a.dataB64 ? 1 : a.progress}
+                error={a.error}
+                onOpen={
+                  thumb
+                    ? () => setLightbox(imageIndex)
+                    : previewable
+                      ? () => onPreview({ kind: 'pending', attachment: a })
+                      : undefined
+                }
+                onRemove={() => onRemove(a.key)}
+              />
+            );
+          })}
+        </div>
+      </div>
+      {fade.left && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-5 bg-gradient-to-r from-surface to-transparent" />
+      )}
+      {fade.right && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-5 bg-gradient-to-l from-surface to-transparent" />
+      )}
+      <ImageLightbox
+        images={images.map((a) => ({ src: thumbs.get(a.key) ?? '', name: a.name, mime: a.mime }))}
+        index={lightbox}
+        onIndexChange={setLightbox}
+        onClose={() => setLightbox(null)}
+      />
+    </div>
+  );
+}

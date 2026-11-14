@@ -1,8 +1,9 @@
 /**
- * Composer attachments (port of magenticx `shared/lib/uploadGuards.ts` + the attachment
- * preview registry). Files go to the backend as base64 inside the message JSON, so the limits
+ * Composer attachments (port of magenticx `shared/lib/uploadGuards.ts`; kinds, sizes and the
+ * preview registry are shared in `@/shared/lib/files`). Files go to the backend as base64 inside the message JSON, so the limits
  * here mirror `core/settings.py` (`ATTACHMENT_*`): 25 MB per file, 25 MB per message, 10 files.
  */
+import { classifyFile, guessMime, type FileKind, type FileMeta } from '@/shared/lib/files';
 import type { AttachmentIn, AttachmentOut } from './types';
 
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -21,66 +22,11 @@ export interface PendingAttachment {
   error?: string;
 }
 
-export type PreviewKind =
-  | 'image'
-  | 'pdf'
-  | 'docx'
-  | 'markdown'
-  | 'csv'
-  | 'json'
-  | 'code'
-  | 'text'
-  | 'unsupported';
+/** A MIME type the backend accepts when the browser leaves it empty (shared `guessMime`). */
+export const mimeOf = guessMime;
 
-const ext = (name: string) => /\.([^.]+)$/.exec(name.trim().toLowerCase())?.[1] ?? '';
-
-const CODE_EXT: Record<string, string> = {
-  py: 'python',
-  ts: 'typescript',
-  tsx: 'typescript',
-  js: 'javascript',
-  jsx: 'javascript',
-  sql: 'sql',
-  sh: 'bash',
-  yaml: 'yaml',
-  yml: 'yaml',
-  xml: 'xml',
-  html: 'xml',
-  css: 'css',
-  go: 'go',
-  java: 'java',
-  rs: 'rust',
-};
-
-/** Guess a MIME type the backend accepts when the browser leaves it empty. */
-export function mimeOf(file: { name: string; type?: string }): string {
-  if (file.type) return file.type.toLowerCase();
-  const e = ext(file.name);
-  if (e === 'md' || e === 'markdown') return 'text/markdown';
-  if (e === 'csv') return 'text/csv';
-  if (e === 'json') return 'application/json';
-  if (e === 'yaml' || e === 'yml') return 'application/yaml';
-  if (e === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  if (e === 'pdf') return 'application/pdf';
-  if (CODE_EXT[e] || e === 'txt' || e === 'log') return 'text/plain';
-  return 'application/octet-stream';
-}
-
-export function previewKind(meta: { name: string; mime: string }): PreviewKind {
-  const mime = meta.mime.toLowerCase();
-  const e = ext(meta.name);
-  if (mime.startsWith('image/')) return 'image';
-  if (mime === 'application/pdf' || e === 'pdf') return 'pdf';
-  if (e === 'docx' || mime.includes('wordprocessingml')) return 'docx';
-  if (e === 'md' || e === 'markdown' || mime === 'text/markdown') return 'markdown';
-  if (e === 'csv' || mime === 'text/csv') return 'csv';
-  if (e === 'json' || mime === 'application/json') return 'json';
-  if (CODE_EXT[e]) return 'code';
-  if (mime.startsWith('text/') || ['txt', 'log'].includes(e)) return 'text';
-  return 'unsupported';
-}
-
-export const codeLanguage = (name: string) => CODE_EXT[ext(name)];
+/** The preview kind of a file (shared `classifyFile`). */
+export const previewKind = (meta: FileMeta): FileKind => classifyFile(meta).kind;
 
 /** Why these files cannot be added to `existing`, or null when they can. */
 export function checkFiles(files: File[], existing: { size: number }[]): string | null {
@@ -112,13 +58,6 @@ export function readAsBase64(file: File, onProgress?: (p: number) => void): Prom
 
 export function toAttachmentIn(p: PendingAttachment): AttachmentIn {
   return { name: p.name, mime: p.mime, dataB64: p.dataB64 ?? '', size: p.size };
-}
-
-export function formatBytes(n: number | null | undefined): string {
-  if (!n && n !== 0) return '';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 /** Inline image source for an attachment that carries its bytes. */

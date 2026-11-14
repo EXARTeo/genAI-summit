@@ -1,7 +1,8 @@
 /**
  * Composer state (port of magenticx `hooks/useComposer.ts`): the draft and the attached files.
  * Files are read to base64 as soon as they are added, with progress, so sending never waits on a
- * big read; a file that fails or breaks a limit is refused with a toast.
+ * big read; a file that breaks a limit is refused with a toast, one that cannot be read stays as a
+ * failed chip (blocking Send) until it is removed.
  */
 import { useCallback, useRef, useState } from 'react';
 import { toast } from '@/shared/ui';
@@ -39,8 +40,9 @@ export function useComposer() {
       readAsBase64(a.file, (p) => update(a.key, { progress: p }))
         .then((dataB64) => update(a.key, { dataB64, progress: 1 }))
         .catch(() => {
+          // The chip stays, in its error state, until the user removes it.
           toast.error(`Could not read ${a.name}`);
-          setAttachments((list) => list.filter((x) => x.key !== a.key));
+          update(a.key, { error: 'Could not read the file' });
         });
     }
   }, []);
@@ -54,8 +56,9 @@ export function useComposer() {
     setAttachments([]);
   }, []);
 
-  const reading = attachments.some((a) => !a.dataB64);
-  const canSend = (draft.trim().length > 0 || attachments.length > 0) && !reading;
+  const reading = attachments.some((a) => !a.dataB64 && !a.error);
+  const failed = attachments.some((a) => a.error);
+  const canSend = (draft.trim().length > 0 || attachments.length > 0) && !reading && !failed;
 
   return { draft, setDraft, attachments, addFiles, remove, reset, reading, canSend };
 }
