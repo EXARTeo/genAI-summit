@@ -41,7 +41,7 @@ def applicable(
             continue
         if cond.get("risk_class") and (not risk_class or risk_class not in cond["risk_class"]):
             continue
-        if cond.get("basis") and family and family not in cond["basis"]:
+        if cond.get("basis") and (not family or family not in cond["basis"]):
             continue
         if cond.get("features_any") and not feats & set(cond["features_any"]):
             continue

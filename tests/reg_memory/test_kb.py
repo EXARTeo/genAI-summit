@@ -310,5 +310,6 @@ def test_requirements_applicability():
     ids = {r["id"] for r in chatbot}
     assert "REQ.AIA.50.1.ai-interaction-disclosure" in ids
     assert "REQ.AIA.10.2.f.bias-examination" not in ids
+    assert "REQ.AIA.6.2.annex-iii-high-risk" not in ids  # needs an Annex III basis
     assert all(r["in_force"] for r in chatbot)
     assert applicable(reqs, role="deployer", risk_class="high") == []

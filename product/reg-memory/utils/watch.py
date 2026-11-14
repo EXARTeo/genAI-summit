@@ -28,6 +28,7 @@ from engine.watch.discovery import load_state
 from utils import state
 
 logger = get_logger(__name__)
+MAIN_TEXT_DOC = "ai-act-consolidated"  # provisions come from it: no text = no release
 _tasks: dict[str, asyncio.Task] = {}
 _scheduler: asyncio.Task | None = None
 _status: dict[str, Any] = {"last_scheduled_at": None, "next_run_at": None}
@@ -98,19 +99,20 @@ async def build_release_now(force: bool = False) -> dict[str, Any]:
 
 
 async def bootstrap() -> None:
-    """Empty store: first full check (download + baseline release + discovery baseline).
-    Text but no release yet: just build and activate the baseline."""
+    """No release yet: with the AI Act text on disk, build and activate the baseline;
+    otherwise (empty or half-downloaded store) run a first full check: download what is
+    missing, extract, baseline release, discovery baseline."""
     store = state.get_store()
     try:
-        if store.is_empty():
-            if settings.app.bootstrap_on_start:
-                _, task = start_check(None, trigger="bootstrap")
-                await task
+        if state.get_kb().versions():
             return
-        if not state.get_kb().versions():
+        if store.read_text(MAIN_TEXT_DOC):
             async with state.write_lock(), state.client_factory() as client:
                 result = await release_and_change(_deps(client), trigger="bootstrap")
             logger.info("baseline_release", "Baseline release built", **result)
+        elif settings.app.bootstrap_on_start:
+            _, task = start_check(None, trigger="bootstrap")
+            await task
     except Exception:
         logger.exception("bootstrap_failed", "Bootstrap failed")
 
