@@ -574,6 +574,16 @@ class InferenceRunManager:
                 "completedAt": None,
                 "cancelRequestedAt": None,
             }
+            # A conversation scoped to an audited system: the agents service
+            # mounts that system's memory (docs/contracts/agents-contract.md).
+            memory_scope = {
+                key: value
+                for key, value in (
+                    ("system_id", conversation.system_id),
+                    ("audit_id", conversation.audit_id),
+                )
+                if value
+            }
 
             # How to feed the agent against its durable checkpoint thread:
             #   delta_resume — the branch thread already has committed state
@@ -632,6 +642,7 @@ class InferenceRunManager:
                 "client_id": client_id,
                 "conversation_id": str(run_meta["conversationId"]),
                 "run_id": run_id,
+                **memory_scope,
             },
         }
         if fork_from is not None:

@@ -329,3 +329,26 @@ async def test_startup_cleanup_fails_orphaned_runs(run_sessions):
         run = await session.get(MessageTable, run_id)
     assert run.streaming_status == "failed"
     assert "restart" in run.error_message
+
+
+async def test_a_system_scoped_conversation_sends_its_system_to_the_agent(
+    client, agents_service, run_sessions
+):
+    """The agents service mounts that system's memory (agents contract § Config)."""
+    created = await client.post("/v1/systems", json={"id": "SYS-001", "name": "x"})
+    assert created.status_code == 201
+    agents_service.on("POST", STREAM_PATH, sse_reply(*answer("ok")))
+    response = await client.post(
+        START,
+        json={
+            "mode": "new",
+            "agentSlug": "test-agent",
+            "systemId": "SYS-001",
+            "message": {"sender": "user", "content": "Plan the tests"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    await finished(response.json()["run"]["id"], run_sessions)
+    context = _bodies(agents_service)[-1]["config"]["context"]
+    assert context["system_id"] == "SYS-001"
+    assert "audit_id" not in context
