@@ -100,7 +100,6 @@ export interface ApprovalIn {
 export interface ApprovalResult {
   approval: Approval;
   artifact: Artifact | null;
-  memoryProposalPath: string | null;
 }
 
 // ---- typed artifact payloads -------------------------------------------------
@@ -115,7 +114,6 @@ export interface ContextData {
   system: { id: string; name: string; annex: string; role: string; intendedPurpose: string };
   requirements: { id: string; title: string; provision: string; testable: boolean }[];
   plugins: { name: string; accessType: string; placement: string }[];
-  memoryApplied: string[];
   filesRead: { path: string; version: number }[];
 }
 
@@ -136,7 +134,6 @@ export interface Scenario {
   n: number;
   priority: 'high' | 'medium' | 'low';
   rationale: string;
-  memory?: string[];
 }
 
 export interface ScenariosData {
@@ -151,7 +148,7 @@ export interface ScenarioAnalysisData {
   summary: string;
 }
 
-export type Provenance = 'dictionary' | 'training_doc' | 'memory' | 'llm_assumption';
+export type Provenance = 'dictionary' | 'training_doc' | 'business_rule' | 'llm_assumption';
 
 export interface GenerationSpecData {
   testSpec: string;
@@ -196,7 +193,6 @@ export interface DatasetAnalysisData {
   }[];
   twins: TwinPair[];
   limitations: string[];
-  memoryApplied?: string[];
 }
 
 export type Verdict = 'supports_compliance' | 'indicates_gap' | 'inconclusive' | 'not_assessable_by_testing';
@@ -219,7 +215,6 @@ export interface Finding {
   wouldChangeIf: string[];
   reasoning: string;
   citations: Citation[];
-  memoryApplied?: string[];
   critic?: { originalVerdict: Verdict; adjusted: boolean; note: string };
 }
 

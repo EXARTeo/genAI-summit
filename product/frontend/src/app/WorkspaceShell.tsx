@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from '@/error_boundary';
-import { MemorySheet } from '@/features/memory/components/MemorySheet';
 import { pageTransition } from '@/shared/lib/motion';
 import { useUiStore } from '@/shared/stores/ui';
 import { Skeleton, SkeletonCard, Toaster } from '@/shared/ui';
@@ -74,7 +73,6 @@ export function WorkspaceShell() {
 
       <NavBadgesSync />
       <CommandPalette />
-      <MemorySheet />
       <Toaster />
     </div>
   );

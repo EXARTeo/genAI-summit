@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Brain, Check, MessageSquareWarning, X } from 'lucide-react';
+import { Check, MessageSquareWarning, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ArtifactBody } from '@/features/audits/components/ArtifactPanel';
 import { TraceLink } from '@/features/audits/components/artifact_parts/common';
@@ -14,18 +14,7 @@ import type {
   ScenarioAnalysisData,
 } from '@/features/audits/lib/types';
 import { cn } from '@/shared/lib/utils';
-import {
-  Badge,
-  Button,
-  ErrorState,
-  Field,
-  Sheet,
-  Skeleton,
-  Switch,
-  Tabs,
-  Textarea,
-  toast,
-} from '@/shared/ui';
+import { Badge, Button, ErrorState, Field, Sheet, Skeleton, Tabs, Textarea, toast } from '@/shared/ui';
 import {
   DECISIONS,
   EMPTY_DRAFT,
@@ -142,18 +131,14 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
     setTouched(true);
     if (!gate || errors.length) return;
     decide.mutate(toApprovalIn(gate, draft, reviewed[0]?.id), {
-      onSuccess: (res) => {
+      onSuccess: () => {
         if (draft.decision === 'approved') {
           setBurst(true);
           setTimeout(() => onOpenChange(false), 1500);
         } else {
           onOpenChange(false);
         }
-        toast.success(`${DECISIONS[draft.decision!].label}: ${stage?.label ?? gate}`, {
-          description: res.memoryProposalPath
-            ? `Memory proposal written to ${res.memoryProposalPath}`
-            : undefined,
-        });
+        toast.success(`${DECISIONS[draft.decision!].label}: ${stage?.label ?? gate}`);
       },
       onError: (e) => toast.error('Could not record the decision', { description: (e as Error).message }),
     });
@@ -369,7 +354,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                   })}
                 </div>
               </Field>
-              <Field label="Comment" hint="Becomes the memory's rationale if you save it.">
+              <Field label="Comment">
                 <Textarea
                   rows={3}
                   value={draft.comment}
@@ -377,27 +362,6 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                   placeholder={draft.decision === 'approved' ? 'Optional note' : 'What should change?'}
                 />
               </Field>
-              <div className="space-y-2 rounded-lg border border-border p-3">
-                <label className="flex items-center gap-3 text-sm">
-                  <Switch
-                    checked={draft.memoryScope !== 'none'}
-                    onCheckedChange={(on) => setDraft((x) => ({ ...x, memoryScope: on ? 'system' : 'none' }))}
-                  />
-                  <Brain className="size-4 text-muted" />
-                  Save as memory for {audit.systemId}
-                </label>
-                {draft.memoryScope !== 'none' && (
-                  <label className="flex items-center gap-3 pl-12 text-sm">
-                    <Switch
-                      checked={draft.memoryScope === 'org'}
-                      onCheckedChange={(on) =>
-                        setDraft((x) => ({ ...x, memoryScope: on ? 'org' : 'system' }))
-                      }
-                    />
-                    Propose org-wide (the AI Officer approves)
-                  </label>
-                )}
-              </div>
             </div>
           </div>
         )}

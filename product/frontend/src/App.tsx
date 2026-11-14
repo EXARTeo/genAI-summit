@@ -10,7 +10,6 @@ const AuditsView = lazy(() => import('./pages/AuditsView'));
 const ApprovalsView = lazy(() => import('./pages/ApprovalsView'));
 const RegulationView = lazy(() => import('./pages/RegulationView'));
 const ChatView = lazy(() => import('./pages/ChatView'));
-const SettingsView = lazy(() => import('./pages/SettingsView'));
 const NotFoundView = lazy(() => import('./pages/NotFoundView'));
 
 export default function App() {
@@ -25,7 +24,6 @@ export default function App() {
         <Route path="approvals/*" element={<ApprovalsView />} />
         <Route path="regulation/*" element={<RegulationView />} />
         <Route path="chat/*" element={<ChatView />} />
-        <Route path="settings" element={<SettingsView />} />
         <Route path="*" element={<NotFoundView />} />
       </Route>
     </Routes>

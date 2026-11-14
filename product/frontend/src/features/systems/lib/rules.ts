@@ -28,7 +28,6 @@ export function parseBusinessRules(markdown: string, plugin: string): BusinessRu
         title: heading,
         kind: kindFor(heading),
         text: bullet[1].trim(),
-        status: 'active',
       };
       rules.push(current);
       continue;
@@ -39,34 +38,30 @@ export function parseBusinessRules(markdown: string, plugin: string): BusinessRu
   return rules;
 }
 
-export function slugify(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'rule'
-  );
+const UI_HEADING: Record<BusinessRule['kind'], string> = {
+  hard: 'Constraints added in the UI',
+  soft: 'Soft rules added in the UI',
+  policy: 'Policies added in the UI',
+};
+
+/** The plugin file a business rule lives in. */
+export function businessRulesPath(plugin: string): string {
+  return `plugins/${plugin}/data/business-rules.md`;
 }
 
-/** The YAML stored as a memory proposal for a new business rule. */
-export function ruleProposalYaml(v: {
-  systemId: string;
-  plugin: string;
-  kind: string;
-  text: string;
-  rationale: string;
-}): string {
-  const q = (s: string) => JSON.stringify(s);
-  return [
-    `scope: system:${v.systemId}`,
-    'kind: business_rule',
-    `applies_to: {plugin: ${q(v.plugin)}}`,
-    `rule_kind: ${v.kind}`,
-    `rule: ${q(v.text)}`,
-    `rationale: ${q(v.rationale)}`,
-    'status: proposed',
-    'author: user:ui',
-    '',
-  ].join('\n');
+/**
+ * Append a rule to a business-rules.md as a bullet under a "… added in the UI" heading
+ * whose wording makes `parseBusinessRules` read it back with the same kind.
+ */
+export function appendRule(markdown: string, kind: BusinessRule['kind'], text: string): string {
+  const heading = `## ${UI_HEADING[kind]}`;
+  const bullet = `- ${text.replace(/\s+/g, ' ').trim()}`;
+  const lines = markdown.replace(/\s+$/, '').split('\n');
+  const at = lines.indexOf(heading);
+  if (at < 0) return [...(markdown.trim() ? [...lines, ''] : []), heading, '', bullet, ''].join('\n');
+  let end = at + 1;
+  while (end < lines.length && !/^#{1,3}\s/.test(lines[end])) end++;
+  while (end > at + 1 && !lines[end - 1].trim()) end--;
+  lines.splice(end, 0, bullet);
+  return `${lines.join('\n')}\n`;
 }

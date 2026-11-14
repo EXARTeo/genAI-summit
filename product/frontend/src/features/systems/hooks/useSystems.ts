@@ -6,9 +6,11 @@ import {
   fetchFileVersions,
   fetchSystem,
   fetchSystems,
-  proposeRule,
+  writeTextFile,
   uploadFile,
 } from '../handlers/systems';
+import { appendRule, businessRulesPath } from '../lib/rules';
+import type { BusinessRule } from '../lib/types';
 
 export const systemKeys = {
   all: ['systems'] as const,
@@ -69,9 +71,20 @@ export function useUploadFiles(id: string) {
   });
 }
 
-export function useProposeRule(systemId: string) {
+/** Append a business rule to the plugin's data/business-rules.md (a new file version). */
+export function useAddRule(systemId: string) {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { slug: string; yaml: string; reason: string }) =>
-      proposeRule(systemId, v.slug, v.yaml, v.reason),
+    mutationFn: async (v: { plugin: string; kind: BusinessRule['kind']; text: string; reason: string }) => {
+      const path = businessRulesPath(v.plugin);
+      const current = await fetchFile(systemId, path);
+      return writeTextFile(systemId, path, appendRule(current.text ?? '', v.kind, v.text), v.reason);
+    },
+    onSuccess: (_res, v) => {
+      qc.invalidateQueries({ queryKey: ['systems', systemId, 'file', businessRulesPath(v.plugin)] });
+      qc.invalidateQueries({ queryKey: systemKeys.versions(systemId, businessRulesPath(v.plugin)) });
+      qc.invalidateQueries({ queryKey: systemKeys.files(systemId) });
+      qc.invalidateQueries({ queryKey: systemKeys.events(systemId) });
+    },
   });
 }

@@ -1,4 +1,4 @@
-import { mockSystems, ruleProposals, writeFile } from '../fixtures/systems';
+import { mockSystems, writeFile } from '../fixtures/systems';
 import { MockResponse, mockError, type MockRoute } from '../types';
 
 const notFound = () => mockError(404, 'System not found');
@@ -58,30 +58,6 @@ export const routes: MockRoute[] = [
       if (!mockSystems.get(params.systemId)) return notFound();
       const { text, reason } = await bodyText(body);
       return writeFile(params.systemId, params.path, text, 'user:demo', reason);
-    },
-  },
-  {
-    method: 'PUT',
-    path: '/v1/memory/proposals/files/rules/*path',
-    handler: async ({ params, body }) => {
-      const { text } = await bodyText(body);
-      const at = new Date().toISOString();
-      ruleProposals.push({ path: `rules/${params.path}`, text, at });
-      return {
-        file: {
-          namespace: 'memory:proposals',
-          path: `rules/${params.path}`,
-          version: 1,
-          contentType: 'application/yaml',
-          size: text.length,
-          sha256: '0'.repeat(64),
-          createdBy: 'user:demo',
-          isCurrent: true,
-          data: {},
-          createdAt: at,
-        },
-        changed: true,
-      };
     },
   },
 ];

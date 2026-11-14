@@ -30,7 +30,6 @@ const SHOTS = [
   ['system-folder', '/systems/SYS-001/folder'],
   ['system-plugins', '/systems/SYS-001/plugins'],
   ['system-rules', '/systems/SYS-001/rules'],
-  ['system-lessons', '/systems/SYS-001/lessons'],
   ['audits', '/audits'],
   ['audit-profile', '/audits/aud-sys001-r2?step=profile_model'],
   ['audit-datasets', '/audits/aud-sys001-r2?step=analyse_datasets'],
@@ -50,22 +49,9 @@ const SHOTS = [
       await page.waitForTimeout(900);
     },
   ],
-  [
-    'memory-sheet',
-    '/audits/aud-sys001-r2?step=analyse',
-    async (page) => {
-      await page
-        .getByRole('button', { name: /MEM-0042/ })
-        .first()
-        .click();
-      await page.waitForTimeout(700);
-    },
-  ],
   ['regulation', '/regulation'],
   ['regulation-sources', '/regulation?tab=sources'],
   ['chat', '/chat'],
-  ['settings', '/settings'],
-  ['settings-rules', '/settings?tab=rules'],
   ['not-found', '/nope'],
 ];
 

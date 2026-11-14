@@ -14,7 +14,7 @@ import { cn } from '@/shared/lib/utils';
 import { Badge, KeyValue, Markdown } from '@/shared/ui';
 import { TONE_CLASSES, ciCrosses, formatCI, trafficTone, verdictStyle } from '../../lib/styling';
 import type { CriticData, Finding, FindingsData, ReportData } from '../../lib/types';
-import { CitationChip, ConfidenceBar, MemoryChips, SubHeading, VerdictPill } from './common';
+import { CitationChip, ConfidenceBar, SubHeading, VerdictPill } from './common';
 
 /** Metric value with its CI on a small number line, threshold marked. */
 function CIBar({ metric }: { metric: NonNullable<Finding['metric']> }) {
@@ -153,11 +153,6 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
               <CitationChip key={c.provision} c={c} />
             ))}
           </div>
-          {f.memoryApplied && (
-            <div className="pt-3">
-              <MemoryChips ids={f.memoryApplied} />
-            </div>
-          )}
         </motion.div>
       )}
     </motion.div>

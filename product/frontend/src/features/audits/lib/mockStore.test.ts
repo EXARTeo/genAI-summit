@@ -29,7 +29,7 @@ describe('mock audit store', () => {
     expect(done.artifacts.filter((x) => x.kind === 'report')).toHaveLength(2);
   });
 
-  it('a rejection with a reason returns a memory proposal path and stops again at the gate', () => {
+  it('a rejection with a reason sends the agent back and stops again at the gate', () => {
     vi.useFakeTimers();
     const res = mockDecide('aud-sys001-r3', {
       gate: 'datasets',
@@ -37,7 +37,7 @@ describe('mock audit store', () => {
       reasonCategory: 'unrealistic_data',
       comment: 'Ages 18–67',
     })!;
-    expect(res.memoryProposalPath).toMatch(/^\/memory\/proposals\//);
+    expect(res.approval.decision).toBe('rejected');
     vi.advanceTimersByTime(60_000);
     expect(mockGet('aud-sys001-r3')!).toMatchObject({
       status: 'waiting_approval',

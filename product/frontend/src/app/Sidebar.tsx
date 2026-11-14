@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { useNavBadges } from '@/shared/stores/nav';
 import { useUiStore } from '@/shared/stores/ui';
 import { Logo, Tooltip } from '@/shared/ui';
-import { NAV_ITEMS, SETTINGS_ITEM, type NavItem } from './nav';
+import { NAV_ITEMS, type NavItem } from './nav';
 
 function NavEntry({
   item,
@@ -78,7 +78,6 @@ export function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; 
         ))}
       </nav>
       <div className="space-y-0.5 px-2 py-2">
-        <NavEntry item={SETTINGS_ITEM} collapsed={collapsed} onNavigate={onNavigate} />
         <AnimatePresence initial={false}>
           {!collapsed && env.useMocks && (
             <motion.div

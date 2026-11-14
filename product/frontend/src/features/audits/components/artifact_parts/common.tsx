@@ -1,7 +1,6 @@
-import { BookMarked, Brain, ExternalLink, Scale } from 'lucide-react';
+import { BookMarked, ExternalLink, Scale } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { useUiStore } from '@/shared/stores/ui';
 import { Badge, Tooltip } from '@/shared/ui';
 import { traceUrl } from '../../lib/langfuse';
 import { TONE_CLASSES, confidenceLabel, verdictStyle, type Tone } from '../../lib/styling';
@@ -38,35 +37,6 @@ export function ConfidenceBar({ value }: { value: number }) {
       <span className="num">
         {Math.round(value * 100)}% · {confidenceLabel(value)}
       </span>
-    </div>
-  );
-}
-
-/** "applied MEM-0042" chip: opens the lesson in the global memory side sheet. */
-export function MemoryChip({ id, prefix = 'applied' }: { id: string; prefix?: string }) {
-  const open = useUiStore((s) => s.openMemory);
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        open(id);
-      }}
-      className="inline-flex h-5 items-center gap-1 rounded-md border border-border bg-surface px-1.5 text-2xs font-medium text-muted transition-colors hover:border-primary/40 hover:text-text [&_svg]:size-3"
-    >
-      <Brain className="text-primary" />
-      {prefix} <span className="num font-mono">{id}</span>
-    </button>
-  );
-}
-
-export function MemoryChips({ ids }: { ids?: string[] }) {
-  if (!ids?.length) return null;
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {ids.map((m) => (
-        <MemoryChip key={m} id={m} />
-      ))}
     </div>
   );
 }

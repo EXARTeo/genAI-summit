@@ -14,9 +14,10 @@ import type {
   ScenarioAnalysisData,
   ScenariosData,
 } from './types';
+import { mockTime } from '@/shared/lib/mocks/time';
 
 const KB = '2026.11.14-1';
-const T0 = '2026-11-14T15:02:00Z';
+const T0 = mockTime('2026-11-14T15:02:00Z');
 
 const context: ContextData = {
   system: {
@@ -63,14 +64,11 @@ const context: ContextData = {
     { name: 'ranker', accessType: 'mlflow_model', placement: 'scores parsed CV features → shortlist' },
     { name: 'cv-parser', accessType: 'rest', placement: 'PDF → structured features (upstream of ranker)' },
   ],
-  memoryApplied: ['MEM-0042', 'MEM-0057'],
   filesRead: [
     { path: '/systems/SYS-001/system-card.yaml', version: 3 },
     { path: '/systems/SYS-001/plugins/ranker/plugin.yaml', version: 2 },
     { path: '/systems/SYS-001/plugins/ranker/data/data-dictionary.yaml', version: 2 },
     { path: '/systems/SYS-001/plugins/ranker/data/training-data.md', version: 1 },
-    { path: '/memory/org/INDEX.md', version: 4 },
-    { path: '/memory/systems/SYS-001/INDEX.md', version: 2 },
   ],
 };
 
@@ -142,8 +140,7 @@ const scenarios: ScenariosData = {
       groups: ['nationality'],
       n: 1200,
       priority: 'high',
-      rationale: 'Primary metric is equal opportunity, not demographic parity (applied MEM-0042).',
-      memory: ['MEM-0042'],
+      rationale: 'Primary metric is equal opportunity, not demographic parity.',
     },
     {
       id: 'TS-003',
@@ -184,7 +181,6 @@ const scenarios: ScenariosData = {
       n: 800,
       priority: 'low',
       rationale: 'cv-parser drops fields on scanned PDFs (plugin notes); the ranker must degrade gracefully.',
-      memory: ['MEM-0057'],
     },
   ],
 };
@@ -221,7 +217,7 @@ const scenarioAnalysis: ScenarioAnalysisData = {
   diff: {
     added: ['TS-003', 'TS-004'],
     removed: [],
-    changed: ['TS-002: demographic parity → equal opportunity (MEM-0042)'],
+    changed: ['TS-002: demographic parity → equal opportunity'],
   },
 };
 
@@ -239,7 +235,7 @@ nodes:
     provenance: dictionary
   age:
     dist: uniform(18, 67)
-    provenance: memory                # applied MEM-0057
+    provenance: business_rule         # plugins/ranker/data/business-rules.md
   postcode_region:
     given: nationality
     table:
@@ -283,7 +279,7 @@ const generationSpec: GenerationSpecData = {
     },
   ],
   diff: [
-    { field: 'age', before: 'uniform(18, 75)', after: 'uniform(18, 67)', provenance: 'memory' },
+    { field: 'age', before: 'uniform(18, 75)', after: 'uniform(18, 67)', provenance: 'business_rule' },
     {
       field: 'postcode_region',
       before: '(independent of nationality)',
@@ -298,7 +294,6 @@ const datasetAnalysis: DatasetAnalysisData = {
   name: 'SYS-001.ranker.counterfactual-twins',
   rows: 2400,
   pairs: 1200,
-  memoryApplied: ['MEM-0057'],
   gates: {
     schema: { status: 'pass', metrics: { columns: 11, signature_match: true } },
     business_rules: { status: 'pass', metrics: { hard_violations: 0, 'soft R4': 0.01, rejected_rows: 37 } },
@@ -479,7 +474,6 @@ const findings: FindingsData = {
         },
         { provision: 'AI Act Annex III 4(a)', kbVersion: KB },
       ],
-      memoryApplied: ['MEM-0042'],
       critic: {
         originalVerdict: 'indicates_gap',
         adjusted: false,
@@ -535,12 +529,11 @@ const findings: FindingsData = {
       ],
       counterEvidence: ['The CI crosses the threshold; the gap may be sampling noise.'],
       wouldChangeIf: ['Doubling N narrows the CI below or above 0.05.'],
-      reasoning: 'Gap at 0.06 is inconclusive when the CI crosses the threshold (applied MEM-0061).',
+      reasoning: 'Gap at 0.06 is inconclusive when the CI crosses the threshold.',
       citations: [
         { provision: 'AI Act Art. 15(1)', kbVersion: KB },
         { provision: 'AI Act Art. 15(3)', kbVersion: KB },
       ],
-      memoryApplied: ['MEM-0061'],
       critic: {
         originalVerdict: 'indicates_gap',
         adjusted: true,
@@ -563,7 +556,6 @@ const findings: FindingsData = {
       wouldChangeIf: ['Adversarial keyword stuffing changes rankings materially.'],
       reasoning: 'Degradation is small and monotone.',
       citations: [{ provision: 'AI Act Art. 15(4)', kbVersion: KB }],
-      memoryApplied: ['MEM-0057'],
     },
     {
       id: 'F-005',
@@ -792,7 +784,7 @@ export function buildMockAudits(): AuditDetail[] {
       summary: { gaps: 1, supports: 2, inconclusive: 1, notAssessable: 1 },
     },
     createdAt: T0,
-    updatedAt: '2026-11-14T15:31:00Z',
+    updatedAt: mockTime('2026-11-14T15:31:00Z'),
     artifacts: fullArtifacts('aud-sys001-r2'),
     approvals: [
       approval('aud-sys001-r2', 'scenarios', 6, { comment: 'Good call on equal opportunity.' }),
@@ -819,8 +811,8 @@ export function buildMockAudits(): AuditDetail[] {
       stageDurations: Object.fromEntries(Object.entries(durations).slice(0, 8)),
       trigger: 'RC-0007: Commission guidelines on Art. 10 bias detection',
     },
-    createdAt: '2026-11-14T17:40:00Z',
-    updatedAt: '2026-11-14T17:52:00Z',
+    createdAt: mockTime('2026-11-14T17:40:00Z'),
+    updatedAt: mockTime('2026-11-14T17:52:00Z'),
     artifacts: fullArtifacts(waitingId, 'proposed').filter((a) =>
       [
         'context',
@@ -851,8 +843,8 @@ export function buildMockAudits(): AuditDetail[] {
       stageTraces: traces('tr-sys002-r1'),
       stageDurations: { load_context: 2.9, profile_model: 37 },
     },
-    createdAt: '2026-11-14T18:05:00Z',
-    updatedAt: '2026-11-14T18:06:00Z',
+    createdAt: mockTime('2026-11-14T18:05:00Z'),
+    updatedAt: mockTime('2026-11-14T18:06:00Z'),
     artifacts: [
       art(
         sys2Id,
@@ -866,11 +858,7 @@ export function buildMockAudits(): AuditDetail[] {
             role: 'provider',
             intendedPurpose: 'Score consumer credit applications; an officer approves every decision.',
           },
-          memoryApplied: ['MEM-0042'],
-          filesRead: [
-            { path: '/systems/SYS-002/system-card.yaml', version: 1 },
-            { path: '/memory/org/INDEX.md', version: 4 },
-          ],
+          filesRead: [{ path: '/systems/SYS-002/system-card.yaml', version: 1 }],
         },
         0,
         'proposed',

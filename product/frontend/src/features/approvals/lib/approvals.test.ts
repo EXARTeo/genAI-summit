@@ -38,7 +38,7 @@ describe('decision draft', () => {
     expect(validateDraft({ ...EMPTY_DRAFT, decision: 'approved', reasonCategory: 'other' })).toEqual([]);
   });
 
-  it('requires a comment to reject or to save a memory', () => {
+  it('requires a comment to reject', () => {
     const reject = {
       ...EMPTY_DRAFT,
       decision: 'rejected' as const,
@@ -46,17 +46,13 @@ describe('decision draft', () => {
     };
     expect(validateDraft(reject)).toHaveLength(1);
     expect(validateDraft({ ...reject, comment: 'Ages must be 18–67' })).toEqual([]);
-    expect(
-      validateDraft({ ...EMPTY_DRAFT, decision: 'approved', reasonCategory: 'other', memoryScope: 'org' }),
-    ).toHaveLength(1);
   });
 
-  it('builds the backend payload with the memory scope in edits', () => {
+  it('builds the backend payload', () => {
     const body = toApprovalIn('datasets', {
       decision: 'rejected',
       reasonCategory: 'unrealistic_data',
       comment: ' Ages must be 18–67 ',
-      memoryScope: 'system',
     });
     expect(body).toEqual({
       gate: 'datasets',
@@ -64,7 +60,7 @@ describe('decision draft', () => {
       artifactId: null,
       reasonCategory: 'unrealistic_data',
       comment: 'Ages must be 18–67',
-      edits: { memory: { scope: 'system' } },
+      edits: {},
     });
     expect(() => toApprovalIn('datasets', EMPTY_DRAFT)).toThrow();
   });

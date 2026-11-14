@@ -2,7 +2,7 @@
 
 The engineer workspace: `product/frontend/` (Vite + React 18 + TypeScript + Tailwind, shadcn-style
 Radix primitives). Served by nginx in the `frontend` compose service, which also proxies `/api` to the
-backend. The audit, approvals, memory and regulation pages are described in
+backend. The audit, approvals and regulation pages are described in
 [frontend-audit-workflow.md](frontend-audit-workflow.md); this page covers the scaffold, information
 architecture, design rules, motion, brand, mock mode, visual QA and the home and systems features.
 
@@ -44,23 +44,19 @@ src/
 
 ## Information architecture
 
-Sidebar: **Home, Systems, Audits, Approvals** (open-gate count), **Regulation, Chat**; **Settings** at the bottom.
-There is no top-level Memory page: memory lives where it is used.
+Sidebar: **Home, Systems, Audits, Approvals** (open-gate count), **Regulation, Chat**. No Settings page for now (theme toggle in
+the top bar and the ⌘K palette). **Agent memory is not shown in the UI at all**: the agents decide what to remember;
+the UI shows files (system folders, business rules) and audit artifacts only.
 
 | Route | What |
 | --- | --- |
 | `/` | Home: what needs me now (decisions waiting, agents at work, recent findings, systems at risk, latest regulation change) |
-| `/systems`, `/systems/:id[/folder\|plugins\|rules\|lessons]` | Systems table and system detail; **Lessons** = this system's memory entries |
+| `/systems`, `/systems/:id[/folder\|plugins\|rules]` | Systems table and system detail |
 | `/audits`, `/audits/:id[?step=<stage>]` | Audit runs table and the audit run console (`?step=` deep-links and pins a step) |
 | `/approvals` | Open HITL gates; opens the approval drawer |
 | `/regulation[?tab=changes\|sources]` | Regulation-change inbox and sources |
 | `/chat` | Placeholder (composer shown disabled) |
-| `/settings[?tab=rules\|appearance\|connection]` | **Organisation rules** (org-wide memory), theme, connection |
-| `*` | 404 (also `/memory`, which was removed) |
-
-Memory in context: `applied MEM-…` chips (findings, specs, scenarios, context) open a global side sheet
-(`features/memory/components/MemorySheet.tsx`, driven by `useUiStore.openMemory(id)`); System → Lessons and
-Settings → Organisation rules both use `MemoryBrowser` (list + detail for one scope, selection in `?entry=`).
+| `*` | 404 (also `/memory` and `/settings`, which were removed) |
 
 ## Design rules
 
@@ -143,14 +139,16 @@ Mock mode (`VITE_USE_MOCKS=true`): `api.ts` calls `mockFetch` instead of `fetch`
 and adds 180–500 ms latency. **Add mocks by dropping a file in `src/shared/lib/mocks/handlers/` that exports
 `routes: MockRoute[]`** (`{method, path: '/v1/x/:id/files/*path', handler}`); it is picked up automatically.
 The systems mocks serve SYS-001..004 from the real seed dossiers (`fixtures/seed-cases.json`) with versioned,
-writable files.
+writable files. Fixture timestamps go through `mocks/time.ts` (`mockTime`), which shifts them so the newest lands
+a few minutes before page load: mock events read "x minutes ago", never "in x minutes" (`formatRelative` also
+shows any future timestamp as "just now").
 
 ## Visual QA
 
 `npm run shots` (`scripts/shots.mjs`) starts Vite in mock mode on a free port (never 5173 if a dev server is
 running there), opens every route with Playwright Chromium (falls back to Edge) and writes
 `.shots/<name>--<dark|light>--<desktop|mobile>.png` (1440×900 and 390×844; git-ignored). Interactions are
-scripted for the approval drawer and the memory side sheet. Flags: `--only=<name part>`, `--theme=dark`,
+scripted for the approval drawer. Flags: `--only=<name part>`, `--theme=dark`,
 `--size=desktop`, `--full` (full-page). First run: `npx playwright install chromium`. Look at the PNGs after
 every visual change.
 
@@ -176,13 +174,12 @@ current step and progress), **Recent findings** (latest finished audit: verdict,
     longest-path layout) + one card per `plugin.yaml` (access type, environment, target, limits,
     must / must-not / known limitations).
   - *Business rules*: bullets of each plugin's `data/business-rules.md` grouped by plugin and typed
-    hard / soft / policy; **Add rule** writes a proposal to `/v1/memory/proposals/files/rules/<SYS>/<slug>.yaml`
-    (inactive until approved).
-  - *Lessons*: this system's memory entries (what the agent proposed → what the reviewer decided, by whom,
-    audits that applied it, lifecycle, history) with approve / promote org-wide / retire.
+    hard / soft / policy; **Add rule** appends the rule as a bullet to the chosen plugin's
+    `data/business-rules.md` (under a "… added in the UI" heading that parses back with the same kind), saved as
+    a new file version with the *Why* as the version reason.
 
 API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../files/{path}?format=json[&version=]`,
-`GET .../files/{path}/versions`, `GET .../events`, `PUT .../files/{path}` (multipart), `PUT /v1/memory/proposals/files/...`.
+`GET .../files/{path}/versions`, `GET .../events`, `PUT .../files/{path}` (multipart, or JSON `{content, reason}` for an added rule).
 
 ## How to add a feature
 

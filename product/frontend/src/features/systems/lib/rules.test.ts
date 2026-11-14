@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { handleMockRequest } from '@/shared/lib/mocks/router';
-import { parseBusinessRules, ruleProposalYaml, slugify } from './rules';
+import { appendRule, parseBusinessRules } from './rules';
 
 describe('business rules', () => {
   it('parses bullets under headings with a kind per heading', () => {
@@ -20,17 +20,17 @@ describe('business rules', () => {
     expect(rules[2].kind).toBe('policy');
   });
 
-  it('builds a proposal and a safe slug', () => {
-    expect(slugify('Ages: 18 to 67!')).toBe('ages-18-to-67');
-    const y = ruleProposalYaml({
-      systemId: 'SYS-001',
-      plugin: 'cv-ranker',
-      kind: 'hard',
-      text: 'a "b"',
-      rationale: 'r',
-    });
-    expect(y).toContain('status: proposed');
-    expect(y).toContain('rule: "a \\"b\\""');
+  it('appends a rule that parses back with its kind', () => {
+    const md = '# Rules\n## Policies\n- Sex must not be used.\n';
+    const once = appendRule(md, 'hard', 'Applicants are 18 to 67 years old.');
+    const twice = appendRule(once, 'hard', 'Experience is at most age - 16.');
+    const rules = parseBusinessRules(twice, 'cv-ranker');
+    expect(rules.map((r) => [r.kind, r.text])).toEqual([
+      ['policy', 'Sex must not be used.'],
+      ['hard', 'Applicants are 18 to 67 years old.'],
+      ['hard', 'Experience is at most age - 16.'],
+    ]);
+    expect(twice.match(/## Constraints added in the UI/g)).toHaveLength(1);
   });
 });
 

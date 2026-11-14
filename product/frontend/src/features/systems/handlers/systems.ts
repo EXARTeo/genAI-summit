@@ -31,12 +31,3 @@ export function uploadFile(id: string, path: string, file: File, reason?: string
 export function writeTextFile(id: string, path: string, content: string, reason?: string) {
   return api.put<FileWriteResult>(systemApi.file(id, path), { content, reason });
 }
-
-/** A human-proposed business rule: an inactive memory proposal until approved. */
-export function proposeRule(systemId: string, slug: string, yamlText: string, reason: string) {
-  return api.put<FileWriteResult>(systemApi.ruleProposal(systemId, slug), {
-    content: yamlText,
-    contentType: 'application/yaml',
-    reason,
-  });
-}

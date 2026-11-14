@@ -7,7 +7,7 @@ import { systemRoutes } from '@/features/systems/lib/routes';
 import { useHotkey } from '@/shared/hooks/useHotkey';
 import { useThemeStore } from '@/shared/stores/theme';
 import { useUiStore } from '@/shared/stores/ui';
-import { NAV_ITEMS, SETTINGS_ITEM } from './nav';
+import { NAV_ITEMS } from './nav';
 
 const itemCls =
   'flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-1.5 text-sm text-text aria-selected:bg-surface-muted [&_svg]:size-4 [&_svg]:text-muted aria-selected:[&_svg]:text-text';
@@ -51,7 +51,7 @@ export function CommandPalette() {
             <Command.List className="max-h-[50vh] overflow-y-auto p-2">
               <Command.Empty className="px-3 py-8 text-center text-sm text-muted">No results.</Command.Empty>
               <Command.Group heading="Go to" className={groupCls}>
-                {[...NAV_ITEMS, SETTINGS_ITEM].map((item) => (
+                {NAV_ITEMS.map((item) => (
                   <Command.Item
                     key={item.id}
                     value={`${item.label} ${item.description}`}

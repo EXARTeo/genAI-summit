@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Plus, ScrollText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { listItem, staggerList } from '@/shared/lib/motion';
@@ -13,14 +13,13 @@ import {
   Section,
   Select,
   SkeletonText,
-  StatusPill,
   Textarea,
   toast,
   type BadgeTone,
 } from '@/shared/ui';
 import { useBusinessRules } from '../../hooks/useSystemFolder';
-import { useProposeRule } from '../../hooks/useSystems';
-import { ruleProposalYaml, slugify } from '../../lib/rules';
+import { useAddRule } from '../../hooks/useSystems';
+import { businessRulesPath } from '../../lib/rules';
 import type { BusinessRule } from '../../lib/types';
 
 const KIND_TONE: Record<BusinessRule['kind'], BadgeTone> = {
@@ -34,15 +33,13 @@ function AddRuleDialog({
   plugins,
   open,
   onOpenChange,
-  onProposed,
 }: {
   systemId: string;
   plugins: string[];
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onProposed: (r: BusinessRule) => void;
 }) {
-  const propose = useProposeRule(systemId);
+  const add = useAddRule(systemId);
   const [plugin, setPlugin] = useState(plugins[0] ?? '');
   const [kind, setKind] = useState<BusinessRule['kind']>('hard');
   const [text, setText] = useState('');
@@ -50,29 +47,14 @@ function AddRuleDialog({
   const valid = text.trim().length >= 8 && rationale.trim().length >= 4 && !!plugin;
 
   const submit = async () => {
-    const slug = `${slugify(text)}-${Date.now().toString(36)}`;
     try {
-      await propose.mutateAsync({
-        slug,
-        yaml: ruleProposalYaml({ systemId, plugin, kind, text: text.trim(), rationale: rationale.trim() }),
-        reason: rationale.trim(),
-      });
-      onProposed({
-        id: slug,
-        plugin,
-        kind,
-        text: text.trim(),
-        title: 'Proposed in the UI',
-        status: 'proposed',
-      });
-      toast.success('Rule proposed', {
-        description: 'It becomes active after approval in the Approvals inbox.',
-      });
+      await add.mutateAsync({ plugin, kind, text: text.trim(), reason: rationale.trim() });
+      toast.success('Rule added', { description: `Saved to ${businessRulesPath(plugin)} (new version).` });
       setText('');
       setRationale('');
       onOpenChange(false);
     } catch (e) {
-      toast.error('Could not propose the rule', { description: e instanceof Error ? e.message : String(e) });
+      toast.error('Could not add the rule', { description: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -80,15 +62,15 @@ function AddRuleDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Propose a business rule"
-      description="Rules shape synthetic data and pass/fail checks. A proposal stays inactive until a human approves it."
+      title="Add a business rule"
+      description="Rules shape synthetic data and pass/fail checks. The rule is appended to the plugin's data/business-rules.md as a new file version."
       footer={
         <>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!valid} loading={propose.isPending}>
-            Submit proposal
+          <Button onClick={submit} disabled={!valid} loading={add.isPending}>
+            Add rule
           </Button>
         </>
       }
@@ -123,7 +105,7 @@ function AddRuleDialog({
         >
           <Textarea id="rule-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
         </Field>
-        <Field label="Why" htmlFor="rule-why" hint="Stored with the proposal and shown to the approver.">
+        <Field label="Why" htmlFor="rule-why" hint="Saved as the reason of the new file version.">
           <Textarea id="rule-why" rows={2} value={rationale} onChange={(e) => setRationale(e.target.value)} />
         </Field>
       </div>
@@ -133,14 +115,13 @@ function AddRuleDialog({
 
 export function RulesTab({ systemId }: { systemId: string }) {
   const { rules, plugins, isLoading, error, refetch } = useBusinessRules(systemId);
-  const [proposed, setProposed] = useState<BusinessRule[]>([]);
   const [open, setOpen] = useState(false);
 
   const grouped = useMemo(() => {
     const g = new Map<string, BusinessRule[]>();
-    for (const r of [...proposed, ...rules]) g.set(r.plugin, [...(g.get(r.plugin) ?? []), r]);
+    for (const r of rules) g.set(r.plugin, [...(g.get(r.plugin) ?? []), r]);
     return [...g.entries()];
-  }, [rules, proposed]);
+  }, [rules]);
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
 
@@ -163,7 +144,7 @@ export function RulesTab({ systemId }: { systemId: string }) {
         <EmptyState
           icon={<ScrollText />}
           title="No business rules"
-          description="Add data/business-rules.md to a plugin, or propose a rule."
+          description="Add data/business-rules.md to a plugin, or add a rule."
         />
       ) : (
         grouped.map(([plugin, list]) => (
@@ -174,28 +155,19 @@ export function RulesTab({ systemId }: { systemId: string }) {
               animate="animate"
               className="space-y-2"
             >
-              <AnimatePresence initial={false}>
-                {list.map((r) => (
-                  <motion.li key={r.id} variants={listItem} layout>
-                    <Card
-                      className={
-                        r.status === 'proposed'
-                          ? 'approval-pulse flex items-start gap-3 border-warning/40 bg-warning/5 p-3'
-                          : 'flex items-start gap-3 p-3'
-                      }
-                    >
-                      <Badge tone={KIND_TONE[r.kind]} className="mt-0.5 w-14 justify-center">
-                        {r.kind}
-                      </Badge>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm">{r.text}</p>
-                        <p className="mt-0.5 text-xs text-muted">{r.title}</p>
-                      </div>
-                      {r.status === 'proposed' && <StatusPill status="needs_approval" label="proposed" />}
-                    </Card>
-                  </motion.li>
-                ))}
-              </AnimatePresence>
+              {list.map((r) => (
+                <motion.li key={r.id} variants={listItem}>
+                  <Card className="flex items-start gap-3 p-3">
+                    <Badge tone={KIND_TONE[r.kind]} className="mt-0.5 w-14 justify-center">
+                      {r.kind}
+                    </Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm">{r.text}</p>
+                      <p className="mt-0.5 text-xs text-muted">{r.title}</p>
+                    </div>
+                  </Card>
+                </motion.li>
+              ))}
             </motion.ul>
           </Section>
         ))
@@ -208,7 +180,6 @@ export function RulesTab({ systemId }: { systemId: string }) {
           plugins={plugins}
           open={open}
           onOpenChange={setOpen}
-          onProposed={(r) => setProposed((p) => [r, ...p])}
         />
       )}
     </div>

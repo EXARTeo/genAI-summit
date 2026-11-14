@@ -1,6 +1,7 @@
 // Mock regulation memory: catalog sources with versions, one document text, one diff and the
 // regulation-change inbox (RC-0007 affects SYS-001 → re-run aud-sys001-r3).
 import type { DocDiff, DocText, RegChange, RegSource } from './types';
+import { mockTime } from '@/shared/lib/mocks/time';
 
 const v = (
   version: number,
@@ -29,7 +30,7 @@ export function buildMockSources(): RegSource[] {
       url: 'https://eur-lex.europa.eu/eli/reg/2024/1689/oj',
       tags: ['ai-act'],
       documents: 3,
-      versions: [v(1, '2026-11-13T21:00:00Z', 'new', 851234)],
+      versions: [v(1, mockTime('2026-11-13T21:00:00Z'), 'new', 851234)],
     },
     {
       id: 'ai-act-consolidated',
@@ -40,7 +41,7 @@ export function buildMockSources(): RegSource[] {
       publisher: 'EUR-Lex',
       tags: ['ai-act'],
       documents: 1,
-      versions: [v(1, '2026-11-13T21:02:00Z', 'new', 902112)],
+      versions: [v(1, mockTime('2026-11-13T21:02:00Z'), 'new', 902112)],
     },
     {
       id: 'digital-omnibus-ai',
@@ -52,8 +53,8 @@ export function buildMockSources(): RegSource[] {
       tags: ['ai-act', 'omnibus'],
       documents: 2,
       versions: [
-        v(1, '2026-11-13T21:05:00Z', 'new', 310220),
-        v(2, '2026-11-14T16:00:00Z', 'changed', 318004, {
+        v(1, mockTime('2026-11-13T21:05:00Z'), 'new', 310220),
+        v(2, mockTime('2026-11-14T16:00:00Z'), 'changed', 318004, {
           linesAdded: 41,
           linesRemoved: 12,
           changedSections: ['Article 1(5)', 'Art. 10(5)'],
@@ -70,8 +71,8 @@ export function buildMockSources(): RegSource[] {
       tags: ['ai-act', 'art-6', 'art-10'],
       documents: 1,
       versions: [
-        v(1, '2026-11-13T21:10:00Z', 'new', 120440),
-        v(2, '2026-11-14T17:30:00Z', 'changed', 124980, {
+        v(1, mockTime('2026-11-13T21:10:00Z'), 'new', 120440),
+        v(2, mockTime('2026-11-14T17:30:00Z'), 'changed', 124980, {
           linesAdded: 9,
           linesRemoved: 3,
           changedSections: ['3.2 Bias detection and proxies'],
@@ -87,7 +88,7 @@ export function buildMockSources(): RegSource[] {
       publisher: 'European Commission',
       tags: ['ai-act', 'art-5'],
       documents: 6,
-      versions: [v(1, '2026-11-13T21:12:00Z', 'new', 2210440)],
+      versions: [v(1, mockTime('2026-11-13T21:12:00Z'), 'new', 2210440)],
     },
     {
       id: 'ai-act-service-desk-faq',
@@ -98,7 +99,10 @@ export function buildMockSources(): RegSource[] {
       publisher: 'European Commission',
       tags: ['ai-act', 'faq'],
       documents: 1,
-      versions: [v(1, '2026-11-13T21:14:00Z', 'new', 64420), v(2, '2026-11-14T09:00:00Z', 'same', 64420)],
+      versions: [
+        v(1, mockTime('2026-11-13T21:14:00Z'), 'new', 64420),
+        v(2, mockTime('2026-11-14T09:00:00Z'), 'same', 64420),
+      ],
     },
     {
       id: 'gdpr',
@@ -109,7 +113,7 @@ export function buildMockSources(): RegSource[] {
       publisher: 'EUR-Lex',
       tags: ['gdpr'],
       documents: 1,
-      versions: [v(1, '2026-11-13T21:16:00Z', 'new', 980330)],
+      versions: [v(1, mockTime('2026-11-13T21:16:00Z'), 'new', 980330)],
     },
     {
       id: 'cen-cenelec-ai-standards',
@@ -120,7 +124,7 @@ export function buildMockSources(): RegSource[] {
       publisher: 'CEN-CENELEC',
       tags: ['standards'],
       documents: 1,
-      versions: [v(1, '2026-11-13T21:18:00Z', 'new', 44210)],
+      versions: [v(1, mockTime('2026-11-13T21:18:00Z'), 'new', 44210)],
     },
     {
       id: 'org-fairness-thresholds',
@@ -131,7 +135,7 @@ export function buildMockSources(): RegSource[] {
       publisher: 'AI Officer',
       tags: ['internal'],
       documents: 1,
-      versions: [v(1, '2026-11-10T08:00:00Z', 'new', 3120)],
+      versions: [v(1, mockTime('2026-11-10T08:00:00Z'), 'new', 3120)],
     },
   ];
 }
@@ -193,7 +197,7 @@ export function buildMockChanges(): RegChange[] {
       id: 'RC-0007',
       sourceId: 'guidelines-high-risk-draft',
       title: 'Art. 10 guideline adds a section on proxies for protected characteristics',
-      detectedAt: '2026-11-14T17:30:00Z',
+      detectedAt: mockTime('2026-11-14T17:30:00Z'),
       changeType: 'clarification',
       provisions: ['AI Act Art. 10(2)(f)', 'Guideline §3.2.4'],
       fromVersion: 1,
@@ -243,7 +247,7 @@ export function buildMockChanges(): RegChange[] {
       id: 'RC-0006',
       sourceId: 'digital-omnibus-ai',
       title: 'Omnibus amends the special-category data rule for bias detection (ex-Art. 10(5))',
-      detectedAt: '2026-11-14T16:00:00Z',
+      detectedAt: mockTime('2026-11-14T16:00:00Z'),
       changeType: 'scope_change',
       provisions: ['AI Act Art. 10(5)', 'Omnibus Art. 1(5)'],
       fromVersion: 1,
@@ -281,7 +285,7 @@ export function buildMockChanges(): RegChange[] {
       id: 'RC-0004',
       sourceId: 'ai-act-service-desk-faq',
       title: 'FAQ: typo fixes in the GPAI section',
-      detectedAt: '2026-11-14T09:00:00Z',
+      detectedAt: mockTime('2026-11-14T09:00:00Z'),
       changeType: 'editorial',
       provisions: ['FAQ Q12'],
       fromVersion: 1,

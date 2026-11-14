@@ -26,8 +26,6 @@ export const DECISIONS: Record<Decision, { label: string; tone: 'success' | 'war
   rejected: { label: 'Reject', tone: 'danger' },
 };
 
-export type MemoryScope = 'none' | 'system' | 'org';
-
 export interface OpenGate {
   auditId: string;
   systemId: string;
@@ -78,14 +76,12 @@ export interface DecisionDraft {
   decision: Decision | null;
   reasonCategory: ReasonCategory | null;
   comment: string;
-  memoryScope: MemoryScope;
 }
 
 export const EMPTY_DRAFT: DecisionDraft = {
   decision: null,
   reasonCategory: null,
   comment: '',
-  memoryScope: 'none',
 };
 
 /** Validation errors for a draft; empty = valid. A reason category is mandatory for every decision. */
@@ -95,12 +91,10 @@ export function validateDraft(d: DecisionDraft): string[] {
   if (!d.reasonCategory) errors.push('Pick a reason category.');
   if (d.decision && d.decision !== 'approved' && d.comment.trim().length < 5)
     errors.push('Say what should change (comment).');
-  if (d.memoryScope !== 'none' && d.comment.trim().length < 5)
-    errors.push('A memory needs a comment that explains it.');
   return errors;
 }
 
-/** Build the backend ApprovalIn; memory preference travels in `edits` (flexible JSONB). */
+/** Build the backend ApprovalIn. What to remember from a decision is up to the agents. */
 export function toApprovalIn(gate: string, d: DecisionDraft, artifactId?: string | null): ApprovalIn {
   if (validateDraft(d).length) throw new Error('invalid decision draft');
   return {
@@ -109,6 +103,6 @@ export function toApprovalIn(gate: string, d: DecisionDraft, artifactId?: string
     artifactId: artifactId ?? null,
     reasonCategory: d.reasonCategory,
     comment: d.comment.trim() || null,
-    edits: d.memoryScope === 'none' ? {} : { memory: { scope: d.memoryScope } },
+    edits: {},
   };
 }

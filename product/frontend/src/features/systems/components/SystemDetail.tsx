@@ -1,6 +1,5 @@
-import { BookText, Brain, FolderTree, Puzzle, ScrollText } from 'lucide-react';
+import { BookText, FolderTree, Puzzle, ScrollText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MemoryBrowser } from '@/features/memory/components/MemoryBrowser';
 import { Badge, ErrorState, PageHeader, Skeleton, SkeletonText, StatusPill, Tabs } from '@/shared/ui';
 import { useSystem } from '../hooks/useSystems';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
@@ -65,9 +64,6 @@ export function SystemDetail() {
           <Tabs.Trigger value="rules">
             <ScrollText /> Business rules
           </Tabs.Trigger>
-          <Tabs.Trigger value="lessons">
-            <Brain /> Lessons
-          </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="overview">
           <OverviewTab system={system} />
@@ -80,17 +76,6 @@ export function SystemDetail() {
         </Tabs.Content>
         <Tabs.Content value="rules">
           <RulesTab systemId={system.id} />
-        </Tabs.Content>
-        <Tabs.Content value="lessons">
-          <p className="mb-4 max-w-2xl text-sm text-muted">
-            What reviewers corrected for this system. Approved lessons are applied in later audits; promote
-            one org-wide when it holds for every system.
-          </p>
-          <MemoryBrowser
-            scope={`system:${system.id}`}
-            emptyTitle="No lessons yet"
-            emptyDescription="When a reviewer corrects the agent at an approval gate, the lesson shows up here."
-          />
         </Tabs.Content>
       </Tabs>
     </div>

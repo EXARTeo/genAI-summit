@@ -6,9 +6,10 @@
 import { parse } from 'yaml';
 import type { FileEvent, System, SystemCard, WorkspaceFile } from '@/features/systems/lib/types';
 import seed from './seed-cases.json';
+import { mockTime } from '../time';
 
 const SEED = seed as Record<string, Record<string, string>>;
-const SEEDED_AT = '2026-11-14T09:00:00Z';
+const SEEDED_AT = mockTime('2026-11-14T09:00:00Z');
 
 interface StoredVersion extends WorkspaceFile {
   text: string;
@@ -21,7 +22,7 @@ const DEMO: Record<string, Pick<SystemCard, 'last_audit'> & { status: string }> 
     last_audit: {
       id: 'AUD-0007',
       status: 'awaiting_approval',
-      at: '2026-11-14T10:42:00Z',
+      at: mockTime('2026-11-14T10:42:00Z'),
       findings: { gaps: 3, supports: 4, inconclusive: 1 },
     },
   },
@@ -30,13 +31,13 @@ const DEMO: Record<string, Pick<SystemCard, 'last_audit'> & { status: string }> 
     last_audit: {
       id: 'AUD-0005',
       status: 'completed',
-      at: '2026-11-13T16:05:00Z',
+      at: mockTime('2026-11-13T16:05:00Z'),
       findings: { gaps: 0, supports: 7, inconclusive: 1 },
     },
   },
   'SYS-003': {
     status: 'active',
-    last_audit: { id: 'AUD-0006', status: 'running', at: '2026-11-14T11:20:00Z' },
+    last_audit: { id: 'AUD-0006', status: 'running', at: mockTime('2026-11-14T11:20:00Z') },
   },
   'SYS-004': { status: 'active', last_audit: null },
 };
@@ -142,7 +143,7 @@ for (const [id, folder] of Object.entries(SEED)) {
       `${cur}\n- Ranker returns 429 above 20 rps (seen during AUD-0007).\n`,
       'agent:audit',
       'quirk observed during a run',
-      '2026-11-14T10:31:00Z',
+      mockTime('2026-11-14T10:31:00Z'),
     );
   }
 }
@@ -166,6 +167,3 @@ export const mockSystems = {
   versions: (id: string, path: string) => (files.get(key(id, path)) ?? []).map(strip).reverse(),
   events: (id: string) => events.filter((e) => e.namespace === `system:${id}`),
 };
-
-// Business-rule proposals (memory:proposals namespace).
-export const ruleProposals: { path: string; text: string; at: string }[] = [];

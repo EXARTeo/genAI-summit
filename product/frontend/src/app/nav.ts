@@ -5,7 +5,6 @@ import {
   House,
   Inbox,
   MessagesSquare,
-  Settings,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -63,11 +62,3 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { id: 'chat', label: 'Chat', to: '/chat', icon: MessagesSquare, description: 'Ask the copilot', key: 'c' },
 ];
-
-export const SETTINGS_ITEM: NavItem = {
-  id: 'settings',
-  label: 'Settings',
-  to: '/settings',
-  icon: Settings,
-  description: 'Organisation rules, theme and connection',
-};

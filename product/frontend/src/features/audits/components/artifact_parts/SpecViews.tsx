@@ -15,7 +15,7 @@ import {
   provenanceOfLine,
 } from '../../lib/styling';
 import type { DatasetAnalysisData, GenerationSpecData, Provenance } from '../../lib/types';
-import { MemoryChips, SimpleTable, SubHeading } from './common';
+import { SimpleTable, SubHeading } from './common';
 
 /** YAML with each `provenance:` block tinted; llm_assumption blocks in amber. */
 export function ProvenanceYaml({ yaml }: { yaml: string }) {
@@ -42,7 +42,7 @@ export function ProvenanceYaml({ yaml }: { yaml: string }) {
             className={cn(
               'flex whitespace-pre border-l-2 border-transparent pl-2 pr-3',
               p === 'llm_assumption' && 'border-warning bg-warning/10',
-              p === 'memory' && 'border-info/60 bg-info/5',
+              p === 'business_rule' && 'border-info/60 bg-info/5',
             )}
           >
             <span className="mr-3 w-6 shrink-0 select-none text-right text-muted/60">{i + 1}</span>
@@ -367,12 +367,6 @@ export function DatasetAnalysisView({ data }: { data: DatasetAnalysisData }) {
           <li key={l}>{l}</li>
         ))}
       </ul>
-      {data.memoryApplied && (
-        <>
-          <SubHeading>Memory applied</SubHeading>
-          <MemoryChips ids={data.memoryApplied} />
-        </>
-      )}
     </div>
   );
 }

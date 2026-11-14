@@ -22,7 +22,7 @@ export function ApprovalsInboxPage() {
     <div>
       <PageHeader
         title="Approvals"
-        description="Human-in-the-loop gates: agents propose, you decide. Every decision is logged and can become a lesson."
+        description="Human-in-the-loop gates: agents propose, you decide. Every decision is logged."
         meta={gates.length > 0 ? <Badge tone="warning">{gates.length} open</Badge> : undefined}
       />
       {isLoading && <Skeleton className="h-20 rounded-xl" />}

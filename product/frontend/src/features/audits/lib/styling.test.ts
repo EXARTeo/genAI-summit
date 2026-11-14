@@ -6,7 +6,6 @@ import {
   formatCI,
   gateCounts,
   gateTone,
-  memoryIds,
   overallGateStatus,
   provenanceOfLine,
   verdictStyle,
@@ -78,15 +77,11 @@ describe('gate status', () => {
   });
 });
 
-describe('provenance and memory ids', () => {
+describe('provenance', () => {
   it('reads provenance tags from YAML lines', () => {
     expect(provenanceOfLine('    provenance: llm_assumption        # x')).toBe('llm_assumption');
     expect(provenanceOfLine('    provenance: dictionary')).toBe('dictionary');
     expect(provenanceOfLine('    dist: {a: 1}')).toBeNull();
     expect(provenanceOfLine('    provenance: bogus')).toBeNull();
-  });
-
-  it('extracts unique memory ids', () => {
-    expect(memoryIds('applied MEM-0042 and MEM-0057, again MEM-0042')).toEqual(['MEM-0042', 'MEM-0057']);
   });
 });

@@ -154,7 +154,7 @@ export function verdictToTraffic(v: Verdict | string): Traffic {
 export const PROVENANCE: Record<Provenance, { label: string; tone: Tone }> = {
   dictionary: { label: 'dictionary', tone: 'success' },
   training_doc: { label: 'training doc', tone: 'info' },
-  memory: { label: 'memory', tone: 'info' },
+  business_rule: { label: 'business rule', tone: 'info' },
   llm_assumption: { label: 'LLM assumption', tone: 'warning' },
 };
 
@@ -179,9 +179,4 @@ export function formatCI(ci?: [number, number], digits = 2): string {
 /** Does the CI cross the threshold? Used to explain inconclusive verdicts. */
 export function ciCrosses(ci: [number, number], threshold: number): boolean {
   return ci[0] < threshold && ci[1] > threshold;
-}
-
-/** Extract memory ids ("MEM-0042") mentioned in a text. */
-export function memoryIds(text: string): string[] {
-  return Array.from(new Set(text.match(/MEM-\d{4,}/g) ?? []));
 }

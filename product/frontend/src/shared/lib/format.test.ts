@@ -9,8 +9,9 @@ describe('formatRelative', () => {
     expect(formatRelative('2026-11-14T17:59:30Z', now)).toBe('just now');
   });
 
-  it('treats a near-future timestamp as clock skew', () => {
+  it('never reads a future timestamp as "in …"', () => {
     expect(formatRelative('2026-11-14T18:40:00Z', now)).toBe('just now');
+    expect(formatRelative('2026-11-16T18:00:00Z', now)).toBe('just now');
   });
 
   it('is empty for missing dates', () => {

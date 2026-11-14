@@ -123,12 +123,5 @@ export function mockDecide(id: string, body: ApprovalIn): ApprovalResult | undef
     l.runningSince = Date.now();
   }
   l.audit.updatedAt = now;
-  const memory = (body.edits as { memory?: { scope?: string } } | undefined)?.memory;
-  const proposal =
-    body.decision !== 'approved' && body.reasonCategory
-      ? `/memory/proposals/${id}-${body.gate}.yaml`
-      : memory?.scope
-        ? `/memory/proposals/${id}-${body.gate}-${memory.scope}.yaml`
-        : null;
-  return { approval, artifact: null, memoryProposalPath: proposal };
+  return { approval, artifact: null };
 }

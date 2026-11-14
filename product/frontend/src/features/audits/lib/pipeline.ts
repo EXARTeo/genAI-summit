@@ -18,7 +18,7 @@ export const STAGES: StageDef[] = [
   {
     id: 'load_context',
     label: 'Load context',
-    description: 'System card, plugins, applicable requirements, memory',
+    description: 'System card, plugins, applicable requirements, business rules',
     kinds: ['context'],
   },
   {

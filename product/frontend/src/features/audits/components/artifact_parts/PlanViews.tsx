@@ -1,7 +1,7 @@
 import { CheckCircle2, CircleDashed, FileText, MinusCircle, Plus, RefreshCw } from 'lucide-react';
 import { Badge, KeyValue } from '@/shared/ui';
 import type { ContextData, ScenarioAnalysisData, ScenariosData } from '../../lib/types';
-import { MemoryChip, MemoryChips, SimpleTable, SubHeading } from './common';
+import { SimpleTable, SubHeading } from './common';
 
 export function ContextView({ data }: { data: ContextData }) {
   return (
@@ -34,8 +34,6 @@ export function ContextView({ data }: { data: ContextData }) {
           </Badge>
         ))}
       </div>
-      <SubHeading>Memory applied</SubHeading>
-      <MemoryChips ids={data.memoryApplied} />
       <SubHeading>Files read (pinned versions)</SubHeading>
       <ul className="space-y-1 text-xs">
         {data.filesRead.map((f) => (
@@ -68,10 +66,7 @@ export function ScenariosView({ data }: { data: ScenariosData }) {
         <span className="font-mono text-xs">{s.template}</span>,
         s.groups.join(', ') || '–',
         s.n.toLocaleString(),
-        <div className="space-y-1 text-muted">
-          <div>{s.rationale}</div>
-          {s.memory?.map((m) => <MemoryChip key={m} id={m} />)}
-        </div>,
+        <div className="text-muted">{s.rationale}</div>,
       ])}
     />
   );

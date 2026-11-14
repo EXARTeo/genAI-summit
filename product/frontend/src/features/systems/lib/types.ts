@@ -100,5 +100,4 @@ export interface BusinessRule {
   title: string;
   kind: 'hard' | 'soft' | 'policy';
   text: string;
-  status: 'active' | 'proposed';
 }

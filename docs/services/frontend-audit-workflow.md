@@ -1,17 +1,15 @@
 # Frontend: audit workflow UX
 
 The audit-workflow pages of `product/frontend/` (see the frontend page for the scaffold, information
-architecture, design rules and mock mode). Four features, each `src/features/<feature>/{components,hooks,handlers,lib,pages}`;
-pages are mounted by thin route views in `src/pages/*View.tsx`. Memory has no page of its own.
+architecture, design rules and mock mode). Three features, each `src/features/<feature>/{components,hooks,handlers,lib,pages}`;
+pages are mounted by thin route views in `src/pages/*View.tsx`. Agent memory is not shown in the UI: the agents
+decide what to remember.
 
 | Route | Feature | What |
 | --- | --- | --- |
 | `/audits` | `audits` | Audit runs table: system and title, id, kb_version, trace, current step (live spinner or status), trigger, progress bar, updated |
 | `/audits/:auditId[?step=<stage>]` | `audits` | **Audit run page** (below); `?step=` deep-links and pins a step |
 | `/approvals` | `approvals` | Inbox of every open HITL gate; opens the approval drawer |
-| `/systems/:id/lessons?entry=MEM-…` | `memory` | Per-system lessons (`MemoryBrowser` scope `system:<id>`): approve / promote org-wide / retire / re-activate |
-| `/settings?tab=rules&entry=MEM-…` | `memory` | Organisation rules (`MemoryBrowser` scope `org`) |
-| any `applied MEM-…` chip | `memory` | Global side sheet with the entry (`MemorySheet`) |
 | `/regulation?tab=changes\|sources&source=…` | `regulation` | Regulation-change inbox and reg-memory sources with versions, text and diffs |
 
 ## Audit run page
@@ -33,13 +31,13 @@ pages are mounted by thin route views in `src/pages/*View.tsx`. Memory has no pa
 - **Right: the selected step's artifact** under a step header ("Step n of 13", label, description, duration,
   trace); latest non-superseded version per `kind/name`, with version, status and author. A running step shows a
   spinner over a skeleton of the artifact:
-  - `context`: system, requirements (test vs document review), plugins, memory applied, files read with versions.
+  - `context`: system, requirements (test vs document review), plugins, files read with versions.
   - `model_profile`: feature-sensitivity bar chart (neutral bars; protected proxies in amber with ⚠, so the problem
     reads at a glance), decision-boundary flip rates.
-  - `scenarios` / `scenario_analysis`: test table with memory chips; coverage per requirement, diff vs last plan, risks, not-testable list.
-  - `generation_spec`: YAML with each node's `provenance` block tinted, `llm_assumption` in amber, plus the assumption list and the spec diff.
+  - `scenarios` / `scenario_analysis`: test table; coverage per requirement, diff vs last plan, risks, not-testable list.
+  - `generation_spec`: YAML with each node's `provenance` block tinted (`dictionary`, `training_doc`, `business_rule`), `llm_assumption` in amber, plus the assumption list and the spec diff.
   - `dataset_analysis`: the five gates as calm cards (status icon + label, the gate's note; warn/fail get a tinted border; metrics in tooltips), coverage heatmap (teal tint by count, cells under `min_per_cell` ringed red), twin modes a/b/c with mean Δ (red when the CI excludes 0), flip rate and CI, and a side-by-side twin-pair viewer.
-  - `finding`: a verdict-mix bar, then one card per finding: verdict pill, confidence bar, metric CI on a number line with the org threshold, evidence, counter-evidence, "would change if", provision citations and `applied MEM-…` chips (open the memory side sheet), critic adjustment badge.
+  - `finding`: a verdict-mix bar, then one card per finding: verdict pill, confidence bar, metric CI on a number line with the org threshold, evidence, counter-evidence, "would change if", provision citations, critic adjustment badge.
   - `critic`: upheld / weakened / overturned per finding with confidence deltas.
   - `report`: Engineer and Management tabs; management shows traffic lights per requirement.
   - Unknown kinds fall back to JSON.
@@ -50,11 +48,10 @@ Sheet with a one-line context (audit id, kb, trigger, step trace), Summary (gate
 assumptions, or the scenario summary), Analysis (the reviewed artifacts), Diffs (spec / plan diff), then
 **Your decision**: three decision cards (**Approve / Request changes / Reject**, each with its consequence),
 a **mandatory reason category** as chips (`wrong_fact`, `wrong_interpretation`, `missing_info`, `wrong_metric`,
-`unrealistic_data`, `org_policy`, `other`), a comment (required to reject or request changes) and "save as memory
-for this system / propose org-wide" switches (sent as `edits.memory.scope`). The submit button names the action
+`unrealistic_data`, `org_policy`, `other`), and a comment (required to reject or request changes); no "save as memory"
+switches, the agents decide what to remember. The submit button names the action
 and takes its colour ("Approve and continue", "Request changes", "Reject run"). Approve is disabled when a
-blocking dataset gate failed. Approval shows a calm success state (one ripple, a drawn check); a toast shows the
-memory proposal path the backend returns. The drawer also opens from Home and the approvals inbox.
+blocking dataset gate failed. Approval shows a calm success state (one ripple, a drawn check) and a toast. The drawer also opens from Home and the approvals inbox.
 Body: `POST /v1/audits/{id}/approvals` (`lib/approvals.ts: toApprovalIn`).
 
 ## API and mocks
@@ -62,19 +59,17 @@ Body: `POST /v1/audits/{id}/approvals` (`lib/approvals.ts: toApprovalIn`).
 | Feature | Calls | Backend |
 | --- | --- | --- |
 | audits, approvals | `GET /v1/audits`, `GET /v1/audits/{id}`, `GET/POST /v1/audits/{id}/approvals` | exists |
-| memory | `GET /v1/memory/ledger[/{id}]`, `POST /v1/memory/ledger/{id}/{approve\|promote\|retire\|reactivate}` | **pending** (parsed view over the memory files) |
 | regulation | `GET /v1/regulation/sources`, `…/documents/{id}/text?version=`, `…/documents/{id}/diff?from&to`, `GET /v1/regulation/changes`, `POST …/changes/{id}/decision`, `POST …/changes/{id}/systems/{systemId}` | **pending** (backend proxy to reg-memory + change judge) |
 
 Mock mode serves all of them from the feature fixtures (`lib/mocks.ts`, `lib/mockStore.ts`, `lib/mockRoutes.ts`,
-registered by `src/shared/lib/mocks/handlers/{audit-workflow,memory-ledger,regulation-memory}.ts`): a finished
+registered by `src/shared/lib/mocks/handlers/{audit-workflow,regulation-memory}.ts`): a finished
 SYS-001 CV Screener audit (postcode_region proxy, findings with counter-evidence, critic, two reports), a SYS-001
-re-run paused at the dataset gate (approve it and it runs to the end, one step every 3.5 s), a SYS-002 run, the
-memory ledger (MEM-0039 → MEM-0042 promotion, stale and retired entries) and RC-0007 / RC-0006 regulation changes.
+re-run paused at the dataset gate (approve it and it runs to the end, one step every 3.5 s), a SYS-002 run and RC-0007 / RC-0006 regulation changes.
 
 Langfuse links use `VITE_LANGFUSE_URL` (default `http://localhost:3400`) and `VITE_LANGFUSE_PROJECT_ID` (default `product`).
 
 ## Tests
 
 Pure logic in `lib/*.test.ts` (Vitest): stage mapping and step states, gate status, verdict and traffic-light
-styling, provenance parsing, open gates and decision validation, memory filters and lifecycle actions,
+styling, provenance parsing, open gates and decision validation, business-rule append,
 regulation diff parsing and judge decisions, and the mock run simulation.
