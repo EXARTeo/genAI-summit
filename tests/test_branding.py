@@ -9,7 +9,8 @@ FRONTEND_TOKENS = ROOT / "product" / "frontend" / "src" / "styles" / "theme" / "
 
 
 def _export_tokens():
-    spec = importlib.util.spec_from_file_location("export_tokens", ROOT / "branding" / "export_tokens.py")
+    path = ROOT / "branding" / "export_tokens.py"
+    spec = importlib.util.spec_from_file_location("export_tokens", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)

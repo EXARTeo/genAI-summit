@@ -20,7 +20,9 @@ from typing import Any
 BRANDING_DIR = Path(__file__).resolve().parent
 BRAND_FILE = BRANDING_DIR / "brand.json"
 DEFAULT_OUT = BRANDING_DIR / "dist" / "tokens.css"
-FRONTEND_OUT = BRANDING_DIR.parent / "product" / "frontend" / "src" / "styles" / "theme" / "tokens.css"
+FRONTEND_OUT = (
+    BRANDING_DIR.parent / "product" / "frontend" / "src" / "styles" / "theme" / "tokens.css"
+)
 
 
 def _var(name: str) -> str:
@@ -73,7 +75,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output CSS file")
     parser.add_argument(
-        "--frontend", action="store_true", help=f"also write {FRONTEND_OUT.relative_to(BRANDING_DIR.parent)}"
+        "--frontend",
+        action="store_true",
+        help=f"also write {FRONTEND_OUT.relative_to(BRANDING_DIR.parent)}",
     )
     args = parser.parse_args(argv)
 

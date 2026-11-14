@@ -31,6 +31,8 @@ default-groups = ["dev", "presentations"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Drafts are prose; their code blocks are illustrations, not code to format.
+extend-exclude = ["docs/draft"]
 
 [tool.ruff.lint]
 select = [
