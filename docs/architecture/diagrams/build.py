@@ -433,78 +433,119 @@ def containers() -> Svg:
 def engineer_pipeline() -> Svg:
     s = Svg(
         1500,
-        700,
+        900,
         "Engineer pipeline",
         "LangGraph test pipeline: system card + model in, findings and two reports out",
     )
     P, A, M = C["primary"], C["accent"], C["muted"]
+    # Row 1: context → profile → scenarios → review → approve scenarios
     s.box(
         40,
         120,
-        220,
+        210,
         130,
         "1 load_context",
-        ["System card, MLflow model", "Requirements from RKS", "(provider, high, Annex III 4a)"],
+        ["System card, plugin, model", "Requirements from RKS", "(provider, high, Annex III)"],
         "step",
     )
     s.box(
-        310,
+        295,
         120,
-        220,
+        210,
         130,
-        "2 plan_tests",
-        ["Requirement → templates", "Each test: proves / can't", "Untestable → needs_docs"],
+        "2 profile_model",
+        ["Sandbox probes the model:", "what moves the output,", "proxies, monotonicity"],
         "step",
     )
-    s.box(580, 140, 170, 90, "HITL", ["approve plan"], "hitl", mono_title=False)
     s.box(
-        800,
+        550,
         120,
-        240,
+        210,
         130,
-        "3 generate_data",
-        ["DatasetSpec per test", "Counterfactual twins,", "perturbation, schema-driven"],
+        "3 plan_scenarios",
+        ["Requirement → test", "scenarios from the profile", "and the memory"],
         "step",
     )
-    s.box(1090, 140, 170, 90, "HITL", ["audit datasets"], "hitl", mono_title=False)
-    for a, b in [(260, 308), (530, 578), (750, 798), (1040, 1088)]:
+    s.box(
+        805,
+        120,
+        210,
+        130,
+        "4 analyse_scenarios",
+        ["synthkit scenarios-check", "Oumi Iris reviews each", "scenario (Gemini fallback)"],
+        "step",
+    )
+    s.box(1060, 140, 160, 90, "HITL", ["approve scenarios"], "hitl", mono_title=False)
+    for a, b in [(250, 293), (505, 548), (760, 803), (1015, 1058)]:
         s.arrow([(a, 185), (b, 185)], "", P)
-    s.arrow([(1175, 232), (1175, 300), (150, 300), (150, 358)], "", P)
+    s.arrow(
+        [(910, 252), (910, 278), (655, 278), (655, 252)],
+        "needs_change / gaps: redo once",
+        A,
+        dashed=True,
+        dy=16,
+    )
+    s.arrow([(1140, 232), (1140, 305), (145, 305), (145, 338)], "", P)
+    # Row 2: public data (knows what the scenarios need) → spec + data → approve datasets
     s.box(
         40,
-        360,
-        220,
+        340,
+        210,
         130,
-        "4 execute",
+        "5 find_public_data",
+        ["Datasets that carry the", "approved scenarios' fields", "and protected attributes"],
+        "step",
+    )
+    s.box(295, 360, 160, 90, "HITL", ["pick public data"], "hitl", mono_title=False)
+    s.box(
+        500,
+        340,
+        240,
+        130,
+        "6 draft_spec + data",
+        ["Spec: reference sample", "or zero-shot; twins,", "perturbation, edge cases"],
+        "step",
+    )
+    s.box(785, 360, 160, 90, "HITL", ["approve datasets"], "hitl", mono_title=False)
+    for a, b in [(250, 293), (455, 498), (740, 783)]:
+        s.arrow([(a, 405), (b, 405)], "", P)
+    s.arrow([(865, 452), (865, 525), (145, 525), (145, 558)], "", P)
+    # Row 3: tests → findings → critic → reports
+    s.box(
+        40,
+        560,
+        210,
+        130,
+        "7 run_tests",
         ["In the sandbox", "One MLflow run per test", "bootstrap CI on metrics"],
         "step",
     )
     s.box(
-        310,
-        360,
-        220,
+        295,
+        560,
+        210,
         130,
-        "5 analyse",
+        "8 analyse",
         ["Findings: verdict,", "confidence, evidence,", "reasoning"],
         "step",
     )
     s.box(
-        580,
-        360,
-        220,
+        550,
+        560,
+        210,
         130,
-        "6 critic",
+        "9 critic",
         ["Tries to overturn", "each finding; verdict", "adjusted, conflicts shown"],
         "step",
     )
-    s.box(850, 360, 220, 130, "7 report", ["Two audiences,", "same evidence"], "step")
-    for a, b in [(260, 308), (530, 578), (800, 848)]:
-        s.arrow([(a, 425), (b, 425)], "", P)
-    s.arrow([(690, 492), (690, 520), (420, 520), (420, 492)], "challenges", A, dashed=True, dy=16)
+    s.box(805, 560, 210, 130, "10 report", ["Two audiences,", "same evidence"], "step")
+    for a, b in [(250, 293), (505, 548), (760, 803)]:
+        s.arrow([(a, 625), (b, 625)], "", P)
+    s.arrow([(655, 692), (655, 720), (400, 720), (400, 692)], "challenges", A, dashed=True, dy=16)
     s.box(
-        1120,
-        340,
-        340,
+        1080,
+        540,
+        380,
         80,
         "Engineer report",
         ["run ids, seeds, code: reproducible"],
@@ -512,19 +553,19 @@ def engineer_pipeline() -> Svg:
         mono_title=False,
     )
     s.box(
-        1120,
-        430,
-        340,
+        1080,
+        630,
+        380,
         80,
         "Management report",
         ["traffic light per requirement, top risks"],
         "output",
         mono_title=False,
     )
-    s.arrow([(1070, 410), (1118, 380)], "", A)
-    s.arrow([(1070, 440), (1118, 470)], "", A)
+    s.arrow([(1015, 610), (1078, 580)], "", A)
+    s.arrow([(1015, 640), (1078, 670)], "", A)
     # Footer facts
-    y = 580
+    y = 780
     s.text(40, y, "Finding verdicts", 15, weight=700)
     s.text(
         40,
@@ -538,15 +579,15 @@ def engineer_pipeline() -> Svg:
         40,
         y + 60,
         "Each MLflow run is tagged req_ids, card_version, kb_version, dataset_id. "
-        "Thresholds are the "
-        "organisation's, not the law's.",
+        "Thresholds are the organisation's, not the law's.",
         14,
         M,
     )
     s.text(
         40,
         y + 84,
-        "Every node and tool call is a Langfuse span: the judges can replay the whole run.",
+        "Every node, tool call and Iris decision (iris.decide) is a Langfuse span: "
+        "the judges can replay the whole run.",
         14,
         A,
     )

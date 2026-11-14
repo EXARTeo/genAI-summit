@@ -124,7 +124,9 @@ services:
       PIPELINE_PUBLIC_DATA_ENABLED: ${PIPELINE_PUBLIC_DATA_ENABLED:-true}
       CHANGE_JUDGE_MODEL: ${CHANGE_JUDGE_MODEL:-gemini}
       OUMI_API_KEY: ${OUMI_API_KEY:-}
-      OUMI_BASE_URL: ${OUMI_BASE_URL:-}
+      OUMI_BASE_URL: ${OUMI_BASE_URL:-https://inference.oumi.ai/v1}
+      OUMI_MODEL: ${OUMI_MODEL:-}
+      SCENARIO_REVIEW_MODEL: ${SCENARIO_REVIEW_MODEL:-iris}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
       BACKEND_INTERNAL_URL: http://backend:8000
       AGENT_RUNTIME_DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD:?set in Portainer}@postgres:5432/agent_runtime

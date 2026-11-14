@@ -202,7 +202,9 @@ services:
       PIPELINE_PUBLIC_DATA_ENABLED: ${PIPELINE_PUBLIC_DATA_ENABLED:-true}
       CHANGE_JUDGE_MODEL: ${CHANGE_JUDGE_MODEL:-gemini}
       OUMI_API_KEY: ${OUMI_API_KEY:-}
-      OUMI_BASE_URL: ${OUMI_BASE_URL:-}
+      OUMI_BASE_URL: ${OUMI_BASE_URL:-https://inference.oumi.ai/v1}
+      OUMI_MODEL: ${OUMI_MODEL:-}
+      SCENARIO_REVIEW_MODEL: ${SCENARIO_REVIEW_MODEL:-iris}
       # Public dataset discovery (harness/tools/public_datasets): optional web
       # search, and the backend's internal API that stores an approved dataset.
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
