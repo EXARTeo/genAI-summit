@@ -9,7 +9,7 @@ backend (ported from magenticx's `dialogue_bridge`). Same behaviour and UX, rest
 ## What is where
 
 ```text
-src/pages/ChatView.tsx                   route view: <SidebarExtra><ChatSidebar/></SidebarExtra> + <ChatWorkspace/>
+src/pages/ChatView.tsx                   route view: <SidebarExtra><ChatSidebar/></SidebarExtra> + <ChatWorkspace HeaderSlot={TopbarExtra}/>
 src/features/chat/
 ├── lib/
 │   ├── types.ts          backend DTOs (conversations, messages, attachments, runs, frames, search, tasks)
@@ -19,6 +19,11 @@ src/features/chat/
 │   ├── branches.ts       edit/retry branches: visible path, siblings, selection
 │   ├── attachments.ts    upload guards (25 MB / file and message, 10 files), base64 read, preview kinds
 │   ├── slashCommands.ts  /new /rename /pin /archive /retry /stop /agent /search
+│   ├── sidebarList.ts    conversation list logic: pinned order, paged Chats, search grouping, titles
+│   ├── sidebarMotion.ts  list row / section motion (magenticx sidebarMotion.ts, tweens, no springs)
+│   ├── cotTitle.ts, toolPresentation.ts   CoT block titles and per-tool step titles/icons (magenticx ports)
+│   ├── streamScroll.ts   stick-to-bottom state while streaming (magenticx streamScroll.ts)
+│   ├── tableExport.ts, codeExport.ts, download.ts, messageFormat.ts   copy/download helpers, clock/usage format
 │   ├── transport.ts      run WebSocket with subscribe/since replay + reconnect (mock bus in mock mode)
 │   ├── routes.ts         UI + API paths
 │   ├── mockRuns.ts       mock mode: conversation store + scripted AG-UI runs
@@ -28,21 +33,37 @@ src/features/chat/
 │   ├── runStore.ts       live runs app-wide (zustand), socket lifecycle, cache patching on terminal frames
 │   ├── useChat.ts        the controller: visible branch, active run, send/edit/retry/stop/decide/answer/rate
 │   ├── useComposer.ts    draft + attachments with read progress
-│   └── useConversations.ts, keys.ts   react-query (list, pinned, archived, detail, search, agents, subject)
+│   ├── useSidebarUi.ts   section fold state (localStorage) + the chat search panel's open state (zustand)
+│   └── useConversations.ts, keys.ts   react-query (paged Chats, pinned, archived, detail, search, agents, subject)
 └── components/
-    ├── ChatWorkspace.tsx   page: header, body, composer slot (or takeover), drop zone, shortcuts, preview
-    ├── ChatSidebar.tsx     new chat, search, pinned + recent by day, archive view, row menu
+    ├── ChatWorkspace.tsx   page: header, body, composer slot (or takeover), empty-chat greeting, drop zone, shortcuts, preview
+    ├── ChatHeader.tsx, AgentPicker.tsx   header row in the top bar: agent picker (search + list), title, subject link, ⋯ actions
+    ├── ChatSidebar.tsx     New chat + Search chats rows, folding Pinned / Chats sections (Chats paged on scroll),
+    │                       Archived footer row; rows: title only, active highlight + accent bar, spinner while working
+    ├── sidebar_parts/      ConversationRow (⋯: Rename inline, Pin, Archive, Delete), SidebarSection, ChatSearchPanel
+    │                       (cmdk dialog, Ctrl/⌘+Shift+S), ArchivedChatsDialog, NewChatIcon
     ├── ChatBody.tsx, ChatMessage.tsx   message list (stick-to-bottom), user bubble (+ inline edit), agent answer
-    ├── ChatComposer.tsx    textarea, files (button / paste / drop), slash menu, subject chip, agent picker, send/stop
+    ├── ChatComposer.tsx    "Message {agent}…" card: textarea, "+" files (button / paste / drop), slash menu, subject chip, one round Send / Stop / Queue button
     ├── HitlTakeover.tsx, AskUserTakeover.tsx   approvals (batched deck) and the agent's questions
     ├── AttachmentPreview.tsx   side sheet: image, PDF, DOCX (mammoth → sandboxed frame), Markdown, CSV, JSON/code, text
     ├── ChatAboutButton.tsx     "Chat about this system / audit" entry point
-    └── message_parts/   ChatMarkdown (GFM + highlight.js), ThinkingBlock (CoT), ToolCallView (+ sources),
-                         SubagentCard, RunBlocks (artifact, task rows, plan), MessageAttachments, ActionBars
+    └── message_parts/   ChatMarkdown (GFM + highlight.js, code header with copy/download), MarkdownTable (copy,
+                         CSV/Markdown download), ThinkingBlock + CoTStep (CoT), ToolCallView (+ sources), SubagentCard,
+                         RunBlocks (artifact, task rows, plan), MessageAttachments, ActionBars, BranchControls,
+                         MessageUsage (usage gauge + tooltip)
 ```
 
 The conversation list is rendered into the shell rail through `SidebarExtra` (`src/app/sidebarSlot.tsx`), from the
-page (`pages/ChatView.tsx`) so `features/` never imports `app/`. Below `lg` it appears in the mobile drawer.
+page (`pages/ChatView.tsx`) so `features/` never imports `app/`. Below `lg` it appears in the mobile drawer. The same
+way, the chat header goes into the top bar through `TopbarExtra` (`src/app/topbarSlot.tsx`; the page hands it to
+`ChatWorkspace` as `HeaderSlot`), so the chat shows one borderless header row like magenticx: the agent's name + chevron
+(the picker) on the left, the conversation title and the subject link, then ⋯ (pin, archive, delete); the theme toggle stays.
+
+Like magenticx: a new chat is the logo, a rotating greeting, the agent's description and the composer centred, with the
+suggestions as pills below; the approval takeover is compact (shield, "Approval required", what the tool does, a chevron
+for the arguments; one row with an optional reason, Reject, Approve in amber); the questions takeover asks one question
+at a time (numbered tiles, keys 1–6, write your own, Skip — let the agent decide, Next / Send answers). Not ported: the
+travelling glow border of the composer (no glows here), the draft command highlight, recent agents in the picker.
 
 ## Mapping to our API
 
@@ -88,13 +109,13 @@ ask questions instead (`ask_user`). Shots: `chat`, `chat-about-system`, `chat-co
 ## Kept, changed, dropped
 
 - **Kept**: conversation list with pinned/recent/archived and row actions, search, new chat, streaming with a caret,
-  CoT blocks (live open, folded to "Thought for 7 s · 2 tools"), tool steps with args/result/duration, sub-agent
+  CoT blocks (live open with a shimmering latest-step title, folded to that title + "· 7s", `lib/cotTitle.ts` and `lib/toolPresentation.ts`; a Done / Stopped / Failed footer), tool steps with args/result/duration, sub-agent
   cards, background-task rows, plan checklist, artifact cards, source chips, HITL takeover (batched deck,
   reject reason) and ask-user takeover, attachments (button, paste, drag-drop, read progress, chips with preview,
   tiles + image thumbnails in messages, download), previews (image, PDF, DOCX, Markdown, CSV, JSON/code, text),
   edit (new branch) / retry / branch switcher, stop, queued message while busy, thumbs, copy, usage line,
   markdown with highlighted code + copy, slash commands, shortcuts (Esc stop, Ctrl/⌘+Shift+O new chat,
-  Ctrl/⌘+Shift+S search), agent picker (when more than one agent is known).
+  Ctrl/⌘+Shift+S search, Alt+L focus the composer, Alt+A attach, Alt+G agent picker), agent picker in the header.
 - **Condensed**: the timeline reducer (magenticx's 2,000-line fold → ~600 lines; no charts, compaction, nested
   delegation rows or planTiming); one live run store instead of `useInferenceRuns` + `useBackgroundTasks`.
 - **Dropped** (no backend or out of scope): login/accounts, sharing, voice, automations/workflows, agent builder,

@@ -68,6 +68,7 @@ Modelled on magenticx's `agentic_ui` (`src/app/WorkspaceShell.tsx`, `src/feature
 - **Raised card**: the top action (Search, ⌘K) is a card on the frame (`border-border/70`, card colour, `shadow-sm`, `h-10`, 1 px border + `px-[5px]` keep the same 6 px lead); collapsed, it flattens to a plain icon row.
 - **Brand row**: logo + name; when collapsed, hovering the logo swaps it for the expand icon (click expands); when open the collapse button sits at the right.
 - **Feature slot**: `src/app/sidebarSlot.tsx`. A feature renders `<SidebarExtra>…</SidebarExtra>` anywhere in its page tree and the content is portalled into the scrollable region below the nav (the mobile drawer while open, else the rail; hidden while collapsed). Intended for the chat's conversation list on `/chat` routes.
+- **Top bar slot**: `src/app/topbarSlot.tsx`. A page renders `<TopbarExtra>…</TopbarExtra>` and the content replaces the top bar's section label (and the mobile search button); the menu button and theme toggle stay. Used by the chat for its header row (agent picker, subject, actions).
 
 ## Design rules
 
