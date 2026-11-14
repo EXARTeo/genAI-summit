@@ -5,7 +5,8 @@ docs/
 ├── guides/          # How to install, configure and run
 ├── architecture/    # System design: summary page + full design PDF
 ├── services/        # How each service is built
-└── contracts/       # Cross-service contracts (APIs, events, streams)
+├── contracts/       # Cross-service contracts (APIs, events, streams)
+└── draft/           # Work in progress: status page, prompt-engineering drafts
 ```
 
 | Folder | Page | What it covers |
@@ -29,5 +30,7 @@ docs/
 | `services/` | [MLflow and the seed job](services/mlflow.md) | MLflow tracking server + registry, the one-shot seed job (causal-graph synthetic data, training, per-subgroup metrics, registration, idempotent `seed_hash`), the four demo system dossiers and their planted issues, the model naming contract, how to add a case |
 | `services/` | [sandbox_runner and synthkit](services/sandbox.md) | The `execute` runner (`POST /v1/exec`: files in/out, time/memory/output/disk limits, no internet) and synthkit: profile the model → check scenarios → generate (DAG, rules, twins, boundary-aware) → analyze (five gates), Data Card |
 | `contracts/` | [Agents-service contract](contracts/agents-contract.md) | What the agents service must implement for the backend: endpoints, request JSON, AG-UI events, errors |
+| `draft/` | [Project status (2026-11-14 evening)](draft/status/README.md) | WIP: what works live, in tests only or is missing, ranked gaps, next steps; containers, demo-spine and pipeline status diagrams (`draft/status/build.py`) |
+| `draft/` | [Prompt-engineering plan](draft/prompt-engineering/prompt-engineering-optimization-plan.md) | WIP: the Socratic agent loop and layered prompts every step prompt follows (+ the *Beyond Socrates* PDF) |
 
 Put a new page in the folder that matches it and add a row here.
