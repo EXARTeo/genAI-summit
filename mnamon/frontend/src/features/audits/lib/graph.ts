@@ -1,33 +1,61 @@
-// The engineer pipeline as a graph: node positions (three phase rows), edge states and the redo
+// The engineer pipeline as a graph: three phase lanes (cards stacked in each), edge states and the redo
 // loops a gate rejection or a verifier redo leaves behind. Pure; the React Flow view is
 // components/PipelineFlow.tsx.
 import { STAGES, stepStates, type StepState } from './pipeline';
 import type { AuditDetail } from './types';
 
-export const NODE_W = 196;
-export const NODE_H = 68;
-const GAP_X = 40;
-const ROW_H = 140;
-
-/** Phase rows, in pipeline order. */
-export const PHASES: { label: string; stages: string[] }[] = [
+/** Phase lanes, in pipeline order; each one ends at a human gate (the last one at the report). */
+export const PHASES: { id: string; label: string; stages: string[] }[] = [
   {
-    label: 'Understand and plan',
+    id: 'plan',
+    label: 'Understand & plan',
     stages: ['load_context', 'profile_model', 'plan_scenarios', 'analyse_scenarios', 'approve_scenarios'],
   },
   {
+    id: 'data',
     label: 'Synthetic data',
     stages: ['find_public_data', 'draft_spec', 'generate_data', 'analyse_datasets', 'approve_datasets'],
   },
-  { label: 'Test and judge', stages: ['run_tests', 'analyse', 'critic', 'report'] },
+  { id: 'test', label: 'Test & judge', stages: ['run_tests', 'analyse', 'critic', 'report'] },
 ];
 
-export function nodePosition(stageId: string): { x: number; y: number; row: number } {
-  for (let row = 0; row < PHASES.length; row++) {
-    const col = PHASES[row].stages.indexOf(stageId);
-    if (col >= 0) return { x: col * (NODE_W + GAP_X), y: row * ROW_H, row };
-  }
-  return { x: 0, y: 0, row: 0 };
+/** Lane geometry (px, drawn at zoom 1 so card text is its real size). */
+export const LANE = { gutter: 44, pad: 14, header: 54, gapY: 30, minWidth: 900 } as const;
+
+export function phaseOf(stageId: string): number {
+  return PHASES.findIndex((p) => p.stages.includes(stageId));
+}
+
+export interface LaneLayout {
+  laneWidth: number;
+  cardWidth: number;
+  height: number;
+  lanes: { id: string; x: number }[];
+  positions: Record<string, { x: number; y: number; height: number }>;
+}
+
+/**
+ * Three lanes side by side filling `width`; cards stacked top to bottom inside each lane,
+ * `heightOf(stage)` tall (a waiting gate is taller: it carries its decision button).
+ */
+export function laneLayout(width: number, heightOf: (stageId: string) => number): LaneLayout {
+  const w = Math.max(width, LANE.minWidth);
+  const laneWidth = (w - LANE.gutter * (PHASES.length - 1)) / PHASES.length;
+  const cardWidth = laneWidth - LANE.pad * 2;
+  const positions: LaneLayout['positions'] = {};
+  let height = 0;
+  const lanes = PHASES.map((p, i) => {
+    const x = i * (laneWidth + LANE.gutter);
+    let y = LANE.header;
+    for (const id of p.stages) {
+      const h = heightOf(id);
+      positions[id] = { x: x + LANE.pad, y, height: h };
+      y += h + LANE.gapY;
+    }
+    height = Math.max(height, y - LANE.gapY + LANE.pad);
+    return { id: p.id, x };
+  });
+  return { laneWidth, cardWidth, height, lanes, positions };
 }
 
 export type EdgeState = 'done' | 'live' | 'waiting' | 'pending';
@@ -57,7 +85,7 @@ export function pipelineEdges(states: Record<string, StepState>): PipelineEdge[]
       source: prev.id,
       target: s.id,
       state: edgeState(states[prev.id], states[s.id]),
-      wrap: nodePosition(prev.id).row !== nodePosition(s.id).row,
+      wrap: phaseOf(prev.id) !== phaseOf(s.id),
     };
   });
 }

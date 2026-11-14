@@ -10,6 +10,7 @@ import { ArtifactPanel } from '../components/ArtifactPanel';
 import { AuditPipeline } from '../components/AuditPipeline';
 import { PipelineFlow } from '../components/PipelineFlow';
 import { StepFacts } from '../components/StepFacts';
+import { PipelineHeader, type RunChip } from '../components/pipeline_parts/PipelineHeader';
 import { TraceLink } from '../components/artifact_parts/common';
 import { useAudit } from '../hooks/useAudits';
 import { useReplay } from '../hooks/useReplay';
@@ -101,6 +102,20 @@ export function AuditRunPage() {
   const cur = stageIndex(audit.stage);
   const elapsed = Object.values(audit.data.stageDurations ?? {}).reduce((a, b) => a + b, 0);
   const pct = progress(audit);
+  const chip: RunChip = replaying
+    ? 'replay'
+    : waiting
+      ? 'waiting'
+      : done
+        ? 'done'
+        : audit.status === 'failed'
+          ? 'failed'
+          : audit.status === 'running' || audit.status === 'open'
+            ? 'live'
+            : 'idle';
+  const stepText = done
+    ? `All ${STAGES.length} steps${elapsed > 0 ? ` · ${formatDuration(elapsed)}` : ''}`
+    : `Step ${cur + 1} of ${STAGES.length}${elapsed > 0 ? ` · ${formatDuration(elapsed)}` : ''}`;
 
   return (
     <div>
@@ -195,40 +210,17 @@ export function AuditRunPage() {
       {wide ? (
         <div className="space-y-4">
           <Card className="overflow-hidden">
-            <div className="border-b border-border px-4 py-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium">Pipeline</span>
-                <span className="num text-muted">
-                  {done ? `${STAGES.length}/${STAGES.length} steps` : `Step ${cur + 1} of ${STAGES.length}`}
-                  {elapsed > 0 && ` · ${formatDuration(elapsed)}`}
-                </span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-muted">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-[width] duration-500 ease-out',
-                    waiting ? 'bg-warning' : 'bg-primary',
-                  )}
-                  style={{ width: `${Math.round(pct * 100)}%` }}
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between text-2xs text-muted">
-                <span>{follow ? 'Following the live step' : 'Pinned to your selection'}</span>
-                {!follow && (
-                  <button
-                    type="button"
-                    className="font-medium text-primary hover:underline"
-                    onClick={() => {
-                      setFollow(true);
-                      setParams({}, { replace: true });
-                    }}
-                  >
-                    Follow live
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="px-2 pb-2">
+            <PipelineHeader
+              chip={chip}
+              stepText={stepText}
+              progress={pct}
+              follow={follow}
+              onFollow={() => {
+                setFollow(true);
+                setParams({}, { replace: true });
+              }}
+            />
+            <div className="px-4 pb-4">
               <PipelineFlow audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
             </div>
           </Card>
@@ -254,40 +246,17 @@ export function AuditRunPage() {
       ) : (
         <div className="grid items-start gap-4">
           <Card className="overflow-hidden">
-            <div className="border-b border-border px-4 py-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium">Pipeline</span>
-                <span className="num text-muted">
-                  {done ? `${STAGES.length}/${STAGES.length} steps` : `Step ${cur + 1} of ${STAGES.length}`}
-                  {elapsed > 0 && ` · ${formatDuration(elapsed)}`}
-                </span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-muted">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-[width] duration-500 ease-out',
-                    waiting ? 'bg-warning' : 'bg-primary',
-                  )}
-                  style={{ width: `${Math.round(pct * 100)}%` }}
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between text-2xs text-muted">
-                <span>{follow ? 'Following the live step' : 'Pinned to your selection'}</span>
-                {!follow && (
-                  <button
-                    type="button"
-                    className="font-medium text-primary hover:underline"
-                    onClick={() => {
-                      setFollow(true);
-                      setParams({}, { replace: true });
-                    }}
-                  >
-                    Follow live
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="p-1.5">
+            <PipelineHeader
+              chip={chip}
+              stepText={stepText}
+              progress={pct}
+              follow={follow}
+              onFollow={() => {
+                setFollow(true);
+                setParams({}, { replace: true });
+              }}
+            />
+            <div className="px-3 pb-4">
               <AuditPipeline audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
             </div>
           </Card>

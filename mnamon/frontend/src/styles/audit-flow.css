@@ -1,0 +1,330 @@
+/* The audit pipeline graph (features/audits/components/PipelineFlow.tsx) and its stepper
+   (AuditPipeline.tsx), ported from mAgenticX's workflow run view (workflow-flow.css):
+   rounded cards with a soft top sheen and an icon tile, a hover lift, a primary ring when
+   selected; a light travelling round a running card with a sweep across it, an amber pulse
+   on a gate that waits for a person, success / danger borders once a step ended, pending
+   steps a step back. Calm edges with one small arrowhead, a flowing dash into the live
+   step. Brand tokens only (RGB channels from theme/semantic.css); every animation stops
+   under reduced motion. */
+
+@property --audit-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.audit-flow.react-flow {
+  --xy-background-color: transparent;
+  --xy-background-pattern-dots-color: rgb(var(--muted-foreground) / 0.22);
+  font-family: inherit;
+}
+
+.audit-flow .react-flow__node {
+  cursor: pointer;
+}
+.audit-flow .react-flow__node-lane {
+  cursor: default;
+  pointer-events: none;
+}
+.audit-flow .react-flow__node:focus {
+  outline: none;
+}
+.audit-flow .react-flow__node:focus-visible .audit-node-card {
+  outline: 2px solid rgb(var(--primary) / 0.75);
+  outline-offset: 3px;
+}
+.audit-flow .audit-handle {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- Lanes ------------------------------------------------------------- */
+
+.audit-lane {
+  border: 1px solid rgb(var(--border) / 0.7);
+  background: linear-gradient(180deg, rgb(var(--surface-sunken)), rgb(var(--surface-sunken) / 0.92));
+}
+
+/* ---- Cards ------------------------------------------------------------- */
+
+.audit-node {
+  position: relative;
+  isolation: isolate;
+  border-radius: 1.1rem;
+  transition:
+    opacity 0.3s ease,
+    filter 0.3s ease;
+}
+.audit-node[data-gate='true'] {
+  border-radius: 2.125rem;
+}
+.audit-node[data-gate='true'][data-state='needs-approval'] {
+  border-radius: 1.5rem;
+}
+/* Gates: the approval chrome (amber border), dashed until the run reaches them. */
+.audit-node[data-gate='true'] .audit-node-card {
+  border-color: rgb(var(--warning) / 0.45);
+}
+.audit-node[data-gate='true'][data-state='pending'] .audit-node-card {
+  border-style: dashed;
+  border-color: rgb(var(--warning) / 0.55);
+}
+
+.audit-node-card {
+  border-radius: inherit;
+  border: 1px solid rgb(var(--border) / 0.8);
+  background: rgb(var(--surface));
+  box-shadow:
+    0 1px 2px rgb(var(--foreground) / 0.05),
+    0 8px 20px -14px rgb(var(--foreground) / 0.28);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.audit-node-sheen {
+  background: linear-gradient(180deg, rgb(var(--primary) / 0.07), transparent);
+}
+.audit-node[data-gate='true'] .audit-node-sheen {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--warning) / 0.12),
+    rgb(var(--warning) / 0.03) 60%,
+    transparent
+  );
+}
+
+.audit-node-tile {
+  background: rgb(var(--primary) / 0.12);
+  color: rgb(var(--primary));
+  box-shadow: inset 0 0 0 1px rgb(var(--primary) / 0.14);
+}
+.audit-node[data-gate='true'] .audit-node-tile {
+  background: rgb(var(--warning) / 0.16);
+  color: rgb(var(--warning));
+  box-shadow: inset 0 0 0 1px rgb(var(--warning) / 0.2);
+}
+
+.audit-node[data-interactive='true']:hover .audit-node-card {
+  transform: translateY(-1px);
+  border-color: rgb(var(--primary) / 0.4);
+  box-shadow:
+    0 1px 2px rgb(var(--foreground) / 0.05),
+    0 14px 30px -18px rgb(var(--foreground) / 0.45);
+}
+
+.audit-node[data-selected='true'] .audit-node-card {
+  border-color: rgb(var(--primary) / 0.75);
+  box-shadow:
+    0 0 0 3px rgb(var(--primary) / 0.18),
+    0 12px 28px -16px rgb(var(--primary) / 0.55);
+}
+
+/* Not reached yet: a step back (full again on hover / selection). */
+.audit-node[data-state='pending'] {
+  opacity: 0.6;
+  filter: saturate(0.55);
+}
+.audit-node[data-state='pending']:hover,
+.audit-node[data-state='pending'][data-selected='true'] {
+  opacity: 0.95;
+  filter: none;
+}
+
+.audit-node[data-state='done'][data-gate='false'] .audit-node-card {
+  border-color: rgb(var(--success) / 0.4);
+}
+.audit-node[data-state='done'][data-selected='true'] .audit-node-card {
+  border-color: rgb(var(--primary) / 0.75);
+}
+
+.audit-node[data-state='blocked'] .audit-node-card {
+  border-color: rgb(var(--danger) / 0.7);
+  background-image: linear-gradient(180deg, rgb(var(--danger) / 0.06), transparent 70%);
+  box-shadow:
+    0 0 0 3px rgb(var(--danger) / 0.1),
+    0 10px 24px -16px rgb(var(--danger) / 0.5);
+}
+
+/* A gate waiting for a person: amber border and a slow pulse. */
+.audit-node[data-state='needs-approval'] .audit-node-card {
+  border-color: rgb(var(--warning) / 0.85);
+  animation: audit-node-wait 2.4s ease-in-out infinite;
+}
+@keyframes audit-node-wait {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgb(var(--warning) / 0.16),
+      0 8px 20px -14px rgb(var(--warning) / 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px rgb(var(--warning) / 0.07),
+      0 12px 28px -14px rgb(var(--warning) / 0.7);
+  }
+}
+
+/* Running: a light travels round the border, a blurred copy glows under it, a band sweeps. */
+.audit-node[data-state='active'] .audit-node-card {
+  border-color: transparent;
+}
+.audit-node[data-state='active']::before,
+.audit-node[data-state='active']::after {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--audit-angle),
+    transparent 0deg,
+    rgb(var(--primary) / 0.15) 40deg,
+    rgb(var(--primary)) 90deg,
+    rgb(var(--accent)) 120deg,
+    transparent 170deg,
+    transparent 190deg,
+    rgb(var(--primary) / 0.15) 220deg,
+    rgb(var(--primary)) 270deg,
+    rgb(var(--accent)) 300deg,
+    transparent 350deg
+  );
+  animation: audit-border-spin 2.6s linear infinite;
+}
+.audit-node[data-state='active']::before {
+  z-index: 1;
+  padding: 1.5px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.audit-node[data-state='active']::after {
+  z-index: -1;
+  filter: blur(12px);
+  opacity: 0.45;
+}
+@keyframes audit-border-spin {
+  to {
+    --audit-angle: 360deg;
+  }
+}
+.audit-node-sweep {
+  background: linear-gradient(100deg, transparent 30%, rgb(var(--primary) / 0.09) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: audit-node-sweep 2.2s ease-in-out infinite;
+}
+@keyframes audit-node-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* ---- Edges ------------------------------------------------------------- */
+
+.audit-flow .audit-edge .react-flow__edge-path {
+  stroke: rgb(var(--muted-foreground) / 0.4);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 3 5;
+  transition:
+    stroke 0.3s ease,
+    stroke-width 0.2s ease;
+}
+.audit-flow .audit-edge-arrow {
+  fill: rgb(var(--muted-foreground) / 0.5);
+}
+.audit-flow .audit-edge.is-done .react-flow__edge-path {
+  stroke: rgb(var(--primary) / 0.7);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+.audit-flow .audit-edge.is-done .audit-edge-arrow {
+  fill: rgb(var(--primary) / 0.85);
+}
+.audit-flow .audit-edge.is-live .react-flow__edge-path {
+  stroke: rgb(var(--primary));
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  animation: audit-edge-flow 0.9s linear infinite;
+}
+.audit-flow .audit-edge.is-live .audit-edge-arrow {
+  fill: rgb(var(--primary));
+}
+.audit-flow .audit-edge.is-waiting .react-flow__edge-path {
+  stroke: rgb(var(--warning));
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  animation: audit-edge-flow 0.9s linear infinite;
+}
+.audit-flow .audit-edge.is-waiting .audit-edge-arrow {
+  fill: rgb(var(--warning));
+}
+.audit-flow .audit-edge-glow {
+  stroke: rgb(var(--primary) / 0.3);
+  stroke-width: 7;
+  stroke-linecap: round;
+  filter: blur(3px);
+  pointer-events: none;
+}
+.audit-flow .audit-edge.is-waiting .audit-edge-glow {
+  stroke: rgb(var(--warning) / 0.3);
+}
+.audit-flow .audit-edge.is-redo .react-flow__edge-path {
+  stroke: rgb(var(--warning) / 0.8);
+  stroke-width: 1.75;
+  stroke-dasharray: 5 4;
+}
+.audit-flow .audit-edge.is-redo .audit-edge-arrow {
+  fill: rgb(var(--warning) / 0.9);
+}
+@keyframes audit-edge-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+/* ---- Stepper (mobile) -------------------------------------------------- */
+
+.audit-step-rail {
+  background: rgb(var(--border));
+}
+.audit-step-rail[data-done='true'] {
+  background: rgb(var(--primary) / 0.6);
+}
+
+/* ---- Reduced motion ---------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-node,
+  .audit-node-card,
+  .audit-flow .audit-edge .react-flow__edge-path {
+    transition: none;
+    animation: none;
+  }
+  .audit-node[data-state='active']::before,
+  .audit-node[data-state='active']::after,
+  .audit-node-sweep {
+    animation: none;
+  }
+  .audit-node[data-state='needs-approval'] .audit-node-card {
+    animation: none;
+    box-shadow: 0 0 0 3px rgb(var(--warning) / 0.18);
+  }
+  .audit-flow .audit-edge.is-live .react-flow__edge-path,
+  .audit-flow .audit-edge.is-waiting .react-flow__edge-path {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}

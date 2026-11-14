@@ -20,19 +20,23 @@ decide what to remember.
   (`client:<uuid>` → "Engineer"), dataset content hashes, MLflow run ids and check ids are hidden; Langfuse links keep
   the trace id only in the href. A finished run adds a summary strip: gaps, supports, inconclusive, not assessable,
   total agent time.
-- **The pipeline graph** (`PipelineFlow`, React Flow, at 1024 px and wider): three phase rows (Understand and plan /
-  Synthetic data / Test and judge) of 14 steps from `lib/pipeline.ts` (`STAGES`), laid out by `lib/graph.ts`:
-  `load_context → profile_model → plan_scenarios → analyse_scenarios → ⏸ approve_scenarios → find_public_data ⏸
-  (public data pick) → draft_spec → generate_data → analyse_datasets → ⏸ approve_datasets → run_tests → analyse →
-  critic → report`. Gates are pills with a hand; nodes show done (check), running (spinner + shimmer), waiting
-  (amber, pulsing, with a *Review & decide* button), failed and pending. Edges into the live step animate (off under
-  reduced motion). A **redo loop** edge (`redo ×n`, dashed amber) appears when a gate rejection or a verifier redo
-  sent a step back (more than one version of `scenarios` / `generation_spec`, or a non-approve decision).
-  Nodes are focusable buttons; Enter or Space opens the step. Below 1024 px the page falls back to the vertical
-  step list (`AuditPipeline`). `stepState(stage, audit)` maps the audit's `(stage, status)` onto `done | active |
-  pending | blocked | needs-approval` (`find_public_data` runs first, then waits at the `public_data` gate). The
-  page polls every 1.5 s while the run is live and follows the live step until the user pins another one. A
-  finished audit has **Replay run** for the demo.
+- **The pipeline graph** (`PipelineFlow`, React Flow, at 1024 px and wider), ported from mAgenticX's workflow
+  run view (node card, edges, status language; `styles/audit-flow.css`) onto the brand tokens. The 14 steps of
+  `lib/pipeline.ts` (`STAGES`) sit in three phase lanes that fill the card (`lib/graph.ts: laneLayout`), drawn at
+  zoom 1 so card text is its real size: Understand & plan (`load_context → profile_model → plan_scenarios →
+  analyse_scenarios → ⏸ approve_scenarios`), Synthetic data (`find_public_data ⏸ → draft_spec → generate_data →
+  analyse_datasets → ⏸ approve_datasets`), Test & judge (`run_tests → analyse → critic → report`). Each lane
+  shows its done count and hands over to the next with a chevron. A card (`pipeline_parts/StepCard`) has a step
+  icon, its title and one line on what it produced (`lib/stepMeta.ts: stepSummary`, e.g. "28 requirements · 15
+  testable", "3,654 rows · 3,123 twins"), and a status chip. Done steps have a check, a running step a light
+  travelling round its border, a waiting gate an amber pulse with *Review & decide* inside the card, a failed
+  step is red and pending steps are dimmed. Gates use the approval chrome (amber, hand tile, pill shape, dashed
+  until reached). Edges are short beziers down each lane: solid primary when done, flowing dashes into the live
+  step, faint dashes ahead. A **redo loop** (`redo ×n`) arcs back on the right when a gate rejection or a
+  verifier redo sent a step back. Cards are focusable; Enter or a click opens the step, and the selected card
+  gets a primary ring. Reduced motion stops every animation. Below 1024 px the page uses the same cards as a
+  vertical stepper grouped by phase (`AuditPipeline`). The card header (`PipelineHeader`) shows a run chip
+  (Live, Waiting for you, Finished, Failed), "Step n of 14", a progress bar and *Follow live*.
 - **Step panel** (below the graph): step header ("Step n of 14", duration, trace link), then **step facts**
   (`StepFacts`): status, timestamps, memory read (`memory_applied`) and written (`lessons_recorded`), redo
   history (every version of the artifact the step rewrites), gate decisions (decision, reason, comment, who, when),

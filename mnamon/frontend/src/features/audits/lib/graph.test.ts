@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { reviewedScenarios, searchDrivers, stepMemory, toScenarios } from './adapters';
 import real from './fixtures/sys001-audit.json';
-import { PHASES, edgeState, graphModel, nodePosition, redoLoops } from './graph';
+import { PHASES, edgeState, graphModel, laneLayout, phaseOf, redoLoops } from './graph';
+import { stepSummary } from './stepMeta';
 import { STAGES } from './pipeline';
 import type { Approval, Artifact, AuditDetail } from './types';
 
@@ -10,8 +11,13 @@ const audit = real as unknown as AuditDetail;
 describe('pipeline graph', () => {
   it('places every stage exactly once, in pipeline order per row', () => {
     expect(PHASES.flatMap((p) => p.stages)).toEqual(STAGES.map((s) => s.id));
-    expect(nodePosition('approve_scenarios').row).toBe(0);
-    expect(nodePosition('find_public_data')).toMatchObject({ x: 0, row: 1 });
+    expect(phaseOf('approve_scenarios')).toBe(0);
+    expect(phaseOf('find_public_data')).toBe(1);
+    const l = laneLayout(1200, (id) => (id === 'approve_datasets' ? 114 : 68));
+    expect(l.lanes.map((x) => x.x)).toEqual([0, l.laneWidth + 44, 2 * (l.laneWidth + 44)]);
+    expect(l.positions.find_public_data.y).toBe(l.positions.load_context.y);
+    expect(l.positions.draft_spec.y).toBeGreaterThan(l.positions.find_public_data.y);
+    expect(l.height).toBeGreaterThan(l.positions.approve_datasets.y + 114);
   });
 
   it('edges lead into the live step and wrap between rows', () => {
@@ -113,5 +119,14 @@ describe('public data search drivers', () => {
       explicit: true,
       drivers: [{ id: 'SC-05', fields: ['years_experience'] }],
     });
+  });
+});
+
+describe('step summaries', () => {
+  it('says what each step produced, and the gate decision', () => {
+    expect(stepSummary('load_context', audit)).toMatch(/^\d+ requirements · \d+ testable$/);
+    expect(stepSummary('generate_data', audit)).toBe('3,654 rows · 3,123 twins');
+    expect(stepSummary('approve_scenarios', audit)).toBe('Approved');
+    expect(stepSummary('run_tests', audit)).toBeUndefined();
   });
 });
