@@ -49,7 +49,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-body)', 'Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
-        heading: ['var(--font-heading)', 'Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-heading)', 'EB Garamond Variable', 'Georgia', 'serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono Variable', 'ui-monospace', 'monospace'],
       },
       borderRadius: {

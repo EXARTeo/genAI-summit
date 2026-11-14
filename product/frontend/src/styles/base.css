@@ -27,8 +27,16 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-heading), 'Inter Variable', system-ui, sans-serif;
+  font-family: var(--font-body), 'Inter Variable', system-ui, sans-serif;
   letter-spacing: -0.02em;
+}
+
+/* The brand serif (EB Garamond) is for page titles only; dense card and section headings stay
+   in the body face. Opt in elsewhere with the `font-heading` utility. */
+h1 {
+  font-family: var(--font-heading), 'EB Garamond Variable', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 code,

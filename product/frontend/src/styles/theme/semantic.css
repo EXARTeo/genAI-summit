@@ -33,6 +33,9 @@
   --primary-foreground: var(--rgb-primary-foreground);
   --accent: var(--rgb-accent);
   --accent-foreground: var(--rgb-accent-foreground);
+  /* The two halves of the logo mark (lex left, terra right). Only the logo uses these. */
+  --logo-lex: var(--rgb-logo-lex);
+  --logo-terra: var(--rgb-logo-terra);
 
   /* Status: green/red only for verdicts, amber only for "needs a human". */
   --success: var(--rgb-success);

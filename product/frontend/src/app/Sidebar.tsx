@@ -6,7 +6,7 @@ import { INTERACTIVE_SURFACE, RAISED_ON_FRAME } from '@/shared/lib/consts/ui';
 import { cn } from '@/shared/lib/utils';
 import { useNavBadges } from '@/shared/stores/nav';
 import { useUiStore } from '@/shared/stores/ui';
-import { LogoMark, Tooltip } from '@/shared/ui';
+import { LogoMark, PRODUCT_DESCRIPTOR, PRODUCT_NAME, Tooltip, Wordmark } from '@/shared/ui';
 import { NAV_ITEMS, type NavItem } from './nav';
 import { SidebarSlotTarget } from './sidebarSlot';
 
@@ -133,7 +133,7 @@ export function SidebarContent({
                 }
                 onNavigate?.();
               }}
-              aria-label={collapsed ? 'Expand sidebar' : 'AI Act Copilot home'}
+              aria-label={collapsed ? 'Expand sidebar' : `${PRODUCT_NAME} home`}
               className={cn(ROW, 'group/brand h-12 gap-2')}
             >
               <span className="relative grid size-9 shrink-0 place-items-center">
@@ -145,8 +145,8 @@ export function SidebarContent({
                 )}
               </span>
               <Label collapsed={collapsed} className="flex min-w-0 flex-col leading-tight">
-                <span className="truncate text-sm font-semibold tracking-tight">AI Act Copilot</span>
-                <span className="truncate text-xs font-normal text-muted">Compliance workspace</span>
+                <Wordmark className="truncate text-base" />
+                <span className="mt-1 truncate text-xs font-normal text-muted">{PRODUCT_DESCRIPTOR}</span>
               </Label>
             </Link>
           </Tooltip>

@@ -10,6 +10,7 @@
  *   4. components.css  per-component vars: shell, sidebar, scrim, toast, skeleton, flow
  * tailwind.config.ts reads only these CSS vars; components never hard-code a colour.
  */
+@import '@fontsource-variable/eb-garamond';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 

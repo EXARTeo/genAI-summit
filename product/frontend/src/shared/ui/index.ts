@@ -39,4 +39,4 @@ export { ProgressRing, type ProgressRingProps } from './progress-ring';
 export { Toaster, toast } from './toaster';
 export { AnimatedNumber, type AnimatedNumberProps } from './animated-number';
 export { AgentThinking, type AgentThinkingProps } from './agent-thinking';
-export { Logo, LogoMark, PRODUCT_NAME } from './logo';
+export { Logo, LogoMark, PRODUCT_DESCRIPTOR, PRODUCT_NAME, Wordmark } from './logo';
