@@ -6,8 +6,10 @@ exactly; this page is how it is built inside. Port **8003**, FastAPI, **Google
 Gemini** models through LangChain (`langchain-google-genai`) and deepagents, durable state in the
 `agent_runtime` Postgres database.
 
-It ships one Python agent, **`audit-pipeline`** (the engineer audit pipeline and the change judge:
-[agents pipeline](agents-pipeline.md)); declarative chat agents go in `mnamon/agents/definitions/<slug>/`
+It ships two agents: the chat's **`mnamon`** (*Mnamon Copilot*, a declarative deep agent in
+`mnamon/agents/definitions/mnamon/`, the default: [The chat agent](#the-chat-agent-mnamon-copilot)) and the
+Python **`audit-pipeline`** (the engineer audit pipeline and the change judge, a `workflow`:
+[agents pipeline](agents-pipeline.md)). More declarative agents go in `mnamon/agents/definitions/<slug>/`
 (see [Adding an agent](#adding-an-agent)).
 
 ## Routes
@@ -15,7 +17,7 @@ It ships one Python agent, **`audit-pipeline`** (the engineer audit pipeline and
 | Method | Path | Auth | What |
 | --- | --- | --- | --- |
 | `GET` | `/health` | none | Liveness (`{"status": "ok"}`), no I/O |
-| `GET` | `/agents` | secret | The agents this service runs (manifest list, `default: true` on `DEFAULT_AGENT_SLUG`), so a UI can pick one |
+| `GET` | `/agents` | secret | The agents this service runs (manifest list, `default: true` on `DEFAULT_AGENT_SLUG`, `kind: chat\|workflow`), so a UI can pick one; the chat lists only `kind: "chat"` |
 | `POST` | `/agents/{slug}/stream` | secret | Start a run (contract § `/stream`) |
 | `POST` | `/agents/{slug}/resume` | secret | Resume a run paused on HITL interrupt(s) (contract § `/resume`) |
 | `*` | `/ap/...` | secret + launch token | The Agent Protocol the async sub-agents call, in process |
@@ -189,6 +191,37 @@ memory of its own. Design background: [agent context § 4](../architecture/agent
 - **Debugging.** `GET /internal/systems/{id}/memory` (internal secret) returns `{systemId, index, entries}`
   with each entry's path and provenance.
 
+## The chat agent: Mnamon Copilot
+
+`definitions/mnamon/` (`agent.yaml`, `AGENT.md`, `subagents/`): the engineer's EU AI Act compliance
+copilot. It answers questions about the regulation (citing provisions with their `kb_version`), a
+system's dossier and plugins, and an audit's findings, tests, critic and reports; explains a finding
+with its counter-arguments; drafts evidence or gap notes as `proposed`; starts an audit only on request.
+
+- **Model:** `google_genai:${GEMINI_MODEL}` (the placeholder is the deployment's `GEMINI_MODEL`,
+  `utils/declarative.py::expand_model_id`). With `AGENTS_FAKE_LLM=true` every declarative agent runs on
+  `DryRunChatModel` (`harness/models/fake.py`): it calls one real tool for the conversation's scope
+  (`read_audit`, `list_system_files` or `list_systems`) and answers with a "Dry run" note and an excerpt.
+- **Tools** (native, `harness/tools/workspace_api/`, bound to the run's `client_id` and scope; a missing
+  `system_id` / `audit_id` argument defaults to the scope): `list_systems`, `list_system_files`,
+  `read_system_file`, `list_audits`, `read_audit`, `read_audit_artifact` (the backend's `/v1/systems` and
+  `/v1/audits` with the run's `X-Client-Id`), `lookup_provision`, `search_regulation` (reg-memory, pinned to
+  the active `kb_version` read once per run), and two gated writes: `propose_system_note` (writes
+  `proposed/{evidence,gaps}/<name>.md` into the system folder with `status: proposed`) and `start_audit`
+  (`POST /v1/systems/{id}/audits`). Plus the platform's `present_artifact`, `render_chart`, the sandbox
+  `execute` (always gated), and with a `system_id` the `/memory/` mount. No MCP tools (`all_mcp_tools:
+  false`): answers come from the knowledge base.
+- **Sub-agents:** `regulation-researcher` (only `lookup_provision` + `search_regulation`) and
+  `evidence-analyst` (inherits every tool and gate). Delegation is not gated (`hitl.task: false`).
+- **Prompt:** layered per the prompt-engineering plan: the precedence statement, `<platform_rules>`
+  (HITL, cite with `kb_version`, no legal certainty, thresholds are the organisation's, no invented
+  numbers) and `<agent_instructions>` in `AGENT.md`; then the platform defaults (harness sections), the
+  `<user_context>` scope block, the memory index and the date.
+- **Scoping:** a conversation started from a system or audit carries `context.system_id` / `audit_id`.
+  The `scope` prompt section (`prompts/scope_prompt.py`) tells the agent what it is scoped to and to start
+  there; the tools default to it. Unscoped, it is general AI Act Q&A and picks a system by name with
+  `list_systems`.
+
 ## Tools and approvals
 
 | Tool | Where from | Approval by default |
@@ -201,6 +234,8 @@ memory of its own. Design background: [agent context § 4](../architecture/agent
 | `present_artifact`, `view_image`, `render_chart` | native (`harness/tools/`) | no |
 | `remember` | native; only with `system_id` + `audit_id` in the context | no |
 | `forget` | native; same | **yes** |
+| `list_systems`, `list_system_files`, `read_system_file`, `list_audits`, `read_audit`, `read_audit_artifact`, `lookup_provision`, `search_regulation` | native, selected in `agent.yaml` ([chat agent](#the-chat-agent-mnamon-copilot)) | no |
+| `propose_system_note`, `start_audit` | same | **yes** |
 | `ask_user` | native; main agent of a chat run only | never (the call is the pause) |
 | MCP gateway tools | `MCP_GATEWAY_URL` | per the agent's `hitl:` |
 
@@ -261,7 +296,7 @@ fail-open: a Langfuse outage costs traces, never a run.
 | `LOG_REDACTION_SECRET` | random per process | Keys the `h:` id hashes; use the backend's value |
 | `GOOGLE_API_KEY` | | Gemini, the only provider; empty = a clear `RUN_ERROR` ([agents pipeline](agents-pipeline.md#model-access-gemini)) |
 | `GEMINI_MODEL` / `GEMINI_MODEL_REASONING` | `gemini-3.5-flash-lite` / empty | Default and reasoning-role models |
-| `AGENTS_FAKE_LLM` | `false` | Deterministic stub model for dry runs |
+| `AGENTS_FAKE_LLM` | `false` | Deterministic stub model for dry runs (the pipeline steps and every declarative agent) |
 | `REG_MEMORY_URL`, `PIPELINE_*`, `CHANGE_JUDGE_MODEL`, `OUMI_*` | | The pipelines ([settings](agents-pipeline.md#pipeline-settings)) |
 | `AGENT_RUNTIME_DATABASE_URL` | `postgresql://postgres:postgres@postgres:5432/agent_runtime` | psycopg conninfo; the database is created if missing |
 | `LANGGRAPH_AES_KEY` | empty (plaintext) | 16, 24 or 32 **characters** (e.g. `openssl rand -hex 16`); encrypts checkpoints and files. Never change it once data exists |
@@ -272,7 +307,7 @@ fail-open: a Langfuse outage costs traces, never a run.
 | `SANDBOX_EXECUTION_ENABLED` / `SANDBOX_RUNNER_URL` | `false` / empty | Both needed for `execute` |
 | `SANDBOX_RUNNER_SECRET` | `INTERNAL_SERVICE_SECRET` | The runner's `TRUSTED_PROXY_SECRET` |
 | `LANGFUSE_BASE_URL` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | empty | Tracing off unless all three are set |
-| `DEFAULT_AGENT_SLUG` | none | Marked `default` in `GET /agents` (set it to the product agent's slug) |
+| `DEFAULT_AGENT_SLUG` | `mnamon` | Marked `default` in `GET /agents` (the chat copilot) |
 | `AGENTS_DIR` | the image's `definitions/` | Folder of `<slug>/agent.yaml` definitions |
 | `AGENT_MODELS` | `google_genai:gemini-3.5-{flash-lite,flash,pro}` | JSON `{"provider:model": {"reasoning": bool, "context_window": int}}` |
 | `OUTPUT_MAX_FILE_BYTES` / `OUTPUT_MAX_FILES` | 26214400 / 20 | Presented bytes per file / per run |
@@ -289,7 +324,8 @@ A folder `mnamon/agents/definitions/<agent-name>/` (the folder name is the slug;
 set `DEFAULT_AGENT_SLUG` to it) with:
 
 - `agent.yaml`: `id`, `slug`, `name`, `version`, `type: deep_agent`,
-  `description`, `icon`, `prompt: ./AGENT.md`, `model: {main: google_genai:<model>}`,
+  `description`, `icon`, `prompt: ./AGENT.md`, `model: {main: google_genai:<model>}`
+  (or `google_genai:${GEMINI_MODEL}`),
   `tools` (`{native: render_chart}` or `{server_id: tavily, tool_name: tavily-search}`),
   `all_mcp_tools`, `subagents` (name, description, prompt, optional model and
   tool subset, nested `subagents` up to 3 levels), `hitl` (`tool: true|false`;

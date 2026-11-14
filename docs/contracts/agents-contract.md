@@ -17,6 +17,11 @@ has no agent catalog: the agents service decides whether a slug exists.
 | --- | --- | --- | --- |
 | `POST` | `/agents/{slug}/stream` | Start a run | `200 text/event-stream` |
 | `POST` | `/agents/{slug}/resume` | Resume a run paused on HITL interrupt(s) | `200 text/event-stream`, same framing as `/stream` |
+| `GET` | `/agents` | The catalog the backend proxies as `GET /v1/agents` | `200 [{id, slug, name, version, type, description, icon, kind, default}]` |
+
+`kind` is `"chat"` (a conversation partner the chat's agent picker lists) or `"workflow"` (a pipeline the
+product's features start, e.g. `audit-pipeline`; a chat UI hides it). `default: true` marks
+`DEFAULT_AGENT_SLUG` (`mnamon`, *Mnamon Copilot*).
 
 The audit pipeline adds four internal routes (same secret header, JSON, answered at once; the pipeline runs
 in the background and reports through the backend's internal API):
