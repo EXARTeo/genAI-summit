@@ -3,6 +3,8 @@
 > Keep this page current as the design changes. The full design document (Greek, 24 pages) is
 > [ai-act-governance-copilot.pdf](ai-act-governance-copilot.pdf); this page is the English summary
 > of what we build. Its §12 (AI Engineer MVP) replaces the earlier scope in §9 and §11.5.
+> Diagrams live in [diagrams/](diagrams/) (PNG + SVG); edit `diagrams/build.py` and run
+> `scripts/build-diagrams.*` to regenerate them.
 
 ## Overview
 
@@ -51,20 +53,36 @@ The product folder is `product/` until a name is chosen. Full table (images, net
 
 ### Planned for the MVP (PDF §12.2)
 
+![Containers](diagrams/containers.png)
+
 | Container | Role | Tech (proposal) | Maps to |
 | --- | --- | --- | --- |
 | `frontend` | Engineer workspace: systems, system card, test plan, dataset auditor, findings, reports, regulation-change inbox | Next.js | new |
 | `backend` | API, system cards, runs, findings, evidence, notifications, webhooks (Firecrawl, Telegram), job queue | FastAPI + Postgres + Redis | existing `backend` |
 | `agent` | Test pipeline and impact pipeline | LangGraph + hackathon LLM provider | existing `agents` |
-| `reg-memory` (RKS) | Regulatory Knowledge Service: codified AI Act / guidelines / Omnibus, versions, diff, watcher, change judge | FastAPI + Postgres/pgvector + YAML corpus in git | new |
+| `reg-memory` (RKS) | Regulatory Knowledge Service: **all** regulatory knowledge (AI Act, Omnibus, guidelines, FAQs, codes of practice, standards, national law, internal policies), versions, diff, watcher, change judge | FastAPI + Postgres/pgvector + YAML corpus in git | new |
 | `mlflow` | Tracking server, model registry, artifacts (test runs are logged here) | MLflow + local volume | new |
 | `sandbox` | Runs test code; no network except MLflow; CPU/RAM/time limits | Python image with sklearn, fairlearn, sdv, ART | existing sandbox runner |
 
 The sandbox is separate from the agent so LLM-written test code never runs next to credentials or the database.
 
+### Agent context and memory
+
+The agent reads four sources before an audit: `reg-memory` (the rules), the **system dossier** (the folder of
+the audited system), **plugins** (one per model or endpoint: a target card with access, pipeline place and expected behaviour, plus
+docs and training-data descriptions added at configuration) and **agent memory** (human corrections, per system and
+org-wide, fully audited). All four are files in a virtual filesystem stored in Postgres. Design, paths, tables,
+schemas and audit rules: [agent-context.md](agent-context.md).
+
+![Agent context and memory](diagrams/agent-context.png)
+
+
+
 ## Data flow
 
 ### Engineer pipeline (PDF §12.5)
+
+![Engineer pipeline](diagrams/engineer-pipeline.png)
 
 ```text
 system card + MLflow model
@@ -84,6 +102,8 @@ AI Act sets no numbers, and findings must say so.
 
 ### Regulation change → re-review (PDF §12.6)
 
+![Regulation change → re-review](diagrams/reg-change.png)
+
 ```text
 Firecrawl monitor (EUR-Lex, Service Desk, guidelines) → webhook → RKS
   → re-parse, provision-level diff by content_hash → LLM classifies change type → RegChange + candidate kb_version
@@ -100,6 +120,8 @@ YAML in git, four entities: `provisions/` (verbatim text, `valid_from`, `content
 `requirements/` (actor, `applies_if`, modality, testability, `test_templates`), `interpretations/`
 (guidelines, `binding: false`), `test_templates/` (`supports`, `needs`, metric, `limitations`).
 MVP scope: Art. 6, 9–15, 17, Annex III, Annex IV.
+
+![Traceability model](diagrams/traceability.png)
 
 ### Seed data (PDF §12.7)
 
@@ -121,3 +143,4 @@ MVP scope: Art. 6, 9–15, 17, Annex III, Annex IV.
 | 2026-11-13 | Repo tooling: Python 3.12 + uv, pytest, ruff | Fast, reproducible checks with one lockfile |
 | 2026-11-13 | Self-hosted Langfuse v4 in the product compose, with its own Postgres and Valkey | Full traceability without a SaaS; v3 is deprecated; Langfuse's queues need `noeviction` and its migrations stay off the product database |
 | 2026-11-14 | Product: AI Act Governance Copilot, MVP = AI Engineer (provider) pillar only | Classification and system card are seeded; the testing + regulation-change loop is the demoable, differentiated part |
+| 2026-11-14 | Agent context and memory are files in a Postgres-backed virtual filesystem (`/regulation/`, `/systems/<id>/` with plugins, `/memory/`), append-only and audited | Reuses the agents service's existing file layer; agents read with normal file tools; every write and read is versioned and logged |

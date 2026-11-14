@@ -12,6 +12,8 @@ docs/
 | --- | --- | --- |
 | `guides/` | [Getting started](guides/getting-started.md) | Install, configure and run the project locally |
 | `architecture/` | [Architecture](architecture/README.md) | AI Act Governance Copilot: MVP scope, containers, pipelines, decisions |
+| `architecture/` | [Agent context and memory](architecture/agent-context.md) | reg-memory scope, system dossier, plugins (target card + docs + training-data description), per-system + general memory, Postgres-backed filesystem and audit ledger |
+| `architecture/` | [Diagrams](architecture/diagrams/) | PNG + SVG: containers, engineer pipeline, regulation change, traceability (rebuild: `scripts/build-diagrams.*`) |
 | `architecture/` | [Design document (PDF, Greek)](architecture/ai-act-governance-copilot.pdf) | Full system design: personas, layers, agents, HITL gates, data model, eval, MVP |
 | `services/` | [Backend: async sub-agents](services/backend.md) | The backend's task mirror, task routes and sockets, channel frames, the wake-up flow and its settings |
 | `services/` | [Agents service](services/agents-service.md) | How the agents service is built: run path, filesystem and uploads, tools and approvals, MCP, sandbox, tracing, env vars |

@@ -7,6 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- `docs/architecture/agent-context.md`: design for the agent's context (reg-memory as the single source of regulation, system dossier, plugins = target card (model/endpoint access, pipeline placement, expected behaviour) + docs and training-data descriptions) and self-improving memory (per-system + general, human-approved, cited in traces), all as files in a Postgres-backed virtual filesystem (`workspace_files`, append-only `workspace_events` ledger).
+- `docs/architecture/diagrams/`: containers, engineer pipeline, regulation-change, traceability and agent-context diagrams as SVG + PNG, generated from `brand.json` by `build.py` (Pillow, no browser); `scripts/build-diagrams.*`.
 - `docs/` split into `guides/`, `architecture/`, `services/` and `contracts/` (index in `docs/README.md`); all repo references updated. `docs/architecture/README.md` now summarises the AI Act Governance Copilot design (MVP containers, engineer pipeline, regulation-change flow) and links the full design PDF, renamed to `docs/architecture/ai-act-governance-copilot.pdf`.
 
 ### Added
