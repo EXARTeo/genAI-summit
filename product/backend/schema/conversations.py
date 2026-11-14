@@ -33,6 +33,9 @@ class ConversationSummary(BaseModel):
     # answer even after the orchestrator's own run ended.
     hasActiveTasks: bool = Field(False, validation_alias="has_active_tasks")
     lastMessage: str | None = Field(None, validation_alias="last_message_preview")
+    # The audited system / audit this chat is about (optional).
+    systemId: str | None = Field(None, validation_alias="system_id")
+    auditId: str | None = Field(None, validation_alias="audit_id")
     created_at: UTCDateTime = Field(..., validation_alias="created_at")
     updated_at: UTCDateTime = Field(..., validation_alias="updated_at")
 
@@ -57,6 +60,8 @@ class ConversationIn(BaseModel):
     agentSlug: str = Field(..., pattern=AGENT_SLUG_PATTERN, description="Agent slug")
     agentName: str | None = Field(None, max_length=200, description="Agent display name")
     title: str | None = Field(None, description="Optional custom title")
+    systemId: str | None = Field(None, description="The audited system this chat is about")
+    auditId: str | None = Field(None, description="The audit this chat is about")
     firstMessage: MessageIn
 
 

@@ -26,6 +26,7 @@ from schema.conversations import (
     ConversationTitleUpdate,
     CreateConversationResponse,
 )
+from utils.audits import validate_conversation_subject
 from utils.conversations import (
     _preview,
     build_message_lineage,
@@ -116,6 +117,7 @@ async def create_conversation(
     """Create a conversation with an agent (by slug) and persist its first
     message, attachments included. Returns the full detail and the summary."""
     title = resolve_conversation_title(payload.title, payload.firstMessage, payload.agentName)
+    await validate_conversation_subject(db, payload.systemId, payload.auditId)
     async with logged_db_operation(
         logger=logger,
         db=db,
@@ -134,6 +136,8 @@ async def create_conversation(
             agent_name=payload.agentName,
             title=title,
             first_message=payload.firstMessage,
+            system_id=payload.systemId,
+            audit_id=payload.auditId,
         )
         await db.commit()
         operation.add(conversation_id=conv.id)

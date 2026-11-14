@@ -98,6 +98,20 @@ task_mutate_rate_limit = _limit(
 )
 
 
+workspace_rate_limit = _limit(
+    settings.rate_limit.workspace_max_attempts,
+    settings.rate_limit.workspace_window_seconds,
+    "workspace",
+)
+# The agents service sends no client id: its per-route key is the IP.
+internal_rate_limit = rate_limit(
+    (settings.rate_limit.internal_max_attempts, settings.rate_limit.internal_window_seconds),
+    scope="internal",
+    identifier=ip_identity,
+    emit_headers=True,
+)
+
+
 async def allow_ws_connect(websocket: WebSocket, client_id: str) -> bool:
     """Connect-rate guard for every WebSocket handshake (run, conversation, task).
 

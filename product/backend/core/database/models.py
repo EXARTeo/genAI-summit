@@ -124,6 +124,15 @@ class ConversationTable(Base):
     # send replaces it). Text only, never attachment bytes. NULL = nothing queued.
     queued_message = Column(_nullable_jsonb(), nullable=True)
 
+    # Optional subject of the chat: an audited system and/or one of its audits.
+    # Systems are not owned by a client (see SystemTable), the conversation is.
+    system_id = Column(
+        String, ForeignKey("systems.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    audit_id = Column(
+        String, ForeignKey("audits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -411,3 +420,180 @@ event.listen(
         "FOR EACH ROW WHEN (OLD.blob_id IS NOT NULL) EXECUTE FUNCTION delete_attachment_blob()"
     ).execute_if(dialect="postgresql"),
 )
+
+
+# --- Audited systems, their files, memory and audits (migration 0003) --------
+#
+# Few typed columns (what we filter or join on); everything else lives in the
+# JSONB ``data`` column so the shapes can change without a migration.
+# Systems are deliberately NOT scoped by client id: for now every caller sees
+# every system (a documented exception to the client-isolation rule).
+
+
+def _jsonb() -> JSON:
+    """JSONB on Postgres (JSON on sqlite) for the flexible ``data`` columns."""
+    return JSON().with_variant(JSONB(), "postgresql")
+
+
+class SystemTable(Base):
+    """One audited AI system (``SYS-001``). Its dossier is the workspace
+    namespace ``system:<id>``; ``data`` holds the parsed card and anything else."""
+
+    __tablename__ = "systems"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    # draft | active | archived (free text, not an enum: flexible).
+    status = Column(String, nullable=False, server_default="active", default="active")
+    data = Column(_jsonb(), nullable=False, default=dict)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class WorkspaceFileBlobTable(Base):
+    """File content, stored once per sha256 (content-addressed, plain bytes)."""
+
+    __tablename__ = "workspace_file_blobs"
+
+    sha256 = Column(String(64), primary_key=True)
+    data = Column(LargeBinary, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class WorkspaceFileTable(Base):
+    """One version of one file in a namespace. A write adds a row; old rows stay.
+
+    Namespaces: ``system:<id>`` (the dossier, plugins under ``plugins/<name>/``),
+    ``memory:system:<id>``, ``memory:org``, ``memory:proposals``. At most one
+    row per (namespace, path) is current; a delete clears it (and logs an event).
+    """
+
+    __tablename__ = "workspace_files"
+    __table_args__ = (
+        Index(
+            "uq_workspace_files_namespace_path_version",
+            "namespace",
+            "path",
+            "version",
+            unique=True,
+        ),
+        Index(
+            "uq_workspace_files_current",
+            "namespace",
+            "path",
+            unique=True,
+            postgresql_where=text("is_current"),
+            sqlite_where=text("is_current"),
+        ),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    namespace = Column(String, nullable=False, index=True)
+    path = Column(String, nullable=False)
+    version = Column(Integer, nullable=False)
+    blob_sha256 = Column(
+        String(64), ForeignKey("workspace_file_blobs.sha256"), nullable=False, index=True
+    )
+    content_type = Column(String, nullable=False, server_default="application/octet-stream")
+    size_bytes = Column(Integer, nullable=False)
+    created_by = Column(String, nullable=False)
+    is_current = Column(Boolean, nullable=False, default=True, server_default="true")
+    data = Column(_jsonb(), nullable=False, default=dict)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class WorkspaceEventTable(Base):
+    """Append-only ledger of every create / update / delete / read / approve."""
+
+    __tablename__ = "workspace_events"
+    __table_args__ = (Index("ix_workspace_events_namespace_path", "namespace", "path"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    namespace = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    version = Column(Integer, nullable=True)
+    action = Column(String, nullable=False)
+    actor = Column(String, nullable=False)
+    reason = Column(Text, nullable=True)
+    audit_id = Column(String, nullable=True, index=True)
+    run_id = Column(String, nullable=True)
+    trace_id = Column(String, nullable=True)
+    data = Column(_jsonb(), nullable=False, default=dict)
+    at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class AuditTable(Base):
+    """One audit of one system. ``stage`` is where the workflow is
+    (context, model_profile, scenarios, ...); ``data`` locks versions
+    (``dossier_version``, ``kb_version``) and plugin ids."""
+
+    __tablename__ = "audits"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    system_id = Column(
+        String, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # open | running | waiting_approval | completed | cancelled (free text).
+    status = Column(String, nullable=False, server_default="open", default="open")
+    stage = Column(String, nullable=False, server_default="context", default="context")
+    created_by = Column(String, nullable=True)
+    data = Column(_jsonb(), nullable=False, default=dict)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class AuditArtifactTable(Base):
+    """One version of one stage output. Versioned per (audit, kind, name):
+    ``name`` is ``main`` for single outputs, or e.g. a finding id."""
+
+    __tablename__ = "audit_artifacts"
+    __table_args__ = (
+        Index(
+            "uq_audit_artifacts_slot_version",
+            "audit_id",
+            "kind",
+            "name",
+            "version",
+            unique=True,
+        ),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    audit_id = Column(
+        String, ForeignKey("audits.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind = Column(String, nullable=False)
+    name = Column(String, nullable=False, server_default="main", default="main")
+    version = Column(Integer, nullable=False)
+    # proposed | approved | rejected | changes_requested | superseded
+    status = Column(String, nullable=False, server_default="proposed", default="proposed")
+    data = Column(_jsonb(), nullable=False, default=dict)
+    # Workspace paths, MLflow URIs, Langfuse trace ids the artifact points at.
+    file_refs = Column(_jsonb(), nullable=False, default=list)
+    parent_id = Column(String, ForeignKey("audit_artifacts.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class ApprovalTable(Base):
+    """One human decision at a gate, with its reason. Append-only."""
+
+    __tablename__ = "approvals"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    audit_id = Column(
+        String, ForeignKey("audits.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    artifact_id = Column(
+        String, ForeignKey("audit_artifacts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    gate = Column(String, nullable=False)
+    # approved | rejected | changes_requested
+    decision = Column(String, nullable=False)
+    reason_category = Column(String, nullable=True)
+    comment = Column(Text, nullable=True)
+    edits = Column(_jsonb(), nullable=False, default=dict)
+    decided_by = Column(String, nullable=False)
+    at = Column(DateTime, server_default=func.now(), nullable=False)

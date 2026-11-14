@@ -66,6 +66,8 @@ async def init_conv(
     agent_name: str | None,
     title: str | None,
     first_message: MessageIn,
+    system_id: str | None = None,
+    audit_id: str | None = None,
 ) -> ConversationTable:
     """Add a conversation and its first message to the session (flushed, not committed)."""
     conv = ConversationTable(
@@ -73,6 +75,8 @@ async def init_conv(
         agent_slug=agent_slug,
         agent_name=agent_name,
         title=title,
+        system_id=system_id,
+        audit_id=audit_id,
         last_message_preview=_preview(first_message.content)
         or (first_message.attachments[0].name if first_message.attachments else None),
         last_message_at=_utcnow(),

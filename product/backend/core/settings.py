@@ -161,6 +161,17 @@ class AttachmentSettings(BaseSettings):
     stream_chunk_bytes: int = Field(512 * 1024, validation_alias="ATTACHMENT_STREAM_CHUNK_BYTES")
 
 
+class WorkspaceSettings(BaseSettings):
+    """System folders, memory files and audits (utils/workspace.py, utils/seed_import.py)."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    # Largest single workspace file (system dossier, plugin docs, memory entry).
+    max_file_bytes: int = Field(10 * 1024 * 1024, validation_alias="WORKSPACE_MAX_FILE_BYTES")
+    # The seed case folders (SYS-00X/) that POST /v1/admin/import-seed reads.
+    seed_cases_dir: str = Field("/seed-cases", validation_alias="SEED_CASES_DIR")
+
+
 class ConversationSettings(BaseSettings):
     model_config = _BASE_MODEL_CONFIG
 
@@ -332,6 +343,14 @@ class RateLimitSettings(BaseSettings):
     task_mutate_window_seconds: int = Field(
         60, validation_alias="TASK_MUTATE_RATE_LIMIT_WINDOW_SECONDS"
     )
+    # Systems, workspace files, memory and audits (reads and writes).
+    workspace_max_attempts: int = Field(240, validation_alias="WORKSPACE_RATE_LIMIT_MAX_ATTEMPTS")
+    workspace_window_seconds: int = Field(
+        60, validation_alias="WORKSPACE_RATE_LIMIT_WINDOW_SECONDS"
+    )
+    # The agents service's internal API (keyed by IP: it sends no client id).
+    internal_max_attempts: int = Field(1200, validation_alias="INTERNAL_RATE_LIMIT_MAX_ATTEMPTS")
+    internal_window_seconds: int = Field(60, validation_alias="INTERNAL_RATE_LIMIT_WINDOW_SECONDS")
     # WebSocket handshakes (the SDK middleware is HTTP-only).
     ws_connect_max_attempts: int = Field(20, validation_alias="WS_CONNECT_RATE_LIMIT_MAX_ATTEMPTS")
     ws_connect_window_seconds: int = Field(
@@ -458,6 +477,7 @@ class Settings(BaseSettings):
     upstream: UpstreamSettings = Field(default_factory=UpstreamSettings)
     inference: InferenceSettings = Field(default_factory=InferenceSettings)
     attachments: AttachmentSettings = Field(default_factory=AttachmentSettings)
+    workspace: WorkspaceSettings = Field(default_factory=WorkspaceSettings)
     conversations: ConversationSettings = Field(default_factory=ConversationSettings)
     async_tasks: AsyncTaskSettings = Field(default_factory=AsyncTaskSettings)
     http: HttpTimeoutSettings = Field(default_factory=HttpTimeoutSettings)

@@ -36,6 +36,11 @@ from router import (
     messages_router,
     search_router,
 )
+from router.admin import router as admin_router
+from router.audits import router as audits_router
+from router.internal import router as internal_router
+from router.memory import router as memory_router
+from router.systems import router as systems_router
 from router.tasks import conversation_router as task_conversation_router
 from router.tasks import router as tasks_router
 from utils.inference_runs import cleanup_orphaned_inference_runs
@@ -161,3 +166,8 @@ app.include_router(inference_router, prefix="/v1/inference", tags=["Inference"])
 app.include_router(search_router, prefix="/v1/search", tags=["Search"])
 app.include_router(tasks_router, prefix="/v1/tasks", tags=["Tasks"])
 app.include_router(task_conversation_router, prefix="/v1/conversations", tags=["Tasks"])
+app.include_router(systems_router, prefix="/v1/systems", tags=["Systems"])
+app.include_router(memory_router, prefix="/v1/memory", tags=["Memory"])
+app.include_router(audits_router, prefix="/v1/audits", tags=["Audits"])
+app.include_router(admin_router, prefix="/v1/admin", tags=["Admin"])
+app.include_router(internal_router, prefix="/internal", tags=["Internal"])

@@ -11,6 +11,7 @@ psycopg2-binary==2.9.10  # alembic migrations only (sync driver)
 pydantic==2.12.5
 pydantic-settings==2.7.1
 python-multipart==0.0.26
+pyyaml==6.0.2  # seed import (system-card.yaml) and memory proposal files
 redis==8.1.0
 fastapi-redis-sdk==0.8.0
 langfuse==4.18.0  # traces each run; the agents service should pin the same, so spans nest
