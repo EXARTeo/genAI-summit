@@ -134,7 +134,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
                 <span className="min-w-0 break-words">
                   {e.text}
                   {e.ci && <span className="ml-1 font-mono text-xs text-muted">{formatCI(e.ci, 3)}</span>}
-                  {e.runId && <span className="ml-1 font-mono text-xs text-muted">· {e.runId}</span>}
+                  {e.runId && <span className="ml-1 text-xs text-muted">· MLflow run</span>}
                 </span>
               </li>
             ))}
@@ -331,7 +331,7 @@ export function ReportView({ data }: { data: ReportData }) {
               { label: 'kb_version', value: data.reproducibility.kbVersion, mono: true },
               { label: 'card_version', value: String(data.reproducibility.cardVersion), mono: true },
               { label: 'Seeds', value: data.reproducibility.seeds.join(', '), mono: true },
-              { label: 'MLflow runs', value: data.reproducibility.mlflowRuns.join(', '), mono: true },
+              { label: 'MLflow runs', value: `${data.reproducibility.mlflowRuns.length} runs` },
             ]}
           />
         </>

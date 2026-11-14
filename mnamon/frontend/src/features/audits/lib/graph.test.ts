@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest';
+import { reviewedScenarios, searchDrivers, stepMemory, toScenarios } from './adapters';
+import real from './fixtures/sys001-audit.json';
+import { PHASES, edgeState, graphModel, nodePosition, redoLoops } from './graph';
+import { STAGES } from './pipeline';
+import type { Approval, Artifact, AuditDetail } from './types';
+
+const audit = real as unknown as AuditDetail;
+
+describe('pipeline graph', () => {
+  it('places every stage exactly once, in pipeline order per row', () => {
+    expect(PHASES.flatMap((p) => p.stages)).toEqual(STAGES.map((s) => s.id));
+    expect(nodePosition('approve_scenarios').row).toBe(0);
+    expect(nodePosition('find_public_data')).toMatchObject({ x: 0, row: 1 });
+  });
+
+  it('edges lead into the live step and wrap between rows', () => {
+    const { edges, states } = graphModel(audit);
+    expect(states.approve_datasets).toBe('needs-approval');
+    expect(edges.find((e) => e.target === 'approve_datasets')?.state).toBe('waiting');
+    expect(edges.find((e) => e.target === 'run_tests')?.state).toBe('pending');
+    expect(edges.find((e) => e.source === 'approve_scenarios')?.wrap).toBe(true);
+    expect(edgeState('done', 'active')).toBe('live');
+  });
+
+  it('shows no redo loop on a clean run, one after a rejection', () => {
+    expect(redoLoops(audit)).toEqual([]);
+    const rejected: Approval = { ...audit.approvals[0], id: 'x', decision: 'changes_requested' };
+    const v2 = { ...audit.artifacts.find((a) => a.kind === 'scenarios')!, id: 'v2', version: 2 } as Artifact;
+    const loops = redoLoops({
+      artifacts: [...audit.artifacts, v2],
+      approvals: [...audit.approvals, rejected],
+    });
+    expect(loops).toEqual([
+      {
+        id: 'redo-scenarios',
+        source: 'approve_scenarios',
+        target: 'plan_scenarios',
+        count: 1,
+        rejections: 1,
+      },
+    ]);
+  });
+});
+
+describe('scenario relevance review', () => {
+  const data = toScenarios({
+    scenarios: [
+      {
+        id: 'SC-01',
+        review: {
+          model: 'iris',
+          verdict: 'relevant',
+          rationale: 'ok',
+          suggested_change: null,
+          confidence: 0.9,
+        },
+      },
+      {
+        id: 'SC-02',
+        review: {
+          model: 'gemini',
+          verdict: 'needs_change',
+          rationale: 'n too small',
+          suggested_change: 'n=800',
+        },
+      },
+      { id: 'SC-03', review: { model: 'iris', verdict: 'not_relevant', rationale: 'no such field' } },
+      { id: 'SC-04' },
+      { id: 'SC-05', review: { verdict: 'bogus' } },
+    ],
+  });
+
+  it('parses the optional review', () => {
+    expect(data.scenarios[1].review).toEqual({
+      model: 'gemini',
+      verdict: 'needs_change',
+      rationale: 'n too small',
+      suggestedChange: 'n=800',
+      confidence: null,
+    });
+    expect(data.scenarios[3].review).toBeUndefined();
+    expect(data.scenarios[4].review).toBeUndefined();
+  });
+
+  it('orders not_relevant, needs_change, relevant', () => {
+    expect(reviewedScenarios(data).map((s) => s.id)).toEqual(['SC-03', 'SC-02', 'SC-01']);
+  });
+
+  it('is absent on the live (older) audit', () => {
+    const live = toScenarios(audit.artifacts.find((a) => a.kind === 'scenarios')!.data);
+    expect(live.scenarios.every((s) => s.review === undefined)).toBe(true);
+  });
+
+  it('collects memory read and written by a step', () => {
+    const m = stepMemory([
+      {
+        data: { scenarios: [{ memory_applied: ['audits/a/lesson.md'] }], lessons_recorded: ['proxy-twins'] },
+      } as unknown as Artifact,
+    ]);
+    expect(m).toEqual({ applied: ['audits/a/lesson.md'], recorded: ['proxy-twins'] });
+  });
+});
+
+describe('public data search drivers', () => {
+  it('derives the scenarios behind the search from the fields they need', () => {
+    const cand = audit.artifacts.find((a) => a.kind === 'public_dataset_candidates')!.data;
+    const plan = audit.artifacts.find((a) => a.kind === 'scenarios')!.data;
+    const { explicit, drivers } = searchDrivers(cand, plan);
+    expect(explicit).toBe(false);
+    expect(drivers.map((d) => d.id)).toEqual(['SC-01', 'SC-02', 'SC-03', 'SC-04', 'SC-06']);
+    expect(searchDrivers({ scenarios: ['SC-05'] }, plan)).toMatchObject({
+      explicit: true,
+      drivers: [{ id: 'SC-05', fields: ['years_experience'] }],
+    });
+  });
+});

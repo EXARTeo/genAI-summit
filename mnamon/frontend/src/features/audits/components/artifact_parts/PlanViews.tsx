@@ -16,6 +16,7 @@ import type {
   ContextData,
   PublicCandidatesData,
   ScenarioAnalysisData,
+  ScenarioReview,
   ScenariosData,
   TestResultsData,
 } from '../../lib/types';
@@ -82,6 +83,43 @@ export function ContextView({ data }: { data: ContextData }) {
 
 const PRIORITY = { high: 'danger', medium: 'warning', low: 'neutral' } as const;
 
+const REVIEW_TONE = { relevant: 'success', needs_change: 'warning', not_relevant: 'danger' } as const;
+const REVIEW_LABEL = {
+  relevant: 'relevant',
+  needs_change: 'needs change',
+  not_relevant: 'not relevant',
+} as const;
+
+export function reviewerLabel(model: string): string {
+  return model === 'iris' ? 'Iris (Oumi)' : model === 'gemini' ? 'Gemini' : model;
+}
+
+/** The scenario judge's verdict: "Reviewed by Iris (Oumi) · needs change". */
+export function ReviewBadge({ review, compact }: { review: ScenarioReview; compact?: boolean }) {
+  return (
+    <Badge tone={REVIEW_TONE[review.verdict]}>
+      {compact ? '' : `Reviewed by ${reviewerLabel(review.model)} · `}
+      {REVIEW_LABEL[review.verdict]}
+      {review.confidence != null && ` · ${Math.round(review.confidence * 100)}%`}
+    </Badge>
+  );
+}
+
+/** Verdict badge plus the rationale and any suggested change. */
+export function ReviewNote({ review }: { review: ScenarioReview }) {
+  return (
+    <div className="space-y-1">
+      <ReviewBadge review={review} />
+      {review.verdict !== 'relevant' && review.rationale && <div className="text-xs">{review.rationale}</div>}
+      {review.suggestedChange && (
+        <div className="text-xs text-muted">
+          <span className="font-medium text-text">Suggested:</span> {review.suggestedChange}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** "Learned from memory": the memory entries a scenario follows. */
 export function MemoryCitation({ paths }: { paths: string[] }) {
   if (!paths.length) return null;
@@ -121,6 +159,7 @@ export function ScenariosView({ data }: { data: ScenariosData }) {
             s.n != null ? s.n.toLocaleString() : DASH,
             <div className="min-w-[11rem] space-y-1.5">
               <div className="text-muted">{dash(s.rationale)}</div>
+              {s.review && <ReviewNote review={s.review} />}
               <MemoryCitation paths={s.memoryApplied ?? []} />
               {s.memoryApplied && s.memoryApplied.length > 0 && (
                 <ul className="space-y-0.5">

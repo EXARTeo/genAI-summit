@@ -150,6 +150,18 @@ export interface Scenario {
   metric?: string;
   /** Memory entry paths this scenario follows ("learned from memory"). */
   memoryApplied?: string[];
+  /** Relevance review by the scenario judge (Oumi Iris or Gemini); absent on older audits. */
+  review?: ScenarioReview;
+}
+
+export type ReviewVerdict = 'relevant' | 'needs_change' | 'not_relevant';
+
+export interface ScenarioReview {
+  model: 'iris' | 'gemini' | (string & {});
+  verdict: ReviewVerdict;
+  rationale?: string;
+  suggestedChange?: string | null;
+  confidence?: number | null;
 }
 
 export interface ScenariosData {

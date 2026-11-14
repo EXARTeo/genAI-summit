@@ -131,6 +131,13 @@ const scenarios: ScenariosData = {
       n: 1200,
       priority: 'medium',
       rationale: 'Annex III 4(a) hiring: sex is the first protected attribute named on the card.',
+      review: {
+        model: 'iris',
+        verdict: 'relevant',
+        rationale: 'Sex is a protected attribute on the card and the four-fifths rule is the org threshold.',
+        suggestedChange: null,
+        confidence: 0.91,
+      },
     },
     {
       id: 'TS-002',
@@ -141,6 +148,13 @@ const scenarios: ScenariosData = {
       n: 1200,
       priority: 'high',
       rationale: 'Primary metric is equal opportunity, not demographic parity.',
+      review: {
+        model: 'iris',
+        verdict: 'needs_change',
+        rationale: 'Only 12% of applicants are non-EU: n = 1,200 leaves too few positives for a tight CI.',
+        suggestedChange: 'Stratify by nationality and raise n to 2,400.',
+        confidence: 0.78,
+      },
     },
     {
       id: 'TS-003',

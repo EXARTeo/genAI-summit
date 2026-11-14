@@ -18,8 +18,8 @@ describe('stage mapping', () => {
   it('has the 14 pipeline stages with three HITL gates', () => {
     expect(STAGES).toHaveLength(14);
     expect(STAGES.filter((s) => s.gate).map((s) => s.id)).toEqual([
-      'find_public_data',
       'approve_scenarios',
+      'find_public_data',
       'approve_datasets',
     ]);
   });

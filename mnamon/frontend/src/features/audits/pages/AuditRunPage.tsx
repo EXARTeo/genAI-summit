@@ -1,12 +1,15 @@
 import { Hand, Play, Square } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { ApprovalDrawer } from '@/features/approvals/components/ApprovalDrawer';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { cn } from '@/shared/lib/utils';
 import { AnimatedNumber, Button, Card, ErrorState, PageHeader, Skeleton, StatusPill } from '@/shared/ui';
 import { ArtifactPanel } from '../components/ArtifactPanel';
 import { AuditPipeline } from '../components/AuditPipeline';
+import { PipelineFlow } from '../components/PipelineFlow';
+import { StepFacts } from '../components/StepFacts';
 import { TraceLink } from '../components/artifact_parts/common';
 import { useAudit } from '../hooks/useAudits';
 import { useReplay } from '../hooks/useReplay';
@@ -21,6 +24,7 @@ import {
   stepState,
 } from '../lib/pipeline';
 import { auditCardVersion, auditKbVersion } from '../lib/adapters';
+import { auditLabel } from '@/shared/lib/labels';
 
 function RunSkeleton() {
   return (
@@ -66,6 +70,24 @@ export function AuditRunPage() {
     if (follow && live) setSelected(live);
   }, [follow, live]);
 
+  // Wide screens get the pipeline graph; phones keep the vertical step list.
+  const wide = useMediaQuery('(min-width: 1024px)');
+  const openReview = useCallback(() => setDrawer(true), []);
+  const pick = useCallback(
+    (id: string) => {
+      setFollow(false);
+      setSelected(id);
+      setParams(
+        (p) => {
+          p.set('step', id);
+          return p;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
   if (isLoading) return <RunSkeleton />;
   if (error || !audit) return <ErrorState error={error} onRetry={() => void refetch()} />;
 
@@ -80,25 +102,10 @@ export function AuditRunPage() {
   const elapsed = Object.values(audit.data.stageDurations ?? {}).reduce((a, b) => a + b, 0);
   const pct = progress(audit);
 
-  const pick = (id: string) => {
-    setFollow(false);
-    setSelected(id);
-    setParams(
-      (p) => {
-        p.set('step', id);
-        return p;
-      },
-      { replace: true },
-    );
-  };
-
   return (
     <div>
       <PageHeader
-        breadcrumbs={[
-          { label: 'Audits', to: '/audits' },
-          { label: <span className="font-mono">{audit.id}</span> },
-        ]}
+        breadcrumbs={[{ label: 'Audits', to: '/audits' }, { label: auditLabel(audit) }]}
         title={
           <>
             {audit.data.systemName ?? audit.systemId}
@@ -185,69 +192,125 @@ export function AuditRunPage() {
         </Card>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <Card className="overflow-hidden lg:sticky lg:top-[calc(var(--topbar-height)+1rem)]">
-          <div className="border-b border-border px-4 py-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium">Pipeline</span>
-              <span className="num text-muted">
-                {done ? `${STAGES.length}/${STAGES.length} steps` : `Step ${cur + 1} of ${STAGES.length}`}
-                {elapsed > 0 && ` · ${formatDuration(elapsed)}`}
-              </span>
-            </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-muted">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-[width] duration-500 ease-out',
-                  waiting ? 'bg-warning' : 'bg-primary',
+      {wide ? (
+        <div className="space-y-4">
+          <Card className="overflow-hidden">
+            <div className="border-b border-border px-4 py-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">Pipeline</span>
+                <span className="num text-muted">
+                  {done ? `${STAGES.length}/${STAGES.length} steps` : `Step ${cur + 1} of ${STAGES.length}`}
+                  {elapsed > 0 && ` · ${formatDuration(elapsed)}`}
+                </span>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-[width] duration-500 ease-out',
+                    waiting ? 'bg-warning' : 'bg-primary',
+                  )}
+                  style={{ width: `${Math.round(pct * 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-2xs text-muted">
+                <span>{follow ? 'Following the live step' : 'Pinned to your selection'}</span>
+                {!follow && (
+                  <button
+                    type="button"
+                    className="font-medium text-primary hover:underline"
+                    onClick={() => {
+                      setFollow(true);
+                      setParams({}, { replace: true });
+                    }}
+                  >
+                    Follow live
+                  </button>
                 )}
-                style={{ width: `${Math.round(pct * 100)}%` }}
-              />
+              </div>
             </div>
-            <div className="mt-2 flex items-center justify-between text-2xs text-muted">
-              <span>{follow ? 'Following the live step' : 'Pinned to your selection'}</span>
-              {!follow && (
-                <button
-                  type="button"
-                  className="font-medium text-primary hover:underline"
-                  onClick={() => {
-                    setFollow(true);
-                    setParams({}, { replace: true });
-                  }}
-                >
-                  Follow live
-                </button>
-              )}
+            <div className="px-2 pb-2">
+              <PipelineFlow audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
             </div>
-          </div>
-          <div className="p-1.5">
-            <AuditPipeline
-              audit={audit}
-              selected={stage.id}
-              onSelect={pick}
+          </Card>
+          <Card
+            className={cn(
+              'min-w-0 p-5',
+              state === 'active' && 'glow-border border-primary/30',
+              state === 'needs-approval' && 'border-warning/40',
+            )}
+          >
+            <ArtifactPanel
+              stage={stage}
+              state={state}
+              artifacts={audit.artifacts}
+              traceId={audit.data.stageTraces?.[stage.id]}
+              duration={audit.data.stageDurations?.[stage.id]}
+              index={STAGES.indexOf(stage)}
               onReview={() => setDrawer(true)}
+              facts={<StepFacts audit={audit} stage={stage} state={state} />}
             />
-          </div>
-        </Card>
-
-        <Card
-          className={cn(
-            'min-w-0 p-5',
-            state === 'active' && 'glow-border border-primary/30',
-            state === 'needs-approval' && 'border-warning/40',
-          )}
-        >
-          <ArtifactPanel
-            stage={stage}
-            state={state}
-            artifacts={audit.artifacts}
-            traceId={audit.data.stageTraces?.[stage.id]}
-            duration={audit.data.stageDurations?.[stage.id]}
-            index={STAGES.indexOf(stage)}
-            onReview={() => setDrawer(true)}
-          />
-        </Card>
-      </div>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid items-start gap-4">
+          <Card className="overflow-hidden">
+            <div className="border-b border-border px-4 py-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">Pipeline</span>
+                <span className="num text-muted">
+                  {done ? `${STAGES.length}/${STAGES.length} steps` : `Step ${cur + 1} of ${STAGES.length}`}
+                  {elapsed > 0 && ` · ${formatDuration(elapsed)}`}
+                </span>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-[width] duration-500 ease-out',
+                    waiting ? 'bg-warning' : 'bg-primary',
+                  )}
+                  style={{ width: `${Math.round(pct * 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-2xs text-muted">
+                <span>{follow ? 'Following the live step' : 'Pinned to your selection'}</span>
+                {!follow && (
+                  <button
+                    type="button"
+                    className="font-medium text-primary hover:underline"
+                    onClick={() => {
+                      setFollow(true);
+                      setParams({}, { replace: true });
+                    }}
+                  >
+                    Follow live
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="p-1.5">
+              <AuditPipeline audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
+            </div>
+          </Card>
+          <Card
+            className={cn(
+              'min-w-0 p-5',
+              state === 'active' && 'glow-border border-primary/30',
+              state === 'needs-approval' && 'border-warning/40',
+            )}
+          >
+            <ArtifactPanel
+              stage={stage}
+              state={state}
+              artifacts={audit.artifacts}
+              traceId={audit.data.stageTraces?.[stage.id]}
+              duration={audit.data.stageDurations?.[stage.id]}
+              index={STAGES.indexOf(stage)}
+              onReview={() => setDrawer(true)}
+              facts={<StepFacts audit={audit} stage={stage} state={state} />}
+            />
+          </Card>
+        </div>
+      )}
 
       <ApprovalDrawer auditId={audit.id} gate={gate} open={drawer && !replaying} onOpenChange={setDrawer} />
     </div>

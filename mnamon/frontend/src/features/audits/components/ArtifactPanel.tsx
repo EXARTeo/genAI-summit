@@ -32,6 +32,7 @@ import {
   TestResultsView,
 } from './artifact_parts/PlanViews';
 import { DatasetAnalysisView, DatasetView, GenerationSpecView } from './artifact_parts/SpecViews';
+import { actorLabel } from '@/shared/lib/labels';
 
 const TITLES: Record<string, string> = {
   context: 'Context',
@@ -98,7 +99,7 @@ function ArtifactHeader({ a }: { a: Artifact }) {
       <span className="num font-mono">v{a.version}</span>
       <StatusPill status={a.status} />
       <span className="ml-auto truncate">
-        {a.createdBy} · {formatRelative(a.updatedAt)}
+        {actorLabel(a.createdBy)} · {formatRelative(a.updatedAt)}
       </span>
     </div>
   );
@@ -145,6 +146,8 @@ export interface ArtifactPanelProps {
   /** Position in STAGES. */
   index?: number;
   onReview?: () => void;
+  /** Step facts shown under the step header (status, memory, redo history, decisions). */
+  facts?: ReactNode;
 }
 
 export function ArtifactPanel({
@@ -155,6 +158,7 @@ export function ArtifactPanel({
   duration,
   index = 0,
   onReview,
+  facts,
 }: ArtifactPanelProps) {
   const list = artifactsForStage(stage, artifacts);
   const reports = stage.id === 'report' ? reportsFromArtifacts(list) : [];
@@ -264,6 +268,7 @@ export function ArtifactPanel({
         exit="exit"
       >
         <StepHeader stage={stage} state={state} index={index} duration={duration} traceId={traceId} />
+        {facts}
         {body}
       </motion.div>
     </AnimatePresence>

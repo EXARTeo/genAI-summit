@@ -3,7 +3,7 @@ import { Check, MessageSquareWarning, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ArtifactBody } from '@/features/audits/components/ArtifactPanel';
 import { TraceLink } from '@/features/audits/components/artifact_parts/common';
-import { PublicCandidatesView } from '@/features/audits/components/artifact_parts/PlanViews';
+import { PublicCandidatesView, ReviewNote } from '@/features/audits/components/artifact_parts/PlanViews';
 import { GateCards, ProvenanceYaml } from '@/features/audits/components/artifact_parts/SpecViews';
 import { useAudit, useDecideGate } from '@/features/audits/hooks/useAudits';
 import {
@@ -11,7 +11,9 @@ import {
   toDatasetAnalysis,
   toGenerationSpec,
   toPublicCandidates,
+  reviewedScenarios,
   toScenarioAnalysis,
+  toScenarios,
 } from '@/features/audits/lib/adapters';
 import { latestByKind, gateStage } from '@/features/audits/lib/pipeline';
 import { canApproveDataset, overallGateStatus } from '@/features/audits/lib/styling';
@@ -27,6 +29,7 @@ import {
   validateDraft,
   type DecisionDraft,
 } from '../lib/approvals';
+import { auditLabel } from '@/shared/lib/labels';
 
 export interface ApprovalDrawerProps {
   auditId: string | null;
@@ -120,14 +123,14 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
   const [draft, setDraft] = useState<DecisionDraft>(EMPTY_DRAFT);
   const [touched, setTouched] = useState(false);
   const [burst, setBurst] = useState(false);
-  const [pick, setPick] = useState<string | null>(null);
+  const [picked, setPick] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (open) {
       setDraft(EMPTY_DRAFT);
       setTouched(false);
       setBurst(false);
-      setPick(null);
+      setPick(undefined);
     }
   }, [open, auditId, gate]);
 
@@ -145,11 +148,21 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
     gate === 'public_data' && first('public_dataset_candidates')
       ? toPublicCandidates(first('public_dataset_candidates'))
       : undefined;
+  const reviews =
+    gate === 'scenarios' && first('scenarios') ? reviewedScenarios(toScenarios(first('scenarios'))) : [];
   const reviewed = (stage?.gate?.reviews ?? []).flatMap((k) => by[k] ?? []);
   const blocked =
     gate === 'datasets' && datasetAnalysis && Object.keys(datasetAnalysis.gates).length > 0
       ? !canApproveDataset(datasetAnalysis.gates)
       : false;
+  // Default to the recommended candidate (when it can be fetched) until the person picks.
+  const recommended = candidates?.recommendation.candidate ?? null;
+  const pick =
+    picked !== undefined
+      ? picked
+      : recommended && candidates?.candidates.some((c) => c.id === recommended && c.fetchable)
+        ? recommended
+        : null;
   const needsPick = gate === 'public_data' && draft.decision === 'approved' && !pick;
   const errors = [
     ...validateDraft(draft),
@@ -212,7 +225,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
           <div className="space-y-5">
             <div className="space-y-0.5 text-xs text-muted">
               <div className="num flex items-center gap-3">
-                <span className="font-mono">{audit.id}</span>
+                <span>{auditLabel(audit)}</span>
                 <span className="font-mono">kb {auditKbVersion(audit) ?? '–'}</span>
                 <TraceLink
                   className="ml-auto"
@@ -278,6 +291,22 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                   <p className="rounded-lg border border-border bg-surface-muted/60 p-3 text-sm">
                     {scenarioAnalysis.summary ?? '–'}
                   </p>
+                )}
+                {gate === 'scenarios' && reviews.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Scenario relevance review</div>
+                    <ul className="space-y-2">
+                      {reviews.map((s) => (
+                        <li key={s.id} className="rounded-lg border border-border p-3 text-sm">
+                          <div className="mb-1 flex flex-wrap items-baseline gap-x-2">
+                            <span className="font-mono text-xs text-muted">{s.id}</span>
+                            <span className="font-medium">{s.title ?? '–'}</span>
+                          </div>
+                          <ReviewNote review={s.review} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {gate === 'public_data' && candidates && (
                   <>

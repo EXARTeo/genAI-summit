@@ -18,6 +18,9 @@ import type {
   ModelProfileData,
   PublicCandidatesData,
   ReportData,
+  ReviewVerdict,
+  Scenario,
+  ScenarioReview,
   ScenarioAnalysisData,
   ScenariosData,
   TestResultsData,
@@ -338,11 +341,49 @@ const RawScenarios = obj({
       data_needs: obj({ n: num, attribute: str, fields: strList }),
       memory_applied: strList,
       memoryApplied: strList,
+      review: z.unknown(),
     }),
   ),
   not_testable: strList,
   assumptions: z.unknown(),
 });
+
+const REVIEW_VERDICTS: ReviewVerdict[] = ['relevant', 'needs_change', 'not_relevant'];
+
+/** The scenario judge's review (agents analyse_scenarios step); undefined when absent or malformed. */
+export function toScenarioReview(raw: unknown): ScenarioReview | undefined {
+  if (!isObj(raw)) return undefined;
+  const r = parse(
+    obj({
+      model: str,
+      verdict: str,
+      rationale: str,
+      suggested_change: str,
+      suggestedChange: str,
+      confidence: num,
+    }),
+    raw,
+  );
+  if (!REVIEW_VERDICTS.includes(r.verdict as ReviewVerdict)) return undefined;
+  return {
+    model: (r.model ?? 'gemini').toLowerCase(),
+    verdict: r.verdict as ReviewVerdict,
+    rationale: r.rationale,
+    suggestedChange: first(r.suggested_change, r.suggestedChange) ?? null,
+    confidence: r.confidence ?? null,
+  };
+}
+
+const REVIEW_ORDER: Record<ReviewVerdict, number> = { not_relevant: 0, needs_change: 1, relevant: 2 };
+
+/** Scenarios with a review, not_relevant and needs_change first (the gate drawer's order). */
+export function reviewedScenarios(data: ScenariosData): (Scenario & { review: ScenarioReview })[] {
+  return data.scenarios
+    .filter((s): s is Scenario & { review: ScenarioReview } => !!s.review)
+    .sort(
+      (a, b) => REVIEW_ORDER[a.review.verdict] - REVIEW_ORDER[b.review.verdict] || a.id.localeCompare(b.id),
+    );
+}
 
 export function toScenarios(data: unknown): ScenariosData {
   const d = parse(RawScenarios, data);
@@ -360,6 +401,7 @@ export function toScenarios(data: unknown): ScenariosData {
         rationale: s.rationale,
         metric: s.metric,
         memoryApplied: [...s.memory_applied, ...s.memoryApplied],
+        review: toScenarioReview(s.review),
       })),
     notTestable: d.not_testable,
     assumptions: parse(strList, d.assumptions),
@@ -1016,4 +1058,83 @@ export function auditCardVersion(audit: {
   if (fromData != null) return fromData;
   const ctx = (audit.artifacts ?? []).find((a) => a.kind === 'context');
   return ctx ? parse(num, asObj(asObj(ctx.data).system).card_version) : undefined;
+}
+
+// ---- per-step facts (the run page's step panel) -----------------------------------------------
+
+/** Memory a step's artifacts cite (memory_applied) and write (lessons_recorded). */
+export function stepMemory(artifacts: Artifact[]): { applied: string[]; recorded: string[] } {
+  const applied = new Set<string>();
+  const recorded = new Set<string>();
+  for (const a of artifacts) {
+    const d = asObj(a.data);
+    for (const l of parse(strList, d.lessons_recorded)) recorded.add(l);
+    for (const sc of Array.isArray(d.scenarios) ? d.scenarios : []) {
+      for (const m of parse(strList, asObj(sc).memory_applied)) applied.add(m);
+      for (const m of parse(strList, asObj(sc).memoryApplied)) applied.add(m);
+    }
+    for (const m of parse(strList, d.memory_applied)) applied.add(m);
+  }
+  return { applied: [...applied], recorded: [...recorded] };
+}
+
+/** Every version of the given kinds (superseded ones too), oldest first: the redo history. */
+export function artifactVersions(artifacts: Artifact[], kinds: readonly string[]): Artifact[] {
+  return artifacts
+    .filter((a) => kinds.includes(a.kind))
+    .sort((x, y) => x.kind.localeCompare(y.kind) || x.name.localeCompare(y.name) || x.version - y.version);
+}
+
+export interface SearchDriver {
+  id: string;
+  title?: string;
+  fields: string[];
+}
+
+/**
+ * The scenarios that drove the public dataset search. Uses the candidates artifact's own list
+ * when it has one (`scenarios` / `scenario_ids` / `driven_by`); otherwise derives it from the
+ * scenario plan: scenarios whose data needs touch the fields the search looked for.
+ */
+export function searchDrivers(
+  candidates: unknown,
+  scenarios: unknown,
+): { explicit: boolean; drivers: SearchDriver[] } {
+  const c = asObj(candidates);
+  const plan = parse(
+    obj({
+      scenarios: list(
+        obj({
+          id: str,
+          expected_behaviour: str,
+          title: str,
+          protected: strList,
+          proxies: strList,
+          data_needs: obj({ fields: strList }),
+        }),
+      ),
+    }),
+    scenarios,
+  ).scenarios.filter((s) => s.id);
+  const toDriver = (s: (typeof plan)[number]): SearchDriver => ({
+    id: s.id!,
+    title: first(s.title, s.expected_behaviour),
+    fields: [...new Set([...s.data_needs.fields, ...s.protected, ...s.proxies])],
+  });
+  const listed = [c.scenarios, c.scenario_ids, c.driven_by].find(Array.isArray) as unknown[] | undefined;
+  if (listed) {
+    const ids = listed
+      .map((x) => (isObj(x) ? parse(str, x.id) : parse(str, x)))
+      .filter((x): x is string => !!x);
+    return {
+      explicit: true,
+      drivers: ids.map((id) => {
+        const s = plan.find((p) => p.id === id);
+        return s ? toDriver(s) : { id, fields: [] };
+      }),
+    };
+  }
+  const wanted = new Set([...parse(strList, c.protected), ...Object.keys(asObj(c.mapping))]);
+  const drivers = plan.map(toDriver).filter((d) => !wanted.size || d.fields.some((f) => wanted.has(f)));
+  return { explicit: false, drivers };
 }

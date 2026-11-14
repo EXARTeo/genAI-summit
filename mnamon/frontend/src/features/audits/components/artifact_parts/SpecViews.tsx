@@ -408,9 +408,7 @@ export function DatasetAnalysisView({ data }: { data: DatasetAnalysisData }) {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-2 text-sm">
-        <span className="num font-mono text-2xs text-muted [overflow-wrap:anywhere]">
-          {dash(data.datasetId)}
-        </span>
+        <span className="num font-mono text-2xs text-muted [overflow-wrap:anywhere]">{dash(data.name)}</span>
         <Badge>{data.rows != null ? data.rows.toLocaleString() : DASH} rows</Badge>
         <Badge>{data.pairs != null ? data.pairs.toLocaleString() : DASH} pairs</Badge>
         <Badge tone={gateTone(overall)} icon={overall === 'fail' ? <ShieldAlert /> : undefined}>
@@ -449,9 +447,7 @@ export function DatasetView({ data }: { data: DatasetData }) {
         </div>
       )}
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <span className="num font-mono text-2xs text-muted [overflow-wrap:anywhere]">
-          {dash(data.datasetId)}
-        </span>
+        <span className="num font-mono text-2xs text-muted [overflow-wrap:anywhere]">{dash(data.name)}</span>
         <Badge>{data.rows != null ? data.rows.toLocaleString() : DASH} rows</Badge>
         {data.mode && <Badge>{data.mode}</Badge>}
         {data.method && <Badge>{data.method}</Badge>}

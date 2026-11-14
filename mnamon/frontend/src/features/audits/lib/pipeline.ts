@@ -28,13 +28,6 @@ export const STAGES: StageDef[] = [
     kinds: ['model_profile'],
   },
   {
-    id: 'find_public_data',
-    label: 'Find public data',
-    description: 'Search public datasets as a reference sample; a person picks one or none',
-    kinds: ['public_dataset_candidates'],
-    gate: { id: 'public_data', reviews: ['public_dataset_candidates'] },
-  },
-  {
     id: 'plan_scenarios',
     label: 'Plan scenarios',
     description: 'Requirement → test templates, parameterised from the card',
@@ -52,6 +45,13 @@ export const STAGES: StageDef[] = [
     description: 'Human gate: approve, edit or reject the test plan',
     kinds: [],
     gate: { id: 'scenarios', reviews: ['scenarios', 'scenario_analysis'] },
+  },
+  {
+    id: 'find_public_data',
+    label: 'Find public data',
+    description: 'Search public datasets for the approved scenarios; a person picks one or none',
+    kinds: ['public_dataset_candidates'],
+    gate: { id: 'public_data', reviews: ['public_dataset_candidates'] },
   },
   {
     id: 'draft_spec',
