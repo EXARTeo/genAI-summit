@@ -46,8 +46,10 @@ curl -s http://localhost:8200/v1/models/sys-002-credit-scorer/predict \
 
 ## How models are loaded
 
-Lazily: the first call to a model resolves `models:/<name>@champion` (registry version via
-`MlflowClient.get_model_version_by_alias`), loads it with `mlflow.pyfunc.load_model` in a worker
+Lazily: the first call to a model resolves `models:/<name>@champion` through the shared plugin access
+layer (`modelaccess.mlflow_models.load_mlflow_model`, also used by the sandbox; see
+[sandbox.md § Plugin access config](sandbox.md#plugin-access-config)): registry version via
+`MlflowClient.get_model_version_by_alias`, `mlflow.pyfunc.load_model` in a worker
 thread and caches it for the life of the process. A failed load is not cached: the next call retries.
 The service therefore starts and stays healthy before MLflow or the seed job are up; model calls
 answer 503 until they are. Restart the container to pick up a new `champion` version.

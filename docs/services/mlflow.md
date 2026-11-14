@@ -54,6 +54,11 @@ Two containers in `product/docker-compose.yaml`:
    **without** `_answer-key/`; `answer-keys/SYS-00X/` = the answer key, kept apart so it is never
    imported into the folder the agent reads.
 
+Audit test runs land next to the seed runs: `synthkit run-tests` (sandbox) logs one run per test in
+experiment `compliance/SYS-00X` (tags `template`, `req_ids`, `card_version`, `kb_version`,
+`dataset_id`, `status`; metrics with `.ci_low` / `.ci_high`; artifact `test-result.json`). See
+[sandbox.md § run-tests](sandbox.md#synthkit-run-tests).
+
 Flags: `--only SYS-002`, `--force` (or `SEED_FORCE=true`), `--write-samples` (refresh each plugin's
 `data/sample.csv` and `data/generated-stats.yaml` from the generator; no MLflow; run it after changing
 a dictionary or generator, then commit the files).
