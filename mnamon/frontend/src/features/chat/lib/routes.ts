@@ -43,6 +43,6 @@ export const chatApi = {
   preview: (conv: string, msg: string, blob: string) =>
     `/v1/attachments/preview/${enc(conv)}/${enc(msg)}/${enc(blob)}`,
   saveToSystem: (systemId: string) => `/v1/systems/${enc(systemId)}/files/from-attachment`,
-  /** Not served by the backend yet (see docs/services/frontend-chat.md): the UI falls back. */
+  /** The agents catalog (filtered to chat agents by lib/agents.ts). */
   agents: '/v1/agents',
 };

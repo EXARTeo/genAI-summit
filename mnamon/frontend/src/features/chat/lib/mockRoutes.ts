@@ -18,6 +18,13 @@ const MOCK_AGENTS = [
     name: 'Auditor',
     description: 'Plans and runs a compliance audit of one system, step by step.',
   },
+  {
+    slug: 'audit-pipeline',
+    name: 'Audit pipeline',
+    description: 'A workflow started from the Audits page; never offered in the chat.',
+    kind: 'workflow',
+    chat: false,
+  },
 ];
 
 function blobResponse(blobId: string) {

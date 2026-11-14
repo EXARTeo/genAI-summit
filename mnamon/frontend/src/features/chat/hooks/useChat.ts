@@ -156,10 +156,14 @@ export function useChat(
         attachments: attachments.map(toAttachmentIn),
       };
       if (!detail) {
+        if (!opts.agent) {
+          toast.error('No chat agent is available right now.');
+          return false;
+        }
         return start({
           mode: 'new',
           ...agentFields,
-          agentSlug: opts.agent?.slug ?? 'assistant',
+          agentSlug: opts.agent.slug,
           systemId: opts.subject.systemId ?? undefined,
           auditId: opts.subject.auditId ?? undefined,
           message,

@@ -23,7 +23,13 @@ import { cn } from '@/shared/lib/utils';
 import { ErrorState, LogoMark, Skeleton, toast } from '@/shared/ui';
 import { useChat } from '../hooks/useChat';
 import { useComposer } from '../hooks/useComposer';
-import { useAgents, useChatSubject, useConversationActions } from '../hooks/useConversations';
+import {
+  useAgents,
+  useChatSubject,
+  useConversation,
+  useConversationActions,
+} from '../hooks/useConversations';
+import { chatAgents, defaultChatAgent, isChatAgent } from '../lib/agents';
 import { chatRoutes } from '../lib/routes';
 import { parseCommand, type SlashCommand } from '../lib/slashCommands';
 import type { AgentManifest } from '../lib/types';
@@ -108,14 +114,20 @@ export function ChatWorkspace({
   const pickerRef = useRef<AgentPickerHandle>(null);
 
   const querySubject = { systemId: params.get('system'), auditId: params.get('audit') };
-  const agentList = useMemo(() => agents.data ?? [], [agents.data]);
+  // Only chat-capable agents: a workflow such as the audit pipeline is never offered or picked.
+  const agentList = useMemo(() => chatAgents(agents.data ?? []), [agents.data]);
   const picked = agentList.find((a) => a.slug === agentSlug) ?? null;
-  const defaultAgent = agentList.find((a) => a.default) ?? agentList[0] ?? null;
+  const defaultAgent = useMemo(() => defaultChatAgent(agents.data ?? []), [agents.data]);
+  const noChatAgent = agents.isError || (agents.isSuccess && !defaultAgent);
+  const convSlug = useConversation(conversationId).data?.agentSlug;
+  const convAgentUsable =
+    !convSlug ||
+    isChatAgent(agentList.find((a) => a.slug === convSlug) ?? { slug: convSlug, name: convSlug });
 
   // A new chat goes to the picked (else the default) agent; an open one keeps its own agent
-  // unless one is picked in the header.
+  // unless one is picked in the header, or its agent can't chat (then the default takes over).
   const chat = useChat(conversationId, {
-    agent: conversationId ? picked : (picked ?? defaultAgent),
+    agent: conversationId ? (picked ?? (convAgentUsable ? null : defaultAgent)) : (picked ?? defaultAgent),
     subject: querySubject,
   });
   const detail = chat.detail;
@@ -133,10 +145,12 @@ export function ChatWorkspace({
         : null,
     [agentList, detailSlug, detailName],
   );
-  const agent = picked ?? chatAgent ?? defaultAgent;
+  const agent = picked ?? (convAgentUsable ? chatAgent : null) ?? defaultAgent;
   const pickerAgents = useMemo(
     () =>
-      chatAgent && !agentList.some((a) => a.slug === chatAgent.slug) ? [...agentList, chatAgent] : agentList,
+      chatAgent && isChatAgent(chatAgent) && !agentList.some((a) => a.slug === chatAgent.slug)
+        ? [...agentList, chatAgent]
+        : agentList,
     [agentList, chatAgent],
   );
 
@@ -207,9 +221,13 @@ export function ChatWorkspace({
       runCommand(parsed.command, parsed.arg);
       return;
     }
+    if (noChatAgent && !(conversationId && convAgentUsable)) {
+      toast.error('No chat agent is available right now.');
+      return;
+    }
     const ok = await chat.send({ text: composer.draft, attachments: composer.attachments });
     if (ok) composer.reset();
-  }, [composer, chat, runCommand]);
+  }, [composer, chat, runCommand, noChatAgent, conversationId, convAgentUsable]);
 
   useHotkey('escape', () => chat.activeRun && void chat.stop(), true);
   useHotkey('mod+shift+o', () => navigate(chatRoutes.root), true);
@@ -262,6 +280,17 @@ export function ChatWorkspace({
         onResolve={(d) => chat.decide(pending, d)}
       />
     )
+  ) : null;
+
+  const noAgentNotice = noChatAgent ? (
+    <p
+      role="alert"
+      className="mb-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
+    >
+      {agents.isError
+        ? 'The agents could not be loaded, so the chat cannot start a run. Try again in a moment.'
+        : 'No chat agent is available yet. Audits run from the Audits page; the chat needs a chat agent.'}
+    </p>
   ) : null;
 
   const composerEl = (
@@ -357,6 +386,7 @@ export function ChatWorkspace({
                     </p>
                   )}
                 </div>
+                {noAgentNotice}
                 {composerEl}
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   {SUGGESTIONS.map((s) => (
@@ -384,7 +414,10 @@ export function ChatWorkspace({
           ) : (
             <>
               <ChatBody chat={chat} />
-              <div className="mx-auto w-full max-w-3xl px-4">{takeover ?? composerEl}</div>
+              <div className="mx-auto w-full max-w-3xl px-4">
+                {!takeover && noAgentNotice}
+                {takeover ?? composerEl}
+              </div>
             </>
           )}
 

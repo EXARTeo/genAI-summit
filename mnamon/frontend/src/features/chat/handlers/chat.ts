@@ -15,15 +15,6 @@ import type {
   TaskOut,
 } from '../lib/types';
 
-export const DEFAULT_AGENTS: AgentManifest[] = [
-  {
-    slug: 'assistant',
-    name: 'Copilot',
-    description: 'Answers questions about your systems, audits and the AI Act.',
-    default: true,
-  },
-];
-
 export const listConversations = (size = 100) =>
   api.get<Page<ConversationSummary>>(chatApi.conversations, { query: { page: 1, size } });
 /** One page of the sidebar's Chats list (pinned and archived chats are not in it). */
@@ -66,13 +57,10 @@ export const searchChats = (q: string, signal?: AbortSignal) =>
   api.get<SearchResult[]>(chatApi.search, { query: { q, limit: 20 }, signal });
 
 /** The agent catalog; falls back to the default agent while the backend does not proxy it. */
+/** The agents catalog; the chat filters it to chat-capable agents (`lib/agents.ts`). */
 export async function listAgents(): Promise<AgentManifest[]> {
-  try {
-    const agents = await api.get<AgentManifest[]>(chatApi.agents);
-    return Array.isArray(agents) && agents.length ? agents : DEFAULT_AGENTS;
-  } catch {
-    return DEFAULT_AGENTS;
-  }
+  const agents = await api.get<AgentManifest[]>(chatApi.agents);
+  return Array.isArray(agents) ? agents : [];
 }
 
 export const downloadAttachmentBlob = (conv: string, msg: string, blob: string) =>

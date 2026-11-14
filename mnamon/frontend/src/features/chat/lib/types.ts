@@ -209,6 +209,10 @@ export interface AgentManifest {
   description?: string;
   icon?: string;
   default?: boolean;
+  /** `false` for a workflow the chat must not start (e.g. the audit pipeline). */
+  chat?: boolean;
+  /** `"workflow"` marks a non-chat agent too. */
+  kind?: string;
 }
 
 /** A background sub-agent task (`GET /v1/conversations/{id}/tasks`), trimmed to what the UI shows. */

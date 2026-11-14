@@ -97,7 +97,7 @@ Escape in the lightbox or the preview closes only that layer (it no longer also 
 | Preview / download | `GET /v1/attachments/preview|download/{conv}/{msg}/{blob}` (fetched as a blob so `X-Client-Id` goes along) |
 | Save to system folder | `POST /v1/systems/{id}/files/from-attachment` `{attachmentId}` (attachment menu and preview footer, in a chat about a system) |
 | Subject chip | `GET /v1/systems/{id}` (name), `GET /v1/audits/{id}` (system of an audit) |
-| Agent picker | `GET /v1/agents` (not served yet: falls back to `assistant` / Copilot) |
+| Agent picker | `GET /v1/agents`, filtered to chat agents (`lib/agents.ts`: never `chat: false`, `kind: "workflow"` or `audit-pipeline`); a new chat takes the `default: true` one; with none, the page says so and sends nothing |
 
 AG-UI events folded: `THINKING_*`, `TOOL_CALL_*`, `TEXT_MESSAGE_*`, `CUSTOM` `HITL_INTERRUPT` (tool approvals and
 `ask_user`), `BRIDGE_HITL_RESOLVED`, `TASK_SUBAGENT`, `SUBAGENT_EVENT` (keyed by namespace across a HITL resume),
@@ -143,7 +143,6 @@ ask questions instead (`ask_user`). Shots: `chat`, `chat-about-system`, `chat-co
 
 - `POST /v1/inference/runs/start` `mode: new` did not accept `systemId` / `auditId` (only `POST /v1/conversations`
   did): **fixed** (`schema/inference.py`, `utils/inference_start.py`, 404 on an unknown system).
-- No `GET /v1/agents` proxy to the agents service catalog (`GET /agents` is internal-only): the UI falls back to a
-  single `assistant` agent. Add a thin proxy to get the picker live.
+- `GET /v1/agents` now proxies the agents catalog; it also lists the `audit-pipeline` workflow, which the chat filters out.
 - Edit-and-approve (changing a gated tool's arguments) is not in the resume contract (`approve | reject` only), so
   the takeover offers approve / reject with a reason, like magenticx.
