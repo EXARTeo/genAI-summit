@@ -20,7 +20,7 @@ from schema.systems import SYSTEM_ID_PATTERN, SeedImportOut, SeedSystemResult
 from utils.workspace import put_file, system_namespace
 
 SEED_ACTOR = "seed"
-SKIP_DIRS = frozenset({"_answer-key", "__pycache__"})
+SKIP_DIRS = frozenset({"_answer-key", "answer-keys", "__pycache__"})
 
 
 def _card(system_dir: Path) -> dict[str, Any]:
@@ -62,6 +62,10 @@ async def import_seed(db: AsyncSession, root: str) -> SeedImportOut:
     root_path = Path(root)
     if not root_path.is_dir():
         raise HTTPException(status_code=404, detail=f"Seed directory not found: {root}")
+    # mlflow-seed exports <root>/systems/SYS-00X (and the answer keys beside it,
+    # in <root>/answer-keys, which must never be imported).
+    if (root_path / "systems").is_dir():
+        root_path = root_path / "systems"
     results: list[SeedSystemResult] = []
     skipped: list[str] = []
     for system_dir in sorted(p for p in root_path.iterdir() if p.is_dir()):
@@ -70,6 +74,7 @@ async def import_seed(db: AsyncSession, root: str) -> SeedImportOut:
             sid in SKIP_DIRS
             or sid.startswith((".", "_"))
             or not re.fullmatch(SYSTEM_ID_PATTERN, sid)
+            or not (system_dir / "system-card.yaml").is_file()
         ):
             skipped.append(sid)
             continue
