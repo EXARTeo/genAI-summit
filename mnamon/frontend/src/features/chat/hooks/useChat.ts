@@ -44,6 +44,18 @@ const foldCache = new WeakMap<MessageOut, LiveRun>();
 const isQueued = (r: InferenceStartResponse | QueuedStartResponse): r is QueuedStartResponse =>
   (r as QueuedStartResponse).queued === true;
 
+/**
+ * The agent fields to send when the chosen agent differs from the conversation's, so an edit or
+ * retry can move a chat off an agent that can't answer (e.g. a workflow picked by mistake).
+ */
+function switchedAgent(
+  agent: { slug: string; name?: string | null } | null | undefined,
+  conversationSlug: string | null | undefined,
+): { agentSlug?: string; agentName?: string } {
+  if (!agent || agent.slug === conversationSlug) return {};
+  return { agentSlug: agent.slug, ...(agent.name ? { agentName: agent.name } : {}) };
+}
+
 function errorText(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   return e instanceof Error ? e.message : 'Something went wrong';
@@ -190,10 +202,11 @@ export function useChat(
             mode: 'edit',
             conversationId: detail.id,
             targetMessageId: messageId,
+            ...switchedAgent(opts.agent, detail.agentSlug),
             message: { sender: 'user', content: text },
           })
         : Promise.resolve(false),
-    [detail, start],
+    [detail, start, opts.agent],
   );
 
   const retry = useCallback(
@@ -204,10 +217,11 @@ export function useChat(
         mode: 'retry',
         conversationId: detail.id,
         targetMessageId: aiMessageId,
+        ...switchedAgent(opts.agent, detail.agentSlug),
         messagePath: ai?.parentMessageId ? pathTo(messages, ai.parentMessageId) : undefined,
       });
     },
-    [detail, messages, start],
+    [detail, messages, start, opts.agent],
   );
 
   const stop = useCallback(async () => {

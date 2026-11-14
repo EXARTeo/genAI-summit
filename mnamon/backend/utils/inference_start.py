@@ -143,9 +143,15 @@ async def _send(db: AsyncSession, client_id: str, payload: InferenceStartPayload
 
 
 def _answering_agent(
-    conversation: ConversationTable, message: MessageTable | None
+    conversation: ConversationTable,
+    message: MessageTable | None,
+    payload: InferenceStartPayload | None = None,
 ) -> tuple[str, str | None]:
-    """The agent of ``message`` (an AI reply), else the conversation's."""
+    """The agent the caller picked (``agentSlug``), else ``message``'s (an AI reply),
+    else the conversation's. An explicit pick lets the UI move a chat off an agent
+    that can no longer answer it (e.g. a workflow picked by mistake)."""
+    if payload is not None and payload.agentSlug:
+        return payload.agentSlug, payload.agentName
     if message is not None and message.agent_slug:
         return message.agent_slug, message.agent_name
     return conversation.agent_slug, conversation.agent_name
@@ -169,7 +175,7 @@ async def _edit(db: AsyncSession, client_id: str, payload: InferenceStartPayload
         (m for m in conversation.messages if m.parent_message_id == target.id and m.sender == "ai"),
         None,
     )
-    agent_slug, agent_name = _answering_agent(conversation, original_reply)
+    agent_slug, agent_name = _answering_agent(conversation, original_reply, payload)
     created = await init_message(
         db, conversation, message, parent_message_id=target.parent_message_id
     )
@@ -199,7 +205,7 @@ async def _retry(db: AsyncSession, client_id: str, payload: InferenceStartPayloa
         target.parent_message_id,
         "Retry parent message does not belong to this conversation.",
     )
-    agent_slug, agent_name = _answering_agent(conversation, target)
+    agent_slug, agent_name = _answering_agent(conversation, target, payload)
     return _Turn(conversation, target.parent_message_id, agent_slug, agent_name, None)
 
 
