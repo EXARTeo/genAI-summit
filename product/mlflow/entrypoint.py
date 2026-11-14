@@ -51,7 +51,7 @@ def main() -> None:
     ensure_database()
     # Via the environment, not argv, so the password does not show up in `ps`.
     credentials = f"{quote(USER)}:{quote(PASSWORD, safe='')}"
-    os.environ["MLFLOW_BACKEND_STORE_URI"] = f"postgresql://{credentials}@{HOST}:{PORT}/{DB}"
+    os.environ["MLFLOW_BACKEND_STORE_URI"] = f"postgresql+psycopg2://{credentials}@{HOST}:{PORT}/{DB}"
     args = [
         "mlflow", "server",
         "--artifacts-destination", os.getenv("MLFLOW_ARTIFACTS_DESTINATION", "/mlartifacts"),
