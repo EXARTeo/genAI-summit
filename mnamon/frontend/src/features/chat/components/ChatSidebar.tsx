@@ -1,19 +1,19 @@
 /**
- * The conversation list in the shell's sidebar slot (magenticx `ChatSidebar.tsx`): a "New chat" and
- * a "Search chats" row, then two folding sections, Pinned (newest pin first) and Chats (most recent
- * first, paged in as the list scrolls), and an "Archived" footer row. Rows show the title only; the
+ * The conversation list in the shell's sidebar slot (magenticx `ChatSidebar.tsx`): two folding
+ * sections, Pinned (newest pin first) and Chats (most recent first, paged in as the list scrolls,
+ * with Search and New chat as icon buttons on its heading), and an "Archived" footer row. Rows show the title only; the
  * open chat wears a highlight with an accent bar; a chat whose agent is working shows a spinner at
  * the row end; "⋯" opens Rename (inline), Pin/Unpin, Archive and Delete (confirmed).
  */
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Archive, MessageSquare, TextSearch } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { INTERACTIVE_SURFACE } from '@/shared/lib/consts/ui';
 import { cn } from '@/shared/lib/utils';
 import { useUiStore } from '@/shared/stores/ui';
-import { Button, Dialog, Skeleton, toast } from '@/shared/ui';
+import { Button, Dialog, IconButton, Skeleton, toast } from '@/shared/ui';
 import { useRunStore } from '../hooks/runStore';
 import { useConversationActions, useConversationList, useConversationPages } from '../hooks/useConversations';
 import { useChatSearchPanel, useSectionOpen } from '../hooks/useSidebarUi';
@@ -32,6 +32,8 @@ import { SidebarSection, SidebarSectionRows } from './sidebar_parts/SidebarSecti
 const TOP_ROW = `group/nav relative flex h-9 w-full items-center gap-1 rounded-xl px-1.5 text-sm text-text/90 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${INTERACTIVE_SURFACE}`;
 const ICON_BOX = 'grid size-9 shrink-0 place-items-center';
 const ICON = 'transition-transform duration-300 ease-out motion-safe:group-hover/nav:scale-110';
+/** The small icon buttons on the Chats heading (New chat, Search). */
+const HEADER_ACTION = 'size-7 rounded-lg text-muted hover:text-text [&_svg]:size-4';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -149,22 +151,7 @@ export function ChatSidebar({ activeId, className }: { activeId: string | null; 
 
   return (
     <aside className={cn('flex h-full min-h-0 flex-col', className)} aria-label="Chats">
-      <div className="flex shrink-0 flex-col pt-1">
-        <Link to={chatRoutes.root} onClick={closeDrawer} className={cn(TOP_ROW, 'font-medium text-text')}>
-          <span className={ICON_BOX}>
-            <NewChatIcon className={cn(ICON, 'motion-safe:group-hover/nav:-rotate-12')} />
-          </span>
-          New chat
-        </Link>
-        <button type="button" onClick={() => setSearchOpen(true)} className={TOP_ROW}>
-          <span className={ICON_BOX}>
-            <TextSearch className={cn('size-[18px]', ICON)} />
-          </span>
-          <span className="flex-1 text-left">Search chats</span>
-          <kbd className="mr-1.5 rounded-md border border-border bg-surface-muted px-1.5 font-sans text-2xs text-muted opacity-0 transition-opacity group-hover/nav:opacity-100 group-focus-visible/nav:opacity-100">
-            {isMac ? '⇧⌘S' : 'Ctrl ⇧ S'}
-          </kbd>
-        </button>
+      <div className="flex shrink-0 flex-col">
         {/* Ctrl/⌘+Shift+S and the /search command focus `input[aria-label="Search chats"]`
             (ChatWorkspace); focusing this hidden input opens the search panel. */}
         <input
@@ -210,6 +197,25 @@ export function ChatSidebar({ activeId, className }: { activeId: string | null; 
           listClassName="min-h-0 flex-1 pb-3"
           listRef={listRef}
           onScroll={onListScroll}
+          actions={
+            <>
+              <IconButton
+                label={`Search chats (${isMac ? '⇧⌘S' : 'Ctrl+Shift+S'})`}
+                icon={<TextSearch />}
+                className={HEADER_ACTION}
+                onClick={() => setSearchOpen(true)}
+              />
+              <IconButton
+                label="New chat (Ctrl+Shift+O)"
+                icon={<NewChatIcon />}
+                className={HEADER_ACTION}
+                onClick={() => {
+                  closeDrawer();
+                  navigate(chatRoutes.root);
+                }}
+              />
+            </>
+          }
         >
           {showSkeleton ? (
             <RowsSkeleton />

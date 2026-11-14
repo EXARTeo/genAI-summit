@@ -9,6 +9,7 @@ import { useUiStore } from '@/shared/stores/ui';
 import { LogoMark, PRODUCT_DESCRIPTOR, PRODUCT_NAME, Tooltip, Wordmark } from '@/shared/ui';
 import { NAV_ITEMS, type NavItem } from './nav';
 import { SidebarSlotTarget } from './sidebarSlot';
+import { ThemeToggle } from './ThemeToggle';
 
 /*
  * The rail follows magenticx's ChatSidebar (agentic_ui/src/features/chat/components/ChatSidebar.tsx):
@@ -211,6 +212,8 @@ export function SidebarContent({
 
       {/* Feature-owned region (e.g. the chat's conversation list): see sidebarSlot.tsx. */}
       <SidebarSlotTarget className={cn('min-h-0 flex-1 overflow-y-auto px-2', collapsed && 'hidden')} />
+      {/* Collapsed, the slot is hidden: keep the footer pinned to the bottom. */}
+      {collapsed && <div className="flex-1" aria-hidden />}
 
       {!collapsed && env.useMocks && (
         <div className="sidebar-reveal flex items-center gap-2 px-4 py-3 text-2xs text-muted">
@@ -218,6 +221,13 @@ export function SidebarContent({
           Demo data (mock mode)
         </div>
       )}
+
+      {/* Pinned footer: always at the rail's bottom, raised like the search card above. */}
+      <div className="shrink-0 border-t border-border/60 px-2 pb-2 pt-1.5">
+        <div className={cn('rounded-xl', !collapsed && RAISED_ON_FRAME)}>
+          <ThemeToggle variant="row" collapsed={collapsed} />
+        </div>
+      </div>
     </div>
   );
 }

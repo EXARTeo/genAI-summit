@@ -51,9 +51,12 @@ export function SidebarSection({
   listClassName,
   listRef,
   onScroll,
+  actions,
   children,
 }: {
   label: string;
+  /** Small icon buttons on the right of the heading (e.g. New chat, Search). */
+  actions?: ReactNode;
   open: boolean;
   onToggle: () => void;
   listId: string;
@@ -67,7 +70,10 @@ export function SidebarSection({
   const reduceMotion = useReducedMotion();
   return (
     <section className={cn('flex flex-col', className)} aria-label={label}>
-      <SectionToggle label={label} open={open} controlsId={listId} onToggle={onToggle} />
+      <div className="flex items-center justify-between gap-1 pr-1">
+        <SectionToggle label={label} open={open} controlsId={listId} onToggle={onToggle} />
+        {actions && <div className="flex shrink-0 items-center gap-0.5">{actions}</div>}
+      </div>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div

@@ -4,7 +4,6 @@ import { cn } from '@/shared/lib/utils';
 import { useUiStore } from '@/shared/stores/ui';
 import { IconButton } from '@/shared/ui';
 import { NAV_ITEMS } from './nav';
-import { ThemeToggle } from './ThemeToggle';
 import { TopbarSlotTarget, useTopbarFilled } from './topbarSlot';
 
 function useSectionLabel(): string {
@@ -44,7 +43,6 @@ export function TopBar() {
           className={cn('lg:hidden', filled && 'hidden')}
           onClick={() => setCommandOpen(true)}
         />
-        <ThemeToggle />
       </div>
     </header>
   );

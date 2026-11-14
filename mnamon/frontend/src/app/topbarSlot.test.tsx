@@ -21,10 +21,10 @@ describe('TopBar slot', () => {
     expect(screen.getByText('Audits')).toBeInTheDocument();
   });
 
-  it('shows the page content instead of the label, keeping the theme toggle', () => {
+  it('shows the page content instead of the label; the theme toggle lives in the sidebar footer', () => {
     renderAt('/chat', 'Copilot header');
     expect(screen.getByText('Copilot header').closest('[data-topbar-slot]')).not.toBeNull();
     expect(screen.queryByText('Chat')).toBeNull();
-    expect(screen.getByRole('button', { name: /theme/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /theme/i })).not.toBeInTheDocument();
   });
 });
