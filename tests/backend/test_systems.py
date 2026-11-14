@@ -426,11 +426,14 @@ async def test_internal_writes_artifacts_only(client, internal_secret):
 # --- migration ----------------------------------------------------------------
 
 
-def test_migration_0004_is_the_single_head():
+def test_migration_0005_is_the_single_head():
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "core/database/migrations"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0004_drop_memory_namespaces"]
+    assert script.get_heads() == ["0005_regulation_telegram"]
+    assert script.get_revision("0005_regulation_telegram").down_revision == (
+        "0004_drop_memory_namespaces"
+    )
     head = script.get_revision("0004_drop_memory_namespaces")
     assert head.down_revision == "0003_systems_audits"
     assert "memory:%" in Path(head.path).read_text(encoding="utf-8")

@@ -26,6 +26,7 @@ from schema.audits import (
 )
 from schema.systems import FileContentOut, FileOut, SystemOut
 from utils.audits import audit_detail, create_artifact, get_audit_or_404, patch_audit
+from utils.telegram_gates import on_artifact_created, on_audit_patched
 from utils.workspace import (
     file_content_out,
     get_file,
@@ -63,7 +64,10 @@ async def internal_audit(audit_id: str, db: Db) -> AuditContextOut:
 @router.patch("/audits/{audit_id}", response_model=AuditOut, summary="Move the audit's stage")
 async def internal_patch_audit(audit_id: str, payload: AuditPatch, db: Db) -> AuditOut:
     audit = await get_audit_or_404(db, audit_id)
+    previous = (audit.status, audit.stage)
     patch_audit(audit, payload)
+    await db.flush()
+    await on_audit_patched(db, audit, previous)
     await db.commit()
     await db.refresh(audit)
     logger.info(
@@ -137,6 +141,7 @@ async def internal_artifact(
 ) -> ArtifactOut:
     audit = await get_audit_or_404(db, audit_id)
     artifact = await create_artifact(db, audit, payload, _actor(agent))
+    await on_artifact_created(db, audit, artifact)
     await db.commit()
     await db.refresh(artifact)
     logger.info(

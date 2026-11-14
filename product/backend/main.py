@@ -37,14 +37,19 @@ from router import (
     search_router,
 )
 from router.admin import router as admin_router
+from router.agents_catalog import router as agents_router
 from router.audits import router as audits_router
 from router.internal import router as internal_router
 from router.internal_datasets import router as internal_datasets_router
+from router.internal_regulation import router as internal_regulation_router
+from router.regulation import router as regulation_router
 from router.systems import router as systems_router
 from router.tasks import conversation_router as task_conversation_router
 from router.tasks import router as tasks_router
-from utils.inference_runs import cleanup_orphaned_inference_runs
+from router.telegram import router as telegram_router
+from utils.inference_runs import cleanup_orphaned_inference_runs, register_interrupt_hook
 from utils.task_consumers import task_consumers
+from utils.telegram_gates import notify_chat_interrupt, telegram_worker
 from utils.tracing import shutdown_tracing
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -115,7 +120,11 @@ async def lifespan(app: FastAPI):
     await cleanup_orphaned_inference_runs()
     logger.info("database_schema_ready", "Database schema is ready")
     task_consumers.start()
+    # Telegram HITL: long polling (or webhook registration); a no-op without a token.
+    register_interrupt_hook(notify_chat_interrupt)
+    await telegram_worker.start()
     yield
+    await telegram_worker.stop()
     await task_consumers.stop()
     # Flush buffered Langfuse spans (no-op when tracing is off); off the loop
     # because the SDK's flush blocks.
@@ -171,3 +180,7 @@ app.include_router(audits_router, prefix="/v1/audits", tags=["Audits"])
 app.include_router(admin_router, prefix="/v1/admin", tags=["Admin"])
 app.include_router(internal_router, prefix="/internal", tags=["Internal"])
 app.include_router(internal_datasets_router, prefix="/internal", tags=["Internal"])
+app.include_router(internal_regulation_router, prefix="/internal", tags=["Internal"])
+app.include_router(regulation_router, prefix="/v1/regulation", tags=["Regulation"])
+app.include_router(agents_router, prefix="/v1/agents", tags=["Agents"])
+app.include_router(telegram_router, prefix="/telegram", tags=["Telegram"])

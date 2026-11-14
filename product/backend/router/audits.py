@@ -25,8 +25,10 @@ from schema.audits import (
     AuditOut,
     AuditPatch,
 )
+from utils.audit_pipeline import forward_gate_decision
 from utils.audits import (
     audit_detail,
+    audits_out,
     create_artifact,
     get_artifact_or_404,
     get_audit_or_404,
@@ -38,6 +40,7 @@ from utils.audits import (
     record_approval,
 )
 from utils.systems import actor_for
+from utils.telegram_gates import on_approval_recorded, on_artifact_created, on_audit_patched
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -54,7 +57,7 @@ async def get_audits(
     db: Db,
     systemId: str | None = None,  # noqa: N803
 ) -> list[AuditOut]:
-    return [AuditOut.model_validate(a) for a in await list_audits(db, systemId)]
+    return await audits_out(db, await list_audits(db, systemId))
 
 
 @router.get(
@@ -69,7 +72,10 @@ async def update_audit(
     audit_id: str, payload: AuditPatch, _caller: CallerDep, _limited: Limited, db: Db
 ) -> AuditOut:
     audit = await get_audit_or_404(db, audit_id)
+    previous = (audit.status, audit.stage)
     patch_audit(audit, payload)
+    await db.flush()
+    await on_audit_patched(db, audit, previous)
     await db.commit()
     await db.refresh(audit)
     logger.info(
@@ -79,7 +85,7 @@ async def update_audit(
         stage=audit.stage,
         audit_status=audit.status,
     )
-    return AuditOut.model_validate(audit)
+    return (await audits_out(db, [audit]))[0]
 
 
 @router.get(
@@ -109,6 +115,7 @@ async def post_artifact(
 ) -> ArtifactOut:
     audit = await get_audit_or_404(db, audit_id)
     artifact = await create_artifact(db, audit, payload, actor_for(caller.id))
+    await on_artifact_created(db, audit, artifact)
     await db.commit()
     await db.refresh(artifact)
     logger.info(
@@ -178,10 +185,13 @@ async def post_approval(
 ) -> ApprovalResultOut:
     audit = await get_audit_or_404(db, audit_id)
     approval, artifact = await record_approval(db, audit, payload, actor_for(caller.id))
+    await on_approval_recorded(db, approval)
     await db.commit()
     await db.refresh(approval)
     if artifact is not None:
         await db.refresh(artifact)
+    # A pipeline gate: the waiting pipeline resumes with this decision.
+    await forward_gate_decision(audit, approval)
     logger.info(
         "audit_approval_recorded",
         "Audit approval recorded",

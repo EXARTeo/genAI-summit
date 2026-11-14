@@ -132,6 +132,52 @@ class UpstreamSettings(BaseSettings):
         return _resolve_file_backed_secret("AGENTS_SERVICE_SECRET") or ""
 
 
+class RegMemorySettings(BaseSettings):
+    """reg-memory (the regulation store): the backend proxies ``/v1/regulation``."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    url: str = Field("http://reg-memory:8010", validation_alias="REG_MEMORY_URL")
+    # Sent as X-Internal-Secret.
+    secret: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="REG_MEMORY_INTERNAL_SECRET"
+    )
+    timeout_seconds: float = Field(30.0, validation_alias="REG_MEMORY_TIMEOUT_SECONDS")
+    # check-now with wait: true downloads and diffs; give it longer.
+    check_timeout_seconds: float = Field(300.0, validation_alias="REG_MEMORY_CHECK_TIMEOUT_SECONDS")
+
+
+class TelegramSettings(BaseSettings):
+    """HITL approvals over Telegram. No token = every Telegram call is a no-op."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    bot_token: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="TELEGRAM_BOT_TOKEN"
+    )
+    # Allow-list: the chats that receive gates and may decide them (comma-separated ids).
+    chat_ids: Annotated[tuple[str, ...], NoDecode] = Field((), validation_alias="TELEGRAM_CHAT_ID")
+    api_url: str = Field("https://api.telegram.org", validation_alias="TELEGRAM_API_URL")
+    # Set = webhook mode (Telegram POSTs to it; route /telegram/webhook); empty = long polling.
+    webhook_url: str = Field("", validation_alias="TELEGRAM_WEBHOOK_URL")
+    # Checked against X-Telegram-Bot-Api-Secret-Token in webhook mode.
+    webhook_secret: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="TELEGRAM_WEBHOOK_SECRET"
+    )
+    poll_timeout_seconds: int = Field(25, ge=1, le=50, validation_alias="TELEGRAM_POLL_TIMEOUT")
+    # Base of the "Open in app" links.
+    app_public_url: str = Field("http://localhost:8080", validation_alias="APP_PUBLIC_URL")
+
+    @field_validator("chat_ids", mode="before")
+    @classmethod
+    def _split(cls, value: object) -> tuple[str, ...]:
+        return _split_csv(value)
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.bot_token.get_secret_value())
+
+
 class InferenceSettings(BaseSettings):
     model_config = _BASE_MODEL_CONFIG
 
@@ -475,6 +521,8 @@ class Settings(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     tls: TlsSettings = Field(default_factory=TlsSettings)
     upstream: UpstreamSettings = Field(default_factory=UpstreamSettings)
+    reg_memory: RegMemorySettings = Field(default_factory=RegMemorySettings)
+    telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     inference: InferenceSettings = Field(default_factory=InferenceSettings)
     attachments: AttachmentSettings = Field(default_factory=AttachmentSettings)
     workspace: WorkspaceSettings = Field(default_factory=WorkspaceSettings)

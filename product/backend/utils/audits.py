@@ -23,6 +23,7 @@ from schema.audits import (
     ArtifactPatch,
     AuditDetail,
     AuditIn,
+    AuditOut,
     AuditPatch,
 )
 from utils.workspace import (
@@ -64,10 +65,56 @@ async def get_audit_or_404(db: AsyncSession, audit_id: str) -> AuditTable:
     return audit
 
 
+#: The ``data`` fields the UI reads (frontend ``AuditData``), with their defaults.
+_UI_DATA_DEFAULTS: dict[str, object] = {
+    "stageTraces": {},
+    "stageDurations": {},
+    "trigger": "manual",
+}
+
+
+def ui_data(audit: AuditTable, system_name: str | None) -> dict:
+    """``audits.data`` plus the UI's fields, passed through when the pipeline set
+    them and derived otherwise (snake_case aliases the agents may write too)."""
+    data = dict(audit.data or {})
+    for camel, snake in (
+        ("kbVersion", "kb_version"),
+        ("cardVersion", "card_version"),
+        ("traceId", "trace_id"),
+        ("stageTraces", "stage_traces"),
+        ("stageDurations", "stage_durations"),
+    ):
+        if camel not in data and snake in data:
+            data[camel] = data[snake]
+    data.setdefault("systemName", system_name or audit.system_id)
+    data.setdefault("title", f"Audit of {system_name or audit.system_id}")
+    for key, default in _UI_DATA_DEFAULTS.items():
+        data.setdefault(key, default)
+    return data
+
+
+async def _system_names(db: AsyncSession, ids: set[str]) -> dict[str, str]:
+    if not ids:
+        return {}
+    rows = await db.execute(select(SystemTable.id, SystemTable.name).where(SystemTable.id.in_(ids)))
+    return {row.id: row.name for row in rows}
+
+
+async def audits_out(db: AsyncSession, audits: list[AuditTable]) -> list[AuditOut]:
+    names = await _system_names(db, {a.system_id for a in audits})
+    out = []
+    for audit in audits:
+        item = AuditOut.model_validate(audit)
+        item.data = ui_data(audit, names.get(audit.system_id))
+        out.append(item)
+    return out
+
+
 async def audit_detail(db: AsyncSession, audit_id: str) -> AuditDetail:
     """An audit with every artifact version and every approval."""
     audit = await get_audit_or_404(db, audit_id)
     detail = AuditDetail.model_validate(audit)
+    detail.data = ui_data(audit, (await _system_names(db, {audit.system_id})).get(audit.system_id))
     detail.artifacts = [ArtifactOut.model_validate(a) for a in await list_artifacts(db, audit_id)]
     detail.approvals = [ApprovalOut.model_validate(a) for a in await list_approvals(db, audit_id)]
     return detail

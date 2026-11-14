@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from schema.base import UTCDateTime
 
@@ -27,10 +27,31 @@ class AuditIn(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
 
 
+#: The audit lifecycle the UI understands (``open`` = created, not started).
+AuditStatus = Literal["open", "running", "waiting_approval", "done", "failed"]
+
+
+#: Older names the pipeline may still send, mapped onto ``AuditStatus``.
+_STATUS_ALIASES = {
+    "completed": "done",
+    "complete": "done",
+    "finished": "done",
+    "rejected": "failed",
+    "cancelled": "failed",
+    "canceled": "failed",
+    "error": "failed",
+}
+
+
 class AuditPatch(BaseModel):
-    status: str | None = Field(None, pattern=SLUG_PATTERN)
+    status: AuditStatus | None = None
     stage: str | None = Field(None, pattern=SLUG_PATTERN)
     data: dict[str, Any] | None = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _alias(cls, value: object) -> object:
+        return _STATUS_ALIASES.get(value, value) if isinstance(value, str) else value
 
 
 class ArtifactOut(BaseModel):

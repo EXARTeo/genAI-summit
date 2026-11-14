@@ -242,6 +242,8 @@ class InferenceRunRuntime:
         # counter: a sub-agent's interrupt arrives twice (top-level and wrapped
         # in SUBAGENT_EVENT) while one resume resolves it once.
         self.pending_interrupt_ids: list[str] = []
+        # Interrupts registered since the last take (for the interrupt hooks).
+        self.new_interrupts: list[tuple[str, Any]] = []
         # The durable checkpoint head the agent committed (CHECKPOINT_COMMITTED),
         # stored on the message so the branch's next turn resumes from it.
         self.produced_checkpoint_id: str | None = None
@@ -261,6 +263,7 @@ class InferenceRunRuntime:
         token = str(raw_id) if raw_id is not None else f"anon-{self.next_seq}"
         if token not in self.pending_interrupt_ids:
             self.pending_interrupt_ids.append(token)
+            self.new_interrupts.append((token, value))
 
     def resolve_interrupt(self, interrupt_id: Any) -> None:
         token = str(interrupt_id) if interrupt_id is not None else None
@@ -382,6 +385,27 @@ class InferenceRunRuntime:
 
         append_coalesced(self.raw_events, event)
         return event
+
+
+#: Called with ``(run_id, interrupt_id, value)`` when a run pauses on a new HITL
+#: interrupt (the Telegram notifier). Run as a background task: never blocks the stream.
+InterruptHook = Callable[[str, str, Any], Awaitable[None]]
+_interrupt_hooks: list[InterruptHook] = []
+_hook_tasks: set[asyncio.Task[Any]] = set()
+
+
+def register_interrupt_hook(hook: InterruptHook) -> None:
+    if hook not in _interrupt_hooks:
+        _interrupt_hooks.append(hook)
+
+
+def _fire_interrupt_hooks(run_id: str, runtime: InferenceRunRuntime) -> None:
+    fresh, runtime.new_interrupts = runtime.new_interrupts, []
+    for token, value in fresh:
+        for hook in list(_interrupt_hooks):
+            task = asyncio.create_task(hook(run_id, token, value))
+            _hook_tasks.add(task)
+            task.add_done_callback(_hook_tasks.discard)
 
 
 #: Called after every run's terminal frame with ``(run_id, session_factory)``.
@@ -829,6 +853,8 @@ class InferenceRunManager:
                     stamped = runtime.apply_event(event)
                     if stamped is not None:
                         applied.append(stamped)
+                    if runtime.new_interrupts:
+                        _fire_interrupt_hooks(run_id, runtime)
                     if event.get("type") == "RUN_ERROR":
                         await self._publish_delta(run_id, run_meta, runtime, applied)
                         await self._end(

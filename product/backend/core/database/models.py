@@ -597,3 +597,44 @@ class ApprovalTable(Base):
     edits = Column(_jsonb(), nullable=False, default=dict)
     decided_by = Column(String, nullable=False)
     at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class RegulationChangeTable(Base):
+    """A RegChange reg-memory announced (``POST /internal/regulation/changes``),
+    plus what the humans decided about it. reg-memory stays the source of the
+    change itself; ``data`` keeps its payload, the decision and the per-system
+    overrides (``affected``)."""
+
+    __tablename__ = "regulation_changes"
+
+    # reg-memory's id, e.g. RC-2026.11.14-2.
+    id = Column(String, primary_key=True)
+    # proposed | accepted | rejected
+    status = Column(String, nullable=False, server_default="proposed", default="proposed")
+    data = Column(_jsonb(), nullable=False, default=dict)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class TelegramPromptTable(Base):
+    """One HITL gate announced on Telegram (audit gate, regulation change,
+    chat tool approval). ``id`` is the short token in the buttons'
+    callback data; ``key`` dedupes (one open prompt per gate)."""
+
+    __tablename__ = "telegram_prompts"
+
+    id = Column(String, primary_key=True)
+    # audit_gate | public_dataset | regulation_change | chat_hitl
+    kind = Column(String, nullable=False)
+    key = Column(String, nullable=False, index=True)
+    # open | decided
+    status = Column(String, nullable=False, server_default="open", default="open")
+    decision = Column(String, nullable=True)
+    decided_by = Column(String, nullable=True)
+    # What the decision applies to (audit/gate/artifact, change id, run/interrupt)
+    # and the reject flow's state.
+    data = Column(_jsonb(), nullable=False, default=dict)
+    # [{chat_id, message_id}] of the sent messages, edited after the decision.
+    messages = Column(_jsonb(), nullable=False, default=list)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    decided_at = Column(DateTime, nullable=True)
