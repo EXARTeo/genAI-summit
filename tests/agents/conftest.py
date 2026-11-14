@@ -47,6 +47,13 @@ os.environ.setdefault("INTERNAL_SERVICE_SECRET", "agents-test-secret")
 os.environ.setdefault("MCP_GATEWAY_URL", "")
 os.environ.setdefault("LANGFUSE_BASE_URL", "")
 os.environ.setdefault("SANDBOX_EXECUTION_ENABLED", "false")
+os.environ.setdefault("SANDBOX_RUNNER_URL", "")  # as in CI: a local .env must not configure one
+# Never Oumi Iris from tests (a developer's .env may hold a real key): the decision
+# model falls back to the fake; Iris tests inject an IrisClient with a mock transport.
+os.environ["OUMI_API_KEY"] = ""
+os.environ["OUMI_MODEL"] = ""
+os.environ["CHANGE_JUDGE_MODEL"] = "gemini"
+os.environ["SCENARIO_REVIEW_MODEL"] = "iris"
 # The service ships no agent; the suite runs against a test-only definition.
 os.environ.setdefault("AGENTS_DIR", str(Path(__file__).resolve().parent / "fixtures" / "agents"))
 os.environ.setdefault("DEFAULT_AGENT_SLUG", "assistant")

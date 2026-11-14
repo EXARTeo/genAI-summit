@@ -45,6 +45,7 @@ logger = get_logger(__name__)
 #: Which model role each step runs on (parameters, not prose: depth is the model).
 STEP_ROLES: dict[str, ModelRole] = {
     "plan_scenarios": "reasoning",
+    "scenario_review": "default",
     "draft_spec": "default",
     "analyse": "default",
     "critic": "reasoning",
@@ -55,6 +56,7 @@ STEP_ROLES: dict[str, ModelRole] = {
 #: The tool families each step gets (nothing else is bound).
 STEP_TOOLS: dict[str, tuple[str, ...]] = {
     "plan_scenarios": ("files", "regulation", "memory"),
+    "scenario_review": (),
     "draft_spec": ("files", "memory"),
     "analyse": ("files", "regulation", "sandbox", "memory"),
     "critic": ("files", "regulation", "sandbox", "memory"),

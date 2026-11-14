@@ -2,10 +2,14 @@
 
 Order (fixed by code, CLAUDE.md § The product)::
 
-    load_context → profile_model → find_public_data → [gate public_data] →
-    plan_scenarios → analyse_scenarios → [gate scenarios] → draft_spec →
+    load_context → profile_model → plan_scenarios → analyse_scenarios →
+    [gate scenarios] → find_public_data → [gate public_data] → draft_spec →
     generate_data → analyse_datasets → [gate datasets] → run_tests →
     analyse → critic → report → finalize
+
+The public data search runs after the scenarios are approved, so it looks for
+datasets that carry what those scenarios need (their fields, protected
+attributes and use cases).
 
 * **Code nodes** (deterministic): the backend's internal API, reg-memory, and
   the sandbox runner with synthkit (``profile``, ``scenarios-check``,
@@ -15,6 +19,11 @@ Order (fixed by code, CLAUDE.md § The product)::
   model (``pipeline/steps.py``).
 * **Verifiers** (``pipeline/verify.py``) send a failed output back to its step
   with the report, at most ``PIPELINE_MAX_AUTO_REDOS`` times.
+* **Decision model** (``pipeline/decision.py``): in ``analyse_scenarios`` Oumi
+  *Iris* (Gemini as fallback) reviews each scenario (``relevant |
+  needs_change | not_relevant``); ``needs_change`` goes back to
+  ``plan_scenarios`` within the same redo budget, ``not_relevant`` is flagged
+  for the human at the gate.
 * **Gates** pause on ``interrupt()``; the decision comes back through
   ``/resume`` (the backend's approvals). A rejection with a reason goes back to
   the step with the reason in its brief; the step's agent records the lesson
@@ -49,6 +58,9 @@ from harness.agui.emitter import AGUIEmitter, encode
 from harness.memory.store import MemoryStoreProtocol
 from pipeline import fakes
 from pipeline.clients import BackendInternal, ExecResult, RegMemory, SandboxRunner
+from pipeline.decision import DecisionModel, IrisClient
+from pipeline.scenario_review import SCENARIO_REVIEW, review_brief, review_context
+from pipeline.schemas import ScenarioReview
 from pipeline.state import AuditState
 from pipeline.steps import StepRunner, StepScope
 from pipeline.testplan import (
@@ -93,6 +105,8 @@ DECISIONS = {
     "changes_requested": "changes_requested",
     "request_changes": "changes_requested",
 }
+#: Scenario reviews the decision model runs at once.
+REVIEW_CONCURRENCY = 4
 _ANNEX_RE = re.compile(r"Annex\s+([IVX]+)\s*(\d+)?\s*(?:\(([a-z])\))?", re.IGNORECASE)
 
 #: How a synthkit GenerationSpec looks (the draft_spec brief; from synthkit/spec.py).
@@ -216,6 +230,7 @@ class PipelineDeps:
     run_id: str | None = None
     thread_id: str | None = None
     trace_id: str | None = None
+    iris: IrisClient | None = None  # None = from settings (OUMI_*)
     today: Callable[[], str] = field(
         default_factory=lambda: lambda: datetime.now(UTC).date().isoformat()
     )
@@ -526,8 +541,11 @@ class AuditPipeline:
         if not settings.pipeline.public_data_enabled or search is None:
             public["reason"] = "public dataset search is off"
         else:
+            scenarios = (state.get("scenarios") or {}).get("scenarios") or []
             try:
-                result = await asyncio.to_thread(search, state["audit_id"], plugin_name, top=5)
+                result = await asyncio.to_thread(
+                    search, state["audit_id"], plugin_name, top=5, scenarios=scenarios
+                )
             except Exception as exc:
                 result = {"error": type(exc).__name__}
             hit = next(iter(result.get("results") or []), None)
@@ -559,6 +577,13 @@ class AuditPipeline:
         return {**out, "public_data": public, "artifacts": arts}
 
     async def gate_public_data(self, state: AuditState) -> dict[str, Any]:
+        update = await self._public_data_decision(state)
+        # An audit started under the old order (public data before the scenarios)
+        # resumes here without a plan: plan the scenarios first (best effort).
+        has_plan = bool((state.get("scenarios") or {}).get("scenarios"))
+        return {**update, "route": "next" if has_plan else "plan"}
+
+    async def _public_data_decision(self, state: AuditState) -> dict[str, Any]:
         public = dict(state.get("public_data") or {})
         if not public.get("gate"):
             return {
@@ -625,9 +650,6 @@ class AuditPipeline:
             "requirements": state.get("requirements"),
             "test_templates": state.get("templates"),
             "model_profile": profile_digest(state.get("profile")),
-            "public_data": {
-                k: (state.get("public_data") or {}).get(k) for k in ("mode", "reason", "candidate")
-            },
             "previous_plan": state.get("scenarios") if feedback else None,
         }
         plan = await self.deps.steps.run(
@@ -657,15 +679,41 @@ class AuditPipeline:
             raise StepFailed(f"synthkit scenarios-check failed: {result.stderr[-400:]}")
         problems = scenario_problems(analysis)
         update: dict[str, Any] = {**out, "scenario_analysis": analysis}
+        plan = dict(state.get("scenarios") or {})
+        reviews = await self._review_scenarios(state)
+        if reviews:
+            plan["scenarios"] = [
+                {**sc, "review": reviews[sc.get("id")]} if sc.get("id") in reviews else sc
+                for sc in plan.get("scenarios") or []
+            ]
+            update["scenarios"] = plan
+            update["artifacts"] = {
+                "scenarios": await self._artifact(
+                    state, "scenarios", {**plan, "yaml": dumps_yaml(plan)}
+                )
+            }
+        needs_change = [
+            {"id": sid, "suggested_change": r.get("suggested_change"), "model": r.get("model")}
+            for sid, r in reviews.items()
+            if r.get("verdict") == "needs_change"
+        ]
+        flagged = sorted(sid for sid, r in reviews.items() if r.get("verdict") == "not_relevant")
+        review_problems = [
+            f"{c['id']}: {c['model']} review says needs_change: {c['suggested_change']}"
+            for c in needs_change
+        ]
         used = int((state.get("auto_redos") or {}).get("plan_scenarios", 0))
-        if problems and used < settings.pipeline.max_auto_redos:
+        if (problems or needs_change) and used < settings.pipeline.max_auto_redos:
             update["route"] = "redo"
             update["auto_redos"] = {"plan_scenarios": used + 1}
+            checks = ["synthkit scenarios-check"] if problems else []
+            checks += ["decision-model scenario review"] if needs_change else []
             update["feedback"] = {
                 "plan_scenarios": {
                     "source": "verifier",
-                    "check": "synthkit scenarios-check",
-                    "problems": problems,
+                    "check": " + ".join(checks),
+                    "problems": [*problems, *review_problems],
+                    "scenario_reviews": needs_change or None,
                 }
             }
         else:
@@ -676,12 +724,61 @@ class AuditPipeline:
             {
                 "analysis": analysis,
                 "markdown": result.text("scenario-analysis.md"),
-                "verifier": {"problems": problems, "action": update["route"]},
+                "verifier": {
+                    "problems": [*problems, *review_problems],
+                    "action": update["route"],
+                    "flagged": flagged,
+                },
+                "review": {
+                    "model": settings.pipeline.scenario_review_model,
+                    "verdicts": {sid: r.get("verdict") for sid, r in reviews.items()},
+                    "by": {sid: r.get("model") for sid, r in reviews.items()},
+                    "needs_change": [c["id"] for c in needs_change],
+                    "flagged": flagged,
+                },
             },
         )
-        update["artifacts"] = {"scenario_analysis": art_id}
+        update["artifacts"] = {**(update.get("artifacts") or {}), "scenario_analysis": art_id}
         self._finish("analyse_scenarios")
         return update
+
+    async def _review_scenarios(self, state: AuditState) -> dict[str, dict[str, Any]]:
+        """Scenario id -> ``review`` (``SCENARIO_REVIEW_MODEL``; fail-open per scenario)."""
+        mode = settings.pipeline.scenario_review_model
+        scenarios = (state.get("scenarios") or {}).get("scenarios") or []
+        if mode == "off" or not scenarios:
+            return {}
+        model = DecisionModel(
+            "iris" if mode == "iris" else "gemini",
+            steps=self.deps.steps,
+            iris=self.deps.iris,
+            trace_id=self.deps.trace_id,
+        )
+        context = review_context(dict(state), profile_digest(state.get("profile")).get("proxies"))
+        scope = self._scope(state, "scenario_review")
+        gate = asyncio.Semaphore(REVIEW_CONCURRENCY)
+
+        async def one(scenario: dict[str, Any]) -> tuple[Any, dict[str, Any] | None]:
+            async with gate:
+                try:
+                    decision = await model.decide(
+                        SCENARIO_REVIEW, review_brief(context, scenario), ScenarioReview, scope
+                    )
+                except Exception as exc:  # advisory: an unreviewed scenario still reaches the gate
+                    logger.warning(
+                        "scenario_review_failed",
+                        "Scenario review failed",
+                        scenario=scenario.get("id"),
+                        failure_reason=type(exc).__name__,
+                    )
+                    return scenario.get("id"), None
+            return scenario.get("id"), {
+                "model": decision.model,
+                **decision.result.model_dump(mode="json"),
+            }
+
+        results = await asyncio.gather(*(one(sc) for sc in scenarios))
+        return {sid: review for sid, review in results if sid and review}
 
     async def _gate(self, state: AuditState, gate: str, summary: dict[str, Any]) -> dict[str, Any]:
         spec = GATES[gate]
@@ -746,8 +843,16 @@ class AuditPipeline:
             "scenarios",
             {
                 "scenarios": [
-                    {k: s.get(k) for k in ("id", "requirement", "template", "metric")}
+                    {
+                        **{k: s.get(k) for k in ("id", "requirement", "template", "metric")},
+                        "review": (s.get("review") or {}).get("verdict"),
+                    }
                     for s in scenarios
+                ],
+                "flagged": [
+                    s.get("id")
+                    for s in scenarios
+                    if (s.get("review") or {}).get("verdict") == "not_relevant"
                 ],
                 "check": {
                     "status": analysis.get("status"),
@@ -1141,9 +1246,7 @@ class AuditPipeline:
         graph.add_node("stop", self.stop)
         graph.add_edge(START, "load_context")
         graph.add_edge("load_context", "profile_model")
-        graph.add_edge("profile_model", "find_public_data")
-        graph.add_edge("find_public_data", "gate_public_data")
-        graph.add_edge("gate_public_data", "plan_scenarios")
+        graph.add_edge("profile_model", "plan_scenarios")
         graph.add_edge("plan_scenarios", "analyse_scenarios")
         graph.add_conditional_edges(
             "analyse_scenarios", _route, {"redo": "plan_scenarios", "next": "gate_scenarios"}
@@ -1151,7 +1254,11 @@ class AuditPipeline:
         graph.add_conditional_edges(
             "gate_scenarios",
             _route,
-            {"redo": "plan_scenarios", "next": "draft_spec", "stop": "stop"},
+            {"redo": "plan_scenarios", "next": "find_public_data", "stop": "stop"},
+        )
+        graph.add_edge("find_public_data", "gate_public_data")
+        graph.add_conditional_edges(
+            "gate_public_data", _route, {"next": "draft_spec", "plan": "plan_scenarios"}
         )
         graph.add_edge("draft_spec", "generate_data")
         graph.add_conditional_edges(
@@ -1180,11 +1287,11 @@ def _route(state: AuditState) -> str:
 NODE_ORDER = (
     "load_context",
     "profile_model",
-    "find_public_data",
-    "gate_public_data",
     "plan_scenarios",
     "analyse_scenarios",
     "gate_scenarios",
+    "find_public_data",
+    "gate_public_data",
     "draft_spec",
     "generate_data",
     "analyse_datasets",

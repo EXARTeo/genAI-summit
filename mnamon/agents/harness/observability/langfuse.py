@@ -228,3 +228,48 @@ def trace_run_config(
     if user:
         metadata["langfuse_user_id"] = hash_identifier(str(user))
     return {**config, "callbacks": callbacks, "metadata": metadata}
+
+
+def start_span(
+    name: str,
+    *,
+    trace_id: str | None = None,
+    input: Any = None,  # noqa: A002 - the SDK's field name
+    metadata: Mapping[str, Any] | None = None,
+) -> Any | None:
+    """Open one span outside a LangChain run (a decision-model call), or None.
+
+    It joins ``trace_id`` (the audit's trace) when that is a well-formed W3C id,
+    else the current OpenTelemetry context. Fail-open: tracing off or any SDK
+    error returns None, and :func:`end_span` accepts None.
+    """
+    if _client is None:
+        return None
+    try:
+        return _client.start_observation(
+            name=name,
+            as_type="span",
+            trace_context=parent_trace_context({"trace_id": trace_id}),
+            input=input,
+            metadata=dict(metadata or {}),
+        )
+    except Exception:
+        logger.warning("langfuse_span_failed", "Could not open a Langfuse span", span=name)
+        return None
+
+
+def end_span(
+    span: Any | None,
+    *,
+    output: Any = None,
+    metadata: Mapping[str, Any] | None = None,
+    level: str | None = None,
+) -> None:
+    """Close a span from :func:`start_span` with its output (no-op on None; fail-open)."""
+    if span is None:
+        return
+    try:
+        span.update(output=output, metadata=dict(metadata or {}), level=level)
+        span.end()
+    except Exception:
+        logger.warning("langfuse_span_failed", "Could not close a Langfuse span")

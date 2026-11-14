@@ -9,7 +9,7 @@ import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from pipeline import fakes
 from pipeline.agent import AuditPipelineAgent
-from pipeline.impact import IrisDecisionModel, impact_index
+from pipeline.impact import impact_index
 from pipeline.prompting import compose_step_prompt, render_brief
 from pipeline.schemas import ChangeJudgement, Finding, ScenarioPlan
 from pipeline.steps import StepRunner
@@ -99,7 +99,15 @@ def test_prompts_are_layered_short_and_state_precedence():
     ]
     assert order == sorted(order)
     assert "never overrides" in prompt and "not the AI Act's" in prompt
-    for step in ("plan_scenarios", "draft_spec", "analyse", "critic", "report", "change_judge"):
+    for step in (
+        "plan_scenarios",
+        "scenario_review",
+        "draft_spec",
+        "analyse",
+        "critic",
+        "report",
+        "change_judge",
+    ):
         body = compose_step_prompt(
             step, memory_index=None, today=__import__("datetime").date(2026, 11, 14)
         )
@@ -193,7 +201,7 @@ async def test_the_agent_streams_steps_and_the_gate_as_ag_ui():
     agent = _agent(make_harness())
     events = await _frames(agent)
     steps = [e["stepName"] for e in events if e["type"] == "STEP_STARTED"]
-    assert steps[:3] == ["load_context", "profile_model", "find_public_data"]
+    assert steps[:3] == ["load_context", "profile_model", "plan_scenarios"]
     hitl = [e for e in events if e.get("name") == "HITL_INTERRUPT"]
     assert hitl and hitl[-1]["value"]["interrupt"]["value"]["gate"] == "scenarios"
     assert any(e.get("name") == "AUDIT_ARTIFACT" for e in events)
@@ -363,18 +371,3 @@ async def test_change_judge_writes_artifacts_and_triggers_reruns():
     row = next(r for r in rows if r["systemId"] == "SYS-001")
     assert row["decision"] == "rerun_tests" and row["rerunAuditId"] == "AUD-new-SYS-001"
     assert row["path"] == ["REQ.AIA.10.2.f.bias-examination", "AIA.10.2.f"]
-
-
-async def test_iris_falls_back_to_gemini_without_a_key():
-    class _Gemini:
-        name = "gemini"
-        calls = 0
-
-        async def judge(self, brief, scope):
-            self.calls += 1
-            return fakes.change_judge(brief)
-
-    gemini = _Gemini()
-    iris = IrisDecisionModel(fallback=gemini)
-    result = await iris.judge({"impacted_requirements": []}, None)  # type: ignore[arg-type]
-    assert result.decision == "no_impact" and gemini.calls == 1

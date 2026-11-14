@@ -5,28 +5,30 @@
    matched against every system's latest audit (findings, test results, the
    requirements its context listed). A system is affected when one of its
    requirements is impacted or a finding cites a changed provision.
-2. **Change judge** per affected (system, change): a :class:`DecisionModel`
-   returns a :class:`~pipeline.schemas.ChangeJudgement`
+2. **Change judge** per affected (system, change): the decision model
+   (``pipeline/decision.py``) returns a :class:`~pipeline.schemas.ChangeJudgement`
    (``no_impact | reinterpret_existing_evidence | rerun_tests | new_tests_needed``,
-   rationale, strongest counter-argument). Gemini is the default; the Oumi *Iris*
-   adapter sits behind the same interface (``CHANGE_JUDGE_MODEL=iris``).
+   rationale, strongest counter-argument). Gemini is the default; with
+   ``CHANGE_JUDGE_MODEL=iris`` Oumi *Iris* scores the four decisions and the
+   Gemini step is the fallback.
 """
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any
 
-import httpx
-
-from core.logging import get_logger
 from core.settings import settings
 from pipeline import fakes
+from pipeline.decision import (
+    Decision,
+    DecisionModel,
+    DecisionTask,
+    choice_confidence,
+    load_questions,
+)
 from pipeline.schemas import ChangeJudgement
 from pipeline.steps import StepRunner, StepScope
-
-logger = get_logger(__name__)
 
 
 def _touches(provision: str, changed: set[str]) -> bool:
@@ -125,98 +127,76 @@ def judge_brief(change: dict[str, Any], system: AffectedSystem) -> dict[str, Any
     }
 
 
-class DecisionModel(Protocol):
-    """Anything that turns a judge brief into a :class:`ChangeJudgement`."""
-
-    name: str
-
-    async def judge(self, brief: dict[str, Any], scope: StepScope) -> ChangeJudgement: ...
+def _iris_request(brief: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
+    return brief, dict(load_questions("change_judge"))
 
 
-class GeminiDecisionModel:
-    """The default: a scoped deep agent on Gemini's reasoning role (regulation tools only)."""
-
-    name = "gemini"
-
-    def __init__(self, steps: StepRunner | None = None) -> None:
-        self.steps = steps or StepRunner()
-
-    async def judge(self, brief: dict[str, Any], scope: StepScope) -> ChangeJudgement:
-        result = await self.steps.run(
-            "change_judge", brief, scope, fake=lambda: fakes.change_judge(brief)
-        )
-        assert isinstance(result, ChangeJudgement)  # noqa: S101 - STEP_RESULTS maps it
-        return result
-
-
-class IrisDecisionModel:
-    """Oumi *Iris* adapter (early access; the API is not public yet: UNVERIFIED).
-
-    Assumes an OpenAI-compatible ``POST {OUMI_BASE_URL}/chat/completions`` that
-    returns the judgement as JSON. Any failure (no key, no URL, an error, an
-    answer that does not validate) falls back to the Gemini judge, logged, so
-    swapping the decision model can never break the impact pipeline.
-    """
-
-    name = "iris"
-
-    def __init__(
-        self, fallback: DecisionModel | None = None, client: httpx.AsyncClient | None = None
-    ) -> None:
-        self.fallback = fallback or GeminiDecisionModel()
-        self.client = client
-
-    async def judge(self, brief: dict[str, Any], scope: StepScope) -> ChangeJudgement:
-        cfg = settings.pipeline
-        key, base = cfg.oumi_api_key.get_secret_value(), cfg.oumi_base_url.rstrip("/")
-        if key and base:
-            try:
-                return await self._call(base, key, brief)
-            except Exception as exc:
-                logger.warning(
-                    "iris_judge_failed",
-                    "Iris judge failed; using Gemini",
-                    failure_reason=type(exc).__name__,
-                )
-        return await self.fallback.judge(brief, scope)
-
-    async def _call(self, base: str, key: str, brief: dict[str, Any]) -> ChangeJudgement:
-        client = self.client or httpx.AsyncClient(timeout=60)
-        schema = ChangeJudgement.model_json_schema()
-        response = await client.post(
-            f"{base}/chat/completions",
-            headers={"Authorization": f"Bearer {key}"},
-            json={
-                "model": "iris",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "Judge a regulation change for one AI system. Answer only "
-                        f"JSON matching this schema: {json.dumps(schema)}",
-                    },
-                    {"role": "user", "content": json.dumps(brief, default=str)},
-                ],
-                "response_format": {"type": "json_object"},
-            },
-        )
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        return ChangeJudgement.model_validate_json(content)
-
-
-def decision_model(steps: StepRunner | None = None) -> DecisionModel:
-    """The configured judge (``CHANGE_JUDGE_MODEL``)."""
-    gemini = GeminiDecisionModel(steps)
-    return (
-        IrisDecisionModel(fallback=gemini) if settings.pipeline.decision_model == "iris" else gemini
+def _from_iris(answers: dict[str, Any], brief: dict[str, Any]) -> ChangeJudgement:
+    """Iris scores the four decisions; the text comes from its probabilities and the brief."""
+    answer = answers["decision"]
+    decision = answer["choice"]
+    probs = {k: float(v) for k, v in (answer.get("probabilities") or {}).items()}
+    runner_up = max((k for k in probs if k != decision), key=lambda k: probs[k], default=None)
+    criteria = load_questions("change_judge")["decision"]["criteria"]
+    impacted = list(brief.get("impacted_requirements") or [])
+    hit = [
+        str(f.get("id"))
+        for f in brief.get("findings") or []
+        if f.get("id") and f.get("requirement") in impacted
+    ]
+    cited = [str(p) for p in brief.get("changed_cited_provisions") or []]
+    counter = (
+        f"Iris's runner-up: {runner_up} (p={probs[runner_up]:.2f}): {criteria[runner_up]}"
+        if runner_up
+        else "Iris gave no alternative."
+    )
+    return ChangeJudgement(
+        decision=decision,
+        rationale=f"Iris: {decision} (p={probs.get(decision, 0):.2f}). {criteria[decision]} "
+        f"Impacted requirements: {', '.join(impacted) or 'none'}; "
+        f"changed cited provisions: {', '.join(cited) or 'none'}.",
+        strongest_counter_argument=counter,
+        affected_findings=hit,
+        affected_requirements=impacted,
+        confidence=choice_confidence(answer) or 0.0,
     )
 
 
+#: The change judge as a decision-model task (Iris first, the ``change_judge`` step as fallback).
+CHANGE_JUDGE: DecisionTask[ChangeJudgement] = DecisionTask(
+    name="change_judge",
+    step="change_judge",
+    iris_request=_iris_request,
+    from_iris=_from_iris,
+    fake=fakes.change_judge,
+    verdict=lambda r: r.decision,
+)
+
+
+class ChangeJudge:
+    """Judges one (system, change) with the configured decision model (``CHANGE_JUDGE_MODEL``)."""
+
+    def __init__(self, model: DecisionModel) -> None:
+        self.model = model
+
+    @property
+    def name(self) -> str:
+        return self.model.name
+
+    async def judge(self, brief: dict[str, Any], scope: StepScope) -> Decision[ChangeJudgement]:
+        return await self.model.decide(CHANGE_JUDGE, brief, ChangeJudgement, scope)
+
+
+def decision_model(steps: StepRunner | None = None) -> ChangeJudge:
+    """The configured change judge (``CHANGE_JUDGE_MODEL``: iris falls back to gemini)."""
+    preferred = "iris" if settings.pipeline.decision_model == "iris" else "gemini"
+    return ChangeJudge(DecisionModel(preferred, steps=steps))
+
+
 __all__ = [
+    "CHANGE_JUDGE",
     "AffectedSystem",
-    "DecisionModel",
-    "GeminiDecisionModel",
-    "IrisDecisionModel",
+    "ChangeJudge",
     "changed_provisions",
     "decision_model",
     "impact_index",

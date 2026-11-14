@@ -52,13 +52,19 @@ async def test_runs_in_order_pauses_at_both_gates_and_finishes():
     assert h.backend.stages() == [
         "load_context",
         "profile_model",
-        "find_public_data",
         "plan_scenarios",
         "analyse_scenarios",
         "approve_scenarios",
     ]
     assert h.backend.patches[-1]["status"] == "waiting_approval"
-    assert h.backend.kinds() == ["context", "model_profile", "scenarios", "scenario_analysis"]
+    # plan_scenarios writes the plan; analyse_scenarios rewrites it with the decision-model reviews.
+    assert h.backend.kinds() == [
+        "context",
+        "model_profile",
+        "scenarios",
+        "scenarios",
+        "scenario_analysis",
+    ]
 
     await _answer(graph, {"decision": "approved"})
     assert (await _pending(graph)).value["gate"] == "datasets"
@@ -109,7 +115,7 @@ async def test_rejection_loops_back_with_the_reason_and_the_agent_remembers():
     gate = await _pending(graph)
     assert gate.value["gate"] == "scenarios"
     versions = [a["version"] for a in h.backend.artifacts if a["kind"] == "scenarios"]
-    assert versions == [1, 2]
+    assert versions == [1, 2, 3, 4]  # plan, reviewed plan, redo, reviewed redo
     state = (await graph.aget_state(CONFIG)).values
     assert state["redos"]["plan_scenarios"] == 1
     assert state["feedback"]["plan_scenarios"]["reason"].startswith("Use selection rate")
@@ -192,11 +198,16 @@ async def test_public_data_gate_and_reference_sample():
     h = make_harness(search_result=found)
     graph = build_graph(h, InMemorySaver())
     await graph.ainvoke(START, CONFIG)
+    assert (await _pending(graph)).value["gate"] == "scenarios"
+    assert not h.searches  # the search waits for the approved scenarios
+    await _answer(graph, {"decision": "approved"})  # scenarios
     gate = await _pending(graph)
     assert gate.value["gate"] == "public_data"
     assert gate.value["artifact_ids"] == {"public_dataset_candidates": "cand-1"}
+    # The search got the approved scenarios (what the data must carry).
+    (search,) = h.searches
+    assert search[2] and all("data_needs" in sc for sc in search[2])
     await _answer(graph, {"decision": "approved", "edits": {"selected": "openml:31"}})
-    await _answer(graph, {"decision": "approved"})  # scenarios
     state = (await graph.aget_state(CONFIG)).values
     assert state["public_data"]["mode"] == "reference_sample"
     spec = yaml.safe_load(state["spec"]["yaml"])
@@ -205,6 +216,22 @@ async def test_public_data_gate_and_reference_sample():
         "reference": "datasets/public/openml-31/data.csv",
     }
     assert state["spec"]["mode"] == "reference_sample"
+
+
+async def test_an_old_order_audit_paused_before_planning_resumes_by_planning_first():
+    h = make_harness()
+    graph = build_graph(h, InMemorySaver())
+    await graph.ainvoke(START, CONFIG)
+    # Old order: find_public_data ran before plan_scenarios, so no plan exists yet.
+    await graph.aupdate_state(
+        CONFIG,
+        {"scenarios": {}, "public_data": {"mode": "zero_shot", "reason": "old order"}},
+        as_node="find_public_data",
+    )
+    assert (await graph.aget_state(CONFIG)).next == ("gate_public_data",)
+    await graph.ainvoke(None, CONFIG)
+    assert (await _pending(graph)).value["gate"] == "scenarios"
+    assert (await graph.aget_state(CONFIG)).values["scenarios"]["scenarios"]
 
 
 async def test_findings_carry_grounded_evidence_and_the_critic_adjusts_them():

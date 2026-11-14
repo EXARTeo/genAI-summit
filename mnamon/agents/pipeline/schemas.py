@@ -29,6 +29,7 @@ Template = Literal[
     "monotonicity",
 ]
 TwinMode = Literal["attribute_only", "causal", "proxy_only"]
+ReviewVerdict = Literal["relevant", "needs_change", "not_relevant"]
 
 
 class _Strict(BaseModel):
@@ -73,6 +74,22 @@ class ScenarioPlan(_Strict):
     lessons_recorded: list[str] = Field(
         default_factory=list, description="Names of memory entries written in this step."
     )
+
+
+# ------------------------------------------------------------ scenario review
+class ScenarioReview(_Strict):
+    """The decision model's opinion of ONE scenario (Iris, or Gemini as the fallback).
+
+    Stored on each scenario of the ``scenarios`` artifact as ``review`` (with the
+    ``model`` that decided); the field names are shared with the frontend.
+    """
+
+    verdict: ReviewVerdict
+    rationale: str = Field(description="One or two sentences grounded in the brief.")
+    suggested_change: str | None = Field(
+        None, description="The fix, one sentence; only for needs_change."
+    )
+    confidence: float | None = Field(None, ge=0, le=1)
 
 
 # ------------------------------------------------------------------ draft_spec
@@ -182,6 +199,7 @@ class ChangeJudgement(_Strict):
 #: The step -> result model table (the result contract of each deep-agent step).
 STEP_RESULTS: dict[str, type[BaseModel]] = {
     "plan_scenarios": ScenarioPlan,
+    "scenario_review": ScenarioReview,
     "draft_spec": GenerationSpecDraft,
     "analyse": FindingSet,
     "critic": CriticReport,
@@ -203,8 +221,10 @@ __all__ = [
     "FindingSet",
     "GenerationSpecDraft",
     "ManagementReport",
+    "ReviewVerdict",
     "Scenario",
     "ScenarioPlan",
+    "ScenarioReview",
     "SpecAssumption",
     "TrafficLight",
     "Verdict",

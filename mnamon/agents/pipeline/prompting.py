@@ -26,6 +26,7 @@ PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 #: Step -> its instructions file (each ≤ ~200 words).
 STEP_PROMPTS = {
     "plan_scenarios": "plan_scenarios.md",
+    "scenario_review": "scenario_review.md",
     "draft_spec": "draft_spec.md",
     "analyse": "analyse.md",
     "critic": "critic.md",

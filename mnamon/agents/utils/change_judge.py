@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from pipeline.clients import BackendImpact, BackendInternal, PipelineHTTPError, RegMemory
-from pipeline.impact import DecisionModel, decision_model, impact_index, judge_brief
+from pipeline.impact import ChangeJudge, decision_model, impact_index, judge_brief
 from pipeline.steps import StepScope
 
 from core.logging import get_logger
@@ -32,7 +32,7 @@ async def judge_change(
     *,
     regmem: RegMemory | None = None,
     backend: BackendImpact | None = None,
-    model: DecisionModel | None = None,
+    model: ChangeJudge | None = None,
     audit_backend: Callable[[str], BackendInternal] | None = None,
 ) -> ChangeJudgeOut:
     audit_backend = audit_backend or (lambda aid: BackendInternal(aid, agent="change-judge"))
@@ -56,7 +56,8 @@ async def judge_change(
             step="change_judge",
             regmem=regmem,
         )
-        judgement = await model.judge(judge_brief(change, system), scope)
+        decision = await model.judge(judge_brief(change, system), scope)
+        judgement = decision.result
         data = judgement.model_dump(mode="json")
         artifact_id = rerun_id = None
         if system.audit_id:
@@ -69,7 +70,8 @@ async def judge_change(
                     "to_kb_version": change.get("to_kb_version"),
                     "via_requirements": system.via_requirements,
                     "via_provisions": system.via_provisions,
-                    "decided_by": model.name,
+                    "decided_by": decision.model,
+                    "decision_fallback": decision.fallback,
                 },
                 name=str(change.get("id") or change_id),
             )
@@ -92,18 +94,21 @@ async def judge_change(
             system_id=system.system_id,
             decision=judgement.decision,
             rerun=rerun_id is not None,
+            decided_by=decision.model,
         )
         out.append(
             ChangeJudgementOut(
                 system_id=system.system_id,
                 audit_id=system.audit_id,
-                decided_by=model.name,
+                decided_by=decision.model,
                 artifact_id=artifact_id,
                 rerun_audit_id=rerun_id,
                 **data,
             )
         )
     result_id = str(change.get("id") or change_id)
+    used = sorted({j.decided_by for j in out})
+    decided_by = "+".join(used) if used else model.name
     affected_rows = [
         {
             "systemId": j.system_id,
@@ -129,7 +134,7 @@ async def judge_change(
         for j, a in zip(out, affected, strict=True)
     ]
     try:
-        await backend.store_judgement(result_id, affected_rows, model.name)
+        await backend.store_judgement(result_id, affected_rows, decided_by)
     except Exception as exc:  # the judgements are on the audits; the inbox row can catch up
         logger.warning(
             "change_judgement_store_failed",

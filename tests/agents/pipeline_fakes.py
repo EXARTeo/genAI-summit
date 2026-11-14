@@ -310,7 +310,7 @@ def make_harness(
     searches: list[tuple] = []
 
     def search(audit_id, plugin, **kw):
-        searches.append((audit_id, plugin))
+        searches.append((audit_id, plugin, kw.get("scenarios")))
         return search_result or {
             "results": [
                 {

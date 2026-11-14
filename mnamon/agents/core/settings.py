@@ -21,6 +21,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SecretStr,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -151,12 +152,33 @@ class PipelineSettings(BaseSettings):
     )
     # Public dataset search reaches the internet; off = always zero-shot.
     public_data_enabled: bool = Field(True, validation_alias="PIPELINE_PUBLIC_DATA_ENABLED")
-    # The change judge's decision model: gemini (default) or iris (Oumi, stub).
+    # The decision model (pipeline/decision.py) per task: Oumi Iris first, Gemini
+    # as the fallback. The change judge defaults to gemini, the scenario review to iris.
     decision_model: str = Field(
         "gemini", pattern=r"^(gemini|iris)$", validation_alias="CHANGE_JUDGE_MODEL"
     )
+    scenario_review_model: str = Field(
+        "iris", pattern=r"^(iris|gemini|off)$", validation_alias="SCENARIO_REVIEW_MODEL"
+    )
+    # Oumi's decision-model API: POST {OUMI_BASE_URL}/systemone, header X-API-Key,
+    # model = projects/<project_id>/models/iris-latest (docs.oumi.ai, decision models).
     oumi_api_key: SecretStr = Field(default_factory=lambda: SecretStr(""))
-    oumi_base_url: str = Field("", validation_alias="OUMI_BASE_URL")
+    oumi_base_url: str = Field("https://inference.oumi.ai/v1", validation_alias="OUMI_BASE_URL")
+    oumi_model: str = Field("", validation_alias="OUMI_MODEL")
+    oumi_timeout_seconds: float = Field(20.0, gt=0, le=120, validation_alias="OUMI_TIMEOUT_SECONDS")
+
+    @field_validator("decision_model", "scenario_review_model", "oumi_base_url", mode="before")
+    @classmethod
+    def _empty_is_default(cls, value: object, info: ValidationInfo) -> object:
+        """An empty value (``CHANGE_JUDGE_MODEL=`` in .env) means the field's default."""
+        if isinstance(value, str) and not value.strip():
+            return cls.model_fields[str(info.field_name)].default
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("oumi_model", mode="before")
+    @classmethod
+    def _strip_oumi_model(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
     @field_validator("reg_memory_secret", mode="before")
     @classmethod
