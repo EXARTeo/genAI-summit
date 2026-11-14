@@ -3,8 +3,8 @@ import { Hand } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { formatRelative } from '@/shared/lib/format';
 import { fadeIn } from '@/shared/lib/motion';
-import { AgentThinking, Button, Card, CodeBlock, EmptyState, StatusPill, Tabs } from '@/shared/ui';
-import { artifactsForStage, type StageDef, type StepState } from '../lib/pipeline';
+import { AgentThinking, Button, CodeBlock, EmptyState, StatusPill, Tabs } from '@/shared/ui';
+import { STAGES, artifactsForStage, formatDuration, type StageDef, type StepState } from '../lib/pipeline';
 import type {
   Artifact,
   ContextData,
@@ -65,19 +65,51 @@ export function ArtifactBody({ a }: { a: Artifact }) {
   }
 }
 
-function ArtifactHeader({ a, traceId }: { a: Artifact; traceId?: string }) {
+function ArtifactHeader({ a }: { a: Artifact }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
-      <h3 className="text-base font-semibold">
+    <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+      <span className="font-medium text-text">
         {TITLES[a.kind] ?? a.kind}
         {a.name !== 'main' && <span className="text-muted"> · {a.name}</span>}
-      </h3>
-      <span className="font-mono text-xs text-muted">v{a.version}</span>
+      </span>
+      <span className="num font-mono">v{a.version}</span>
       <StatusPill status={a.status} />
-      <span className="text-xs text-muted">
+      <span className="ml-auto">
         {a.createdBy} · {formatRelative(a.updatedAt)}
       </span>
-      <TraceLink traceId={traceId} className="ml-auto" />
+    </div>
+  );
+}
+
+function StepHeader({
+  stage,
+  state,
+  index,
+  duration,
+  traceId,
+}: {
+  stage: StageDef;
+  state: StepState;
+  index: number;
+  duration?: number;
+  traceId?: string;
+}) {
+  return (
+    <div className="mb-5 flex flex-wrap items-start gap-x-4 gap-y-2 border-b border-border pb-4">
+      <div className="min-w-0 flex-1">
+        <div className="num text-2xs font-medium text-muted">
+          Step {index + 1} of {STAGES.length}
+          {stage.gate && ' · Human gate'}
+        </div>
+        <h2 className="mt-0.5 text-lg font-semibold tracking-tight">{stage.label}</h2>
+        <p className="text-sm text-muted">{stage.description}</p>
+      </div>
+      <div className="flex items-center gap-3 pt-1 text-xs text-muted">
+        {state === 'done' && duration != null && (
+          <span className="num font-mono">{formatDuration(duration)}</span>
+        )}
+        {state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}
+      </div>
     </div>
   );
 }
@@ -87,22 +119,36 @@ export interface ArtifactPanelProps {
   state: StepState;
   artifacts: Artifact[];
   traceId?: string;
+  /** Seconds the step took. */
+  duration?: number;
+  /** Position in STAGES. */
+  index?: number;
   onReview?: () => void;
 }
 
-export function ArtifactPanel({ stage, state, artifacts, traceId, onReview }: ArtifactPanelProps) {
+export function ArtifactPanel({
+  stage,
+  state,
+  artifacts,
+  traceId,
+  duration,
+  index = 0,
+  onReview,
+}: ArtifactPanelProps) {
   const list = artifactsForStage(stage, artifacts);
   let body: ReactNode;
 
   if (stage.gate && state === 'needs-approval') {
     body = (
       <div className="space-y-4">
-        <div className="approval-pulse flex flex-wrap items-center gap-3 rounded-xl border border-warning/50 bg-warning/10 p-4">
-          <Hand className="size-5 text-warning" />
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/[0.06] p-4">
+          <span className="approval-pulse grid size-8 place-items-center rounded-full bg-warning text-warning-foreground">
+            <Hand className="size-4" />
+          </span>
           <div className="min-w-0 flex-1">
-            <div className="font-semibold">The agent is waiting for your decision</div>
+            <div className="text-sm font-semibold">The agent is waiting for your decision</div>
             <div className="text-sm text-muted">
-              Nothing runs past this gate until a person approves. Review the summary below.
+              Nothing runs past this gate until a person approves. The artifacts under review are below.
             </div>
           </div>
           <Button variant="warning" onClick={onReview}>
@@ -110,19 +156,23 @@ export function ArtifactPanel({ stage, state, artifacts, traceId, onReview }: Ar
           </Button>
         </div>
         {list.map((a) => (
-          <Card key={a.id} className="p-4">
+          <div key={a.id} className="rounded-lg border border-border p-4">
             <ArtifactHeader a={a} />
             <ArtifactBody a={a} />
-          </Card>
+          </div>
         ))}
       </div>
     );
   } else if (list.length === 0) {
     body =
       state === 'active' ? (
-        <div className="grid place-items-center gap-3 py-16 text-center">
-          <AgentThinking label={`${stage.label}…`} />
-          <p className="max-w-sm text-sm text-muted">{stage.description}</p>
+        <div className="space-y-4 py-2">
+          <AgentThinking label={`${stage.label}…`} detail={stage.description} />
+          <div className="space-y-2.5 pt-2" aria-hidden>
+            <div className="skeleton h-3 w-3/4" />
+            <div className="skeleton h-3 w-1/2" />
+            <div className="skeleton h-40 w-full" />
+          </div>
         </div>
       ) : (
         <EmptyState
@@ -143,7 +193,7 @@ export function ArtifactPanel({ stage, state, artifacts, traceId, onReview }: Ar
         </Tabs.List>
         {list.map((a) => (
           <Tabs.Content key={a.id} value={a.name}>
-            <ArtifactHeader a={a} traceId={traceId} />
+            <ArtifactHeader a={a} />
             <ArtifactBody a={a} />
           </Tabs.Content>
         ))}
@@ -151,10 +201,10 @@ export function ArtifactPanel({ stage, state, artifacts, traceId, onReview }: Ar
     );
   } else {
     body = (
-      <div className="space-y-6">
+      <div className="space-y-8">
         {list.map((a) => (
           <div key={a.id}>
-            <ArtifactHeader a={a} traceId={traceId} />
+            <ArtifactHeader a={a} />
             <ArtifactBody a={a} />
           </div>
         ))}
@@ -171,6 +221,7 @@ export function ArtifactPanel({ stage, state, artifacts, traceId, onReview }: Ar
         animate="animate"
         exit="exit"
       >
+        <StepHeader stage={stage} state={state} index={index} duration={duration} traceId={traceId} />
         {body}
       </motion.div>
     </AnimatePresence>

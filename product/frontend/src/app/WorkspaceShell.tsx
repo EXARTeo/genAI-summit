@@ -3,9 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from '@/error_boundary';
+import { MemorySheet } from '@/features/memory/components/MemorySheet';
 import { pageTransition } from '@/shared/lib/motion';
 import { useUiStore } from '@/shared/stores/ui';
-import { SkeletonCard, Toaster } from '@/shared/ui';
+import { Skeleton, SkeletonCard, Toaster } from '@/shared/ui';
 import { CommandPalette } from './CommandPalette';
 import { NavBadgesSync } from './NavBadgesSync';
 import { Sidebar, SidebarContent } from './Sidebar';
@@ -13,10 +14,16 @@ import { TopBar } from './TopBar';
 
 function PageFallback() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 3 }, (_, i) => (
-        <SkeletonCard key={i} />
-      ))}
+    <div className="space-y-6" aria-busy>
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-7 w-64" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -35,7 +42,7 @@ export function WorkspaceShell() {
 
       <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
           <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-border bg-surface data-[state=open]:animate-[sheet-in-left_260ms_cubic-bezier(0.16,1,0.3,1)] lg:hidden">
             <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">Main navigation</DialogPrimitive.Description>
@@ -46,7 +53,7 @@ export function WorkspaceShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-content flex-1 px-4 py-6 lg:px-8 lg:py-8">
           <ErrorBoundary resetKey={location.pathname}>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -67,6 +74,7 @@ export function WorkspaceShell() {
 
       <NavBadgesSync />
       <CommandPalette />
+      <MemorySheet />
       <Toaster />
     </div>
   );

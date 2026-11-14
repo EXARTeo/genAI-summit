@@ -1,7 +1,7 @@
 import { BookMarked, Brain, ExternalLink, Scale } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
+import { useUiStore } from '@/shared/stores/ui';
 import { Badge, Tooltip } from '@/shared/ui';
 import { traceUrl } from '../../lib/langfuse';
 import { TONE_CLASSES, confidenceLabel, verdictStyle, type Tone } from '../../lib/styling';
@@ -13,7 +13,7 @@ export function VerdictPill({ verdict, className }: { verdict: string; className
     <Tooltip content={v.description}>
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+          'inline-flex h-5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-2xs font-medium',
           TONE_CLASSES[v.tone].pill,
           className,
         )}
@@ -29,27 +29,34 @@ export function ConfidenceBar({ value }: { value: number }) {
   const tone: Tone = value >= 0.8 ? 'success' : value >= 0.55 ? 'warning' : 'danger';
   return (
     <div className="flex items-center gap-2 text-xs text-muted">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-muted">
+      <div className="h-1 w-16 overflow-hidden rounded-full bg-surface-muted">
         <div
           className={cn('h-full rounded-full transition-[width] duration-700', TONE_CLASSES[tone].bg)}
           style={{ width: `${Math.round(value * 100)}%` }}
         />
       </div>
-      <span>
+      <span className="num">
         {Math.round(value * 100)}% · {confidenceLabel(value)}
       </span>
     </div>
   );
 }
 
-/** "applied MEM-0042" chip linking to the memory ledger. */
+/** "applied MEM-0042" chip: opens the lesson in the global memory side sheet. */
 export function MemoryChip({ id, prefix = 'applied' }: { id: string; prefix?: string }) {
+  const open = useUiStore((s) => s.openMemory);
   return (
-    <Link to={`/memory?entry=${encodeURIComponent(id)}`} className="inline-flex">
-      <Badge tone="info" icon={<Brain />} className="hover:border-info/60">
-        {prefix} {id}
-      </Badge>
-    </Link>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        open(id);
+      }}
+      className="inline-flex h-5 items-center gap-1 rounded-md border border-border bg-surface px-1.5 text-2xs font-medium text-muted transition-colors hover:border-primary/40 hover:text-text [&_svg]:size-3"
+    >
+      <Brain className="text-primary" />
+      {prefix} <span className="num font-mono">{id}</span>
+    </button>
   );
 }
 
@@ -87,10 +94,13 @@ export function TraceLink({
   traceId,
   label = 'Langfuse trace',
   className,
+  variant = 'link',
 }: {
   traceId?: string | null;
   label?: string;
   className?: string;
+  /** `button`: a secondary button (page headers); `link`: inline text link. */
+  variant?: 'link' | 'button';
 }) {
   const url = traceUrl(traceId);
   if (!url) return null;
@@ -100,19 +110,24 @@ export function TraceLink({
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className={cn('inline-flex items-center gap-1 text-xs text-primary hover:underline', className)}
+      className={cn(
+        variant === 'button'
+          ? 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-text shadow-card transition-colors hover:bg-surface-muted [&_svg]:size-3.5'
+          : 'inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-primary [&_svg]:size-3',
+        className,
+      )}
     >
-      <BookMarked className="size-3" />
+      <BookMarked className={variant === 'button' ? 'text-muted' : ''} />
       {label}
-      <ExternalLink className="size-3" />
+      <ExternalLink className="opacity-60" />
     </a>
   );
 }
 
 export function SubHeading({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
-    <div className="mb-2 mt-5 flex items-center justify-between gap-2 first:mt-0">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">{children}</h4>
+    <div className="mb-2 mt-6 flex items-center justify-between gap-2 first:mt-0">
+      <h4 className="text-xs font-semibold text-text/80">{children}</h4>
       {right}
     </div>
   );
@@ -130,10 +145,10 @@ export function SimpleTable({
   return (
     <div className={cn('overflow-x-auto rounded-lg border border-border', className)}>
       <table className="w-full text-left text-sm">
-        <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted">
+        <thead className="border-b border-border bg-surface-muted/50 text-xs text-muted">
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="px-3 py-2 font-medium">
+              <th key={i} className="whitespace-nowrap px-3 py-2 font-medium">
                 {h}
               </th>
             ))}
@@ -141,7 +156,7 @@ export function SimpleTable({
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((r, i) => (
-            <tr key={i} className="align-top transition-colors hover:bg-surface-muted/50">
+            <tr key={i} className="align-top transition-colors hover:bg-surface-muted/40">
               {r.map((c, j) => (
                 <td key={j} className="px-3 py-2">
                   {c}

@@ -17,7 +17,7 @@ interface BaseProps {
 }
 
 const overlay =
-  'fixed inset-0 z-50 bg-background/60 backdrop-blur-sm data-[state=open]:animate-[overlay-in_200ms_ease-out]';
+  'fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-[overlay-in_180ms_ease-out] dark:bg-black/60';
 
 export interface DialogProps extends BaseProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -44,8 +44,8 @@ export function Dialog({
         <DialogPrimitive.Overlay className={overlay} />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-surface shadow-lift',
-            'data-[state=open]:animate-[dialog-in_240ms_cubic-bezier(0.16,1,0.3,1)]',
+            'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-surface shadow-pop',
+            'data-[state=open]:animate-[dialog-in_200ms_cubic-bezier(0.16,1,0.3,1)]',
             SIZES[size],
             className,
           )}
@@ -84,17 +84,17 @@ export function Sheet({
         <DialogPrimitive.Overlay className={overlay} />
         <DialogPrimitive.Content
           className={cn(
-            'fixed inset-y-0 z-50 flex flex-col border-border bg-surface shadow-lift',
+            'fixed inset-y-0 z-50 flex flex-col border-border bg-surface shadow-pop',
             side === 'right'
-              ? 'right-0 border-l data-[state=open]:animate-[sheet-in-right_320ms_cubic-bezier(0.16,1,0.3,1)]'
-              : 'left-0 border-r data-[state=open]:animate-[sheet-in-left_320ms_cubic-bezier(0.16,1,0.3,1)]',
+              ? 'right-0 border-l data-[state=open]:animate-[sheet-in-right_240ms_cubic-bezier(0.16,1,0.3,1)]'
+              : 'left-0 border-r data-[state=open]:animate-[sheet-in-left_240ms_cubic-bezier(0.16,1,0.3,1)]',
             width,
             className,
           )}
         >
           <Header title={title} description={description} />
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">{children}</div>
-          {footer && <div className="flex justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>}
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">{children}</div>
+          {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -103,11 +103,13 @@ export function Sheet({
 
 function Header({ title, description }: { title: ReactNode; description?: ReactNode }) {
   return (
-    <div className="flex items-start gap-4 px-6 pb-4 pt-5">
+    <div className="flex items-start gap-4 border-b border-border px-5 py-4">
       <div className="min-w-0 flex-1">
-        <DialogPrimitive.Title className="text-lg font-semibold leading-tight">{title}</DialogPrimitive.Title>
+        <DialogPrimitive.Title className="text-base font-semibold leading-tight">
+          {title}
+        </DialogPrimitive.Title>
         {description ? (
-          <DialogPrimitive.Description className="mt-1 text-sm text-muted">
+          <DialogPrimitive.Description className="mt-0.5 text-sm text-muted">
             {description}
           </DialogPrimitive.Description>
         ) : (

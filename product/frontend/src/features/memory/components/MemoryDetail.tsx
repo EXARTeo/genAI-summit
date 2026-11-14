@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, ArrowUpCircle, Brain, Check, Eye, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowUpCircle, ArrowUpRight, Check, Eye, RotateCcw, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useState, type ReactNode } from 'react';
 import { TraceLink } from '@/features/audits/components/artifact_parts/common';
 import { cn } from '@/shared/lib/utils';
@@ -7,7 +8,6 @@ import {
   AnimatedNumber,
   Badge,
   Button,
-  Card,
   Input,
   KeyValue,
   StatusPill,
@@ -26,8 +26,8 @@ const ACTION_UI: Record<
   { label: string; icon: ReactNode; variant: 'primary' | 'secondary' | 'danger' | 'accent' }
 > = {
   approve: { label: 'Approve', icon: <Check />, variant: 'primary' },
-  promote: { label: 'Promote to org', icon: <ArrowUpCircle />, variant: 'accent' },
-  retire: { label: 'Retire', icon: <Trash2 />, variant: 'danger' },
+  promote: { label: 'Promote org-wide', icon: <ArrowUpCircle />, variant: 'secondary' },
+  retire: { label: 'Retire', icon: <Trash2 />, variant: 'secondary' },
   reactivate: { label: 'Re-activate', icon: <RotateCcw />, variant: 'secondary' },
 };
 
@@ -42,12 +42,22 @@ const EVENT_TONE: Record<MemoryEvent['action'], TimelineItem['tone']> = {
   reject: 'danger',
 };
 
-export function MemoryDetail({ entry, all }: { entry: MemoryEntry; all: MemoryEntry[] }) {
+export function MemoryDetail({
+  entry,
+  all,
+  compact,
+}: {
+  entry: MemoryEntry;
+  all: MemoryEntry[];
+  /** Inside a side sheet: no id heading (the sheet title has it). */
+  compact?: boolean;
+}) {
   const act = useMemoryAction();
   const [reason, setReason] = useState('');
   const promoted = all.some((e) => e.promotedFrom === entry.id);
   const actions = allowedActions(entry, promoted);
-  const reads = entry.history.filter((h) => h.action === 'read').length;
+  const reads = entry.history.filter((h) => h.action === 'read');
+  const audits = Array.from(new Set(reads.map((h) => h.runId).filter((r): r is string => !!r)));
 
   const run = (action: MemoryAction) =>
     act.mutate(
@@ -74,62 +84,71 @@ export function MemoryDetail({ entry, all }: { entry: MemoryEntry; all: MemoryEn
   return (
     <motion.div
       key={entry.id}
-      initial={{ opacity: 0, x: 12 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="space-y-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18 }}
+      className="space-y-5"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Brain className="size-5 text-info" />
-        <h2 className="font-mono text-lg font-semibold">{entry.id}</h2>
+        {!compact && <h2 className="num mr-1 font-mono text-base font-semibold">{entry.id}</h2>}
         <StatusPill status={entry.status} tone={STATUS_TONE[entry.status]} />
-        <Badge tone={entry.scope === 'org' ? 'accent' : 'primary'}>{scopeLabel(entry.scope)}</Badge>
+        <Badge>{scopeLabel(entry.scope)}</Badge>
         <Badge>{entry.kind}</Badge>
-        <Badge tone="warning">{entry.reasonCategory}</Badge>
+        <Badge>{entry.reasonCategory.replace(/_/g, ' ')}</Badge>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-stretch">
-        <Card className="p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Agent proposed</div>
-          <div className="mt-1 text-sm line-through decoration-danger/60">{entry.proposed}</div>
-        </Card>
-        <ArrowRight className="hidden size-5 self-center text-muted sm:block" />
-        <Card className="border-success/40 bg-success/5 p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-success">Human decision</div>
-          <div className="mt-1 text-sm font-medium">{entry.humanDecision}</div>
-        </Card>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="px-3.5 py-3">
+          <div className="text-2xs font-medium text-muted">The agent proposed</div>
+          <div className="mt-0.5 text-sm text-muted line-through decoration-muted/50">{entry.proposed}</div>
+        </div>
+        <div className="flex items-center gap-2 border-t border-border bg-surface-muted/50 px-3.5 py-3">
+          <ArrowRight className="size-3.5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <div className="text-2xs font-medium text-muted">
+              Corrected by <span className="text-text">{entry.author}</span>
+            </div>
+            <div className="mt-0.5 text-sm font-medium">{entry.humanDecision}</div>
+          </div>
+        </div>
       </div>
       <p className="text-sm text-muted">{entry.rationale}</p>
 
-      <div className="flex items-center gap-1">
-        {LIFECYCLE.map((s, i) => (
-          <div key={s} className="flex items-center gap-1">
-            <span
-              className={cn(
-                'rounded-full border px-2.5 py-0.5 text-xs',
-                s === entry.status
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-muted',
-              )}
-            >
-              {s}
-            </span>
-            {i < LIFECYCLE.length - 1 && <span className="h-px w-3 bg-border" />}
+      <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
+        <Stat label="Used in runs" value={entry.usageCount} />
+        <Stat label="Logged reads" value={reads.length} icon={<Eye className="size-3" />} />
+        <div className="px-3 py-2.5">
+          <div className="text-2xs text-muted">Lifecycle</div>
+          <div className="mt-1 flex items-center gap-1">
+            {LIFECYCLE.map((s) => (
+              <span
+                key={s}
+                title={s}
+                className={cn('h-1.5 flex-1 rounded-full', s === entry.status ? 'bg-primary' : 'bg-border')}
+              />
+            ))}
           </div>
-        ))}
+          <div className="mt-1 text-2xs capitalize">{entry.status}</div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="p-3">
-          <div className="text-xs text-muted">Used in runs</div>
-          <AnimatedNumber value={entry.usageCount} className="text-2xl font-semibold" />
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-1 text-xs text-muted">
-            <Eye className="size-3" /> Logged reads
+      {audits.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-medium text-muted">Applied in audits</div>
+          <div className="flex flex-wrap gap-1.5">
+            {audits.map((a) => (
+              <Link
+                key={a}
+                to={`/audits/${encodeURIComponent(a)}`}
+                className="num inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 font-mono text-2xs text-muted transition-colors hover:border-text/20 hover:text-text"
+              >
+                {a}
+                <ArrowUpRight className="size-3" />
+              </Link>
+            ))}
           </div>
-          <AnimatedNumber value={reads} className="text-2xl font-semibold" />
-        </Card>
-      </div>
+        </div>
+      )}
 
       <KeyValue
         items={[
@@ -142,7 +161,6 @@ export function MemoryDetail({ entry, all }: { entry: MemoryEntry; all: MemoryEn
             mono: true,
           },
           { label: 'kb_version', value: entry.kbVersion, mono: true },
-          { label: 'Author', value: entry.author },
           { label: 'Approved by', value: entry.approvedBy ?? '– (pending)' },
           { label: 'Promoted from', value: entry.promotedFrom ?? '–', mono: true },
           {
@@ -150,16 +168,17 @@ export function MemoryDetail({ entry, all }: { entry: MemoryEntry; all: MemoryEn
             value: `v${entry.version}${entry.supersedes ? ` (supersedes ${entry.supersedes})` : ''}`,
             mono: true,
           },
+          { label: 'Source', value: <TraceLink traceId={entry.sourceTrace} label="Langfuse trace" /> },
         ]}
       />
-      <TraceLink traceId={entry.sourceTrace} label="Source trace" />
 
       {actions.length > 0 && (
-        <Card className="space-y-2 p-3">
+        <div className="space-y-2 rounded-lg border border-border bg-surface-muted/40 p-3">
           <Input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (logged in the ledger)"
+            aria-label="Reason"
           />
           <div className="flex flex-wrap gap-2">
             {actions.map((a) => (
@@ -175,13 +194,11 @@ export function MemoryDetail({ entry, all }: { entry: MemoryEntry; all: MemoryEn
               </Button>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-          History (append-only)
-        </h3>
+        <div className="mb-2 text-xs font-medium text-muted">History (append-only)</div>
         <Timeline
           items={[...entry.history].reverse().map((h, i) => ({
             id: `${h.at}-${i}`,
@@ -194,5 +211,17 @@ export function MemoryDetail({ entry, all }: { entry: MemoryEntry; all: MemoryEn
         />
       </div>
     </motion.div>
+  );
+}
+
+function Stat({ label, value, icon }: { label: string; value: number; icon?: ReactNode }) {
+  return (
+    <div className="px-3 py-2.5">
+      <div className="flex items-center gap-1 text-2xs text-muted">
+        {icon}
+        {label}
+      </div>
+      <AnimatedNumber value={value} className="num mt-0.5 block text-lg font-semibold" />
+    </div>
   );
 }

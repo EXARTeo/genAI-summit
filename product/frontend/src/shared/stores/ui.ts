@@ -15,15 +15,19 @@ interface UiState {
   /** Mobile drawer. */
   mobileNavOpen: boolean;
   commandOpen: boolean;
+  /** Memory entry shown in the global side sheet (opened from "applied MEM-…" chips). */
+  memoryEntryId: string | null;
   toggleSidebar: () => void;
   setMobileNavOpen: (open: boolean) => void;
   setCommandOpen: (open: boolean) => void;
+  openMemory: (id: string | null) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   sidebarCollapsed: readCollapsed(),
   mobileNavOpen: false,
   commandOpen: false,
+  memoryEntryId: null,
   toggleSidebar: () =>
     set((s) => {
       const next = !s.sidebarCollapsed;
@@ -36,4 +40,5 @@ export const useUiStore = create<UiState>((set) => ({
     }),
   setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
   setCommandOpen: (commandOpen) => set({ commandOpen }),
+  openMemory: (memoryEntryId) => set({ memoryEntryId }),
 }));

@@ -11,15 +11,14 @@ export interface AgentThinkingProps {
   className?: string;
 }
 
-const ORB = { sm: 'size-4', md: 'size-6', lg: 'size-10' };
+const ORB = { sm: 'size-3', md: 'size-4', lg: 'size-6' };
 
-/** Animated orb + shimmering label for a running agent step. */
+/** Thin spinner + shimmering label for a running agent step. */
 export function AgentThinking({ label = 'Thinking', detail, size = 'md', className }: AgentThinkingProps) {
   return (
-    <div role="status" aria-live="polite" className={cn('flex items-center gap-3', className)}>
+    <div role="status" aria-live="polite" className={cn('flex items-center gap-2', className)}>
       <span className={cn('relative shrink-0', ORB[size])}>
-        <span className="agent-orb absolute inset-0 rounded-full" />
-        <span className="absolute -inset-1 rounded-full bg-primary/20 blur-md" />
+        <span className="agent-orb absolute inset-0" />
       </span>
       <div className="min-w-0">
         <AnimatePresence mode="wait" initial={false}>

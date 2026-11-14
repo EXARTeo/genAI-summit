@@ -1,15 +1,15 @@
 /* Derived, non-brand values built only from the generated tokens (tokens.css). */
 :root {
-  --radius: 0.75rem;
-  --sidebar-width: 15.5rem;
-  --sidebar-width-collapsed: 4.25rem;
-  --topbar-height: 3.5rem;
-  --gradient-ai: linear-gradient(
-    120deg,
-    rgb(var(--rgb-primary)) 0%,
-    rgb(var(--rgb-accent)) 50%,
-    rgb(var(--rgb-primary)) 100%
-  );
-  --backdrop-glow: radial-gradient(60rem 30rem at 85% -10%, rgb(var(--rgb-primary) / 0.1), transparent 60%),
-    radial-gradient(40rem 24rem at -10% 110%, rgb(var(--rgb-accent) / 0.08), transparent 60%);
+  --radius: 0.625rem;
+  --sidebar-width: 14rem;
+  --sidebar-width-collapsed: 3.75rem;
+  --topbar-height: 3.25rem;
+  --content-max: 1280px;
+  /* Hairline used for raised surfaces instead of heavy shadows. */
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 1px rgb(0 0 0 / 0.02);
+  --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+}
+:root[data-theme='dark'] {
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.4);
 }

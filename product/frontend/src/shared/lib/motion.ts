@@ -8,25 +8,25 @@ import type { Transition, Variants } from 'framer-motion';
 
 export const easeOut = [0.16, 1, 0.3, 1] as const;
 
-export const spring: Transition = { type: 'spring', stiffness: 380, damping: 32, mass: 0.8 };
+export const spring: Transition = { duration: 0.2, ease: [0.16, 1, 0.3, 1] };
 
-export const durations = { fast: 0.12, base: 0.2, slow: 0.36 } as const;
+export const durations = { fast: 0.12, base: 0.18, slow: 0.24 } as const;
 
 /** Route change: fade + small rise. Use with <AnimatePresence mode="wait">. */
 export const pageTransition: Variants = {
-  initial: { opacity: 0, y: 8 },
+  initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0, transition: { duration: durations.slow, ease: easeOut } },
-  exit: { opacity: 0, y: -4, transition: { duration: durations.fast, ease: 'easeIn' } },
+  exit: { opacity: 0, transition: { duration: durations.fast, ease: 'easeIn' } },
 };
 
 /** Parent of a staggered list. Children use `listItem`. */
-export const staggerList = (stagger = 0.045, delay = 0.02): Variants => ({
+export const staggerList = (stagger = 0.03, delay = 0.02): Variants => ({
   initial: {},
   animate: { transition: { staggerChildren: stagger, delayChildren: delay } },
 });
 
 export const listItem: Variants = {
-  initial: { opacity: 0, y: 10 },
+  initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0, transition: { duration: durations.slow, ease: easeOut } },
   exit: { opacity: 0, transition: { duration: durations.fast } },
 };
@@ -45,8 +45,7 @@ export const scaleIn: Variants = {
 
 /** Card hover lift (when CSS `.hover-lift` is not enough, e.g. for layout animations). */
 export const hoverLift = {
-  whileHover: { y: -2, transition: { duration: durations.base, ease: easeOut } },
-  whileTap: { scale: 0.99 },
+  whileTap: { scale: 0.995 },
 };
 
 /** Step-complete check: animate `pathLength` from 0 to 1. */
@@ -58,8 +57,8 @@ export const checkDraw: Variants = {
 /** Waiting-for-a-human pulse (also available as CSS `.approval-pulse`). */
 export const approvalPulse: Variants = {
   animate: {
-    scale: [1, 1.04, 1],
-    transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+    opacity: [1, 0.75, 1],
+    transition: { duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
   },
 };
 

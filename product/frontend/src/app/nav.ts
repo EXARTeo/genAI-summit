@@ -1,8 +1,8 @@
 import {
   BookOpenText,
   Boxes,
-  BrainCircuit,
   ClipboardCheck,
+  House,
   Inbox,
   MessagesSquare,
   Settings,
@@ -21,6 +21,14 @@ export interface NavItem {
 
 /** Sidebar + command palette entries. Badge counts: src/shared/stores/nav.ts. */
 export const NAV_ITEMS: NavItem[] = [
+  {
+    id: 'home',
+    label: 'Home',
+    to: '/',
+    icon: House,
+    description: 'What needs you now: live audits, approvals, findings',
+    key: 'h',
+  },
   {
     id: 'systems',
     label: 'Systems',
@@ -53,14 +61,6 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'AI Act text, versions and changes',
     key: 'r',
   },
-  {
-    id: 'memory',
-    label: 'Memory',
-    to: '/memory',
-    icon: BrainCircuit,
-    description: 'What the agent learned from your corrections',
-    key: 'm',
-  },
   { id: 'chat', label: 'Chat', to: '/chat', icon: MessagesSquare, description: 'Ask the copilot', key: 'c' },
 ];
 
@@ -69,5 +69,5 @@ export const SETTINGS_ITEM: NavItem = {
   label: 'Settings',
   to: '/settings',
   icon: Settings,
-  description: 'Theme, API mode and about',
+  description: 'Organisation rules, theme and connection',
 };

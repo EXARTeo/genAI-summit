@@ -3,17 +3,17 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 export const badgeVariants = cva(
-  'inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium [&_svg]:size-3',
+  'inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 text-2xs font-medium [&_svg]:size-3',
   {
     variants: {
       tone: {
-        neutral: 'border-border bg-surface-muted text-muted',
-        primary: 'border-primary/25 bg-primary/10 text-primary',
-        accent: 'border-accent/25 bg-accent/10 text-accent',
-        success: 'border-success/25 bg-success/10 text-success',
-        warning: 'border-warning/30 bg-warning/10 text-warning',
-        danger: 'border-danger/25 bg-danger/10 text-danger',
-        info: 'border-info/25 bg-info/10 text-info',
+        neutral: 'border-border bg-surface-muted/60 text-muted',
+        primary: 'border-primary/20 bg-primary/10 text-primary',
+        accent: 'border-accent/20 bg-accent/10 text-accent',
+        success: 'border-success/20 bg-success/10 text-success',
+        warning: 'border-warning/25 bg-warning/10 text-warning',
+        danger: 'border-danger/20 bg-danger/10 text-danger',
+        info: 'border-border bg-surface-muted/60 text-info',
         solid: 'border-transparent bg-primary text-primary-foreground',
       },
     },
@@ -86,17 +86,9 @@ export function StatusPill({ status, label, tone, className, ...props }: StatusP
   const t = tone ?? STATUS_TONE[key] ?? 'neutral';
   const live = PULSING.has(key);
   return (
-    <span
-      className={cn(
-        badgeVariants({ tone: t }),
-        'rounded-full px-2.5',
-        key.includes('approval') && 'approval-pulse',
-        className,
-      )}
-      {...props}
-    >
+    <span className={cn(badgeVariants({ tone: t }), 'rounded-full px-2', className)} {...props}>
       <span className="relative flex size-1.5">
-        {live && <span className="absolute inset-0 animate-ping rounded-full bg-current opacity-60" />}
+        {live && <span className="absolute -inset-0.5 animate-ping rounded-full bg-current opacity-40" />}
         <span className="relative size-1.5 rounded-full bg-current" />
       </span>
       {label ?? key.replace(/_/g, ' ')}

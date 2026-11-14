@@ -19,21 +19,21 @@ export function EmptyState({ icon, title, description, action, className, compac
     <div
       className={cn(
         'fade-in flex flex-col items-center justify-center text-center',
-        compact ? 'gap-2 px-4 py-8' : 'gap-3 rounded-2xl border border-dashed border-border px-6 py-16',
+        compact ? 'gap-2 px-4 py-8' : 'gap-2 rounded-xl border border-dashed border-border px-6 py-14',
         className,
       )}
     >
       <div
         className={cn(
-          'grid place-items-center rounded-2xl bg-gradient-to-br from-primary/15 to-accent/15 text-primary',
-          compact ? 'size-10 [&_svg]:size-5' : 'size-14 [&_svg]:size-6',
+          'mb-1 grid place-items-center rounded-lg border border-border bg-surface-muted text-muted',
+          compact ? 'size-8 [&_svg]:size-4' : 'size-10 [&_svg]:size-5',
         )}
       >
         {icon ?? <Inbox />}
       </div>
-      <h3 className={cn('font-semibold', compact ? 'text-sm' : 'text-base')}>{title}</h3>
-      {description && <p className="max-w-md text-sm text-muted">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {description && <p className="max-w-sm text-sm text-muted">{description}</p>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }
@@ -69,14 +69,14 @@ export function ErrorState({
       role="alert"
       className={cn(
         'fade-in flex flex-col items-center justify-center gap-3 text-center',
-        compact ? 'px-4 py-8' : 'rounded-2xl border border-danger/25 bg-danger/5 px-6 py-14',
+        compact ? 'px-4 py-8' : 'rounded-xl border border-danger/25 bg-danger/5 px-6 py-12',
         className,
       )}
     >
-      <div className="grid size-12 place-items-center rounded-2xl bg-danger/10 text-danger">
-        <AlertTriangle className="size-6" />
+      <div className="grid size-10 place-items-center rounded-lg bg-danger/10 text-danger">
+        <AlertTriangle className="size-5" />
       </div>
-      <h3 className="font-semibold">{title}</h3>
+      <h3 className="text-sm font-semibold">{title}</h3>
       {message && <p className="max-w-md text-sm text-muted">{message}</p>}
       {requestId && <code className="text-[11px] text-muted">request {requestId}</code>}
       {onRetry && (

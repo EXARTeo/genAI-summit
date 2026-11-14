@@ -10,9 +10,9 @@ import { useUiStore } from '@/shared/stores/ui';
 import { NAV_ITEMS, SETTINGS_ITEM } from './nav';
 
 const itemCls =
-  'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-text aria-selected:bg-primary/10 aria-selected:text-primary [&_svg]:size-4 [&_svg]:text-muted aria-selected:[&_svg]:text-primary';
+  'flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-1.5 text-sm text-text aria-selected:bg-surface-muted [&_svg]:size-4 [&_svg]:text-muted aria-selected:[&_svg]:text-text';
 const groupCls =
-  '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted';
+  '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted';
 
 /** ⌘K / Ctrl+K: jump to pages and systems, switch theme. */
 export function CommandPalette() {
@@ -33,7 +33,7 @@ export function CommandPalette() {
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm data-[state=open]:animate-[overlay-in_160ms_ease-out]" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-[14vh] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-surface shadow-lift data-[state=open]:animate-[dialog-in_200ms_cubic-bezier(0.16,1,0.3,1)]">
+        <DialogPrimitive.Content className="fixed left-1/2 top-[14vh] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-surface shadow-pop data-[state=open]:animate-[dialog-in_200ms_cubic-bezier(0.16,1,0.3,1)]">
           <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Search pages, systems and actions
@@ -74,7 +74,7 @@ export function CommandPalette() {
                       className={itemCls}
                     >
                       <Boxes />
-                      <span className="font-mono text-xs text-accent">{s.id}</span>
+                      <span className="font-mono text-xs text-muted">{s.id}</span>
                       <span className="flex-1">{s.name}</span>
                     </Command.Item>
                   ))}

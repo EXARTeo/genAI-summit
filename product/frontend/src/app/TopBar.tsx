@@ -9,7 +9,7 @@ export function TopBar() {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   return (
-    <header className="sticky top-0 z-30 flex h-[var(--topbar-height)] items-center gap-3 border-b border-border bg-background/75 px-4 backdrop-blur-xl lg:px-6">
+    <header className="sticky top-0 z-30 flex h-[var(--topbar-height)] items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md lg:px-6">
       <IconButton
         label="Open menu"
         icon={<Menu />}
@@ -20,11 +20,11 @@ export function TopBar() {
       <button
         type="button"
         onClick={() => setCommandOpen(true)}
-        className="group flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-border bg-surface/80 px-3 text-sm text-muted shadow-sm transition-all hover:border-primary/40 hover:text-text"
+        className="group flex h-8 w-full max-w-xs items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-sm text-muted transition-colors hover:border-text/20 hover:text-text"
       >
-        <Search className="size-4" />
+        <Search className="size-3.5" />
         <span className="flex-1 text-left">Search or jump to…</span>
-        <kbd className="hidden rounded border border-border bg-surface-muted px-1.5 font-sans text-[11px] sm:inline">
+        <kbd className="hidden rounded border border-border bg-surface-muted px-1 font-sans text-2xs sm:inline">
           {isMac ? '⌘' : 'Ctrl'} K
         </kbd>
       </button>
