@@ -81,7 +81,7 @@ threshold_source, mlflow_run_id}`; `counter_evidence`, `would_change_if`, `citat
 
 ## Prompt design
 
-Applied from [the prompt-engineering plan](../draft/prompt-engineering-optimization-plan.md), adapted to a
+Applied from [the prompt-engineering plan](../draft/prompt-engineering/prompt-engineering-optimization-plan.md), adapted to a
 gated pipeline step and to Gemini:
 
 - **Layers with a precedence statement** (`prompts/rules.md` opens with it): `<platform_rules>` (facts and

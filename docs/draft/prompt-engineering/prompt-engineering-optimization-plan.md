@@ -1,6 +1,6 @@
 # Change Plan (DETAILED) — Prompt engineering for deep agents: the Socratic agent loop
 
-> Draft / WIP under `docs/draft/`, not authoritative. Written against repo HEAD `b6b263e` (2026-11-12) and the pinned `deepagents==0.7.34`.
+> Draft / WIP under `docs/draft/prompt-engineering/`, not authoritative. Written against repo HEAD `b6b263e` (2026-11-12) and the pinned `deepagents==0.7.34`.
 > Scope: `magenticx/agents` — `harness/prompt_engineering/`, `harness/abstractions/deep_agent.py`, the Omni agent (`deep_agents/omni_agent/`, `harness/agents_seed/omni-yaml-v1/`), and the agent builder's handling of user-authored `AGENT.md`.
 
 This document is the single reference for how mAgenticX builds the prompts of its deep agents, what is wrong with the current handling, and how to fix it. It has three layers. First, *why*: what we want an agent to be (critical-minded, asking at the right moment, thinking through alternatives, understanding the user and the situation, acting efficiently and stopping at the right time), and the research and industry practice that tells us how to get there. Second, *what*: a method borrowed from Socrates and a handful of other Greek ideas, translated into concrete agent behaviors, plus a new prompt architecture (rules → agent instructions → defaults → user context → date) with explicit precedence. Third, *how*: section-by-section drafts, code changes, evaluation methodology, tests and a phased rollout. Nothing here should be adopted on faith; every change ships behind measurement (Part 9).
