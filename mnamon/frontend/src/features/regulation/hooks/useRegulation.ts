@@ -50,3 +50,19 @@ export function useOverrideJudge() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: regKeys.changes }),
   });
 }
+
+/** "Check now": queue a reg-memory watch check, then refresh sources and changes as it lands. */
+export function useCheckNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: regulationApi.checkNow,
+    onSuccess: () => {
+      const refresh = () => {
+        void qc.invalidateQueries({ queryKey: regKeys.sources });
+        void qc.invalidateQueries({ queryKey: regKeys.changes });
+      };
+      refresh();
+      for (const ms of [5_000, 15_000, 45_000]) setTimeout(refresh, ms);
+    },
+  });
+}

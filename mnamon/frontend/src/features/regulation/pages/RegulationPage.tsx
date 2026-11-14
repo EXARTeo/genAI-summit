@@ -1,17 +1,29 @@
 import { motion } from 'framer-motion';
-import { Landmark } from 'lucide-react';
+import { Landmark, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { staggerList } from '@/shared/lib/motion';
-import { Badge, Card, EmptyState, ErrorState, PageHeader, Select, SkeletonCard, Tabs } from '@/shared/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Select,
+  SkeletonCard,
+  Tabs,
+  toast,
+} from '@/shared/ui';
 import { RegChangeCard, SourceDetail, SourceRow } from '../components/RegViews';
-import { useRegChanges, useRegSources } from '../hooks/useRegulation';
+import { useCheckNow, useRegChanges, useRegSources } from '../hooks/useRegulation';
 import { latestVersion, openChanges } from '../lib/regulation';
 
 export function RegulationPage() {
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') ?? 'changes';
   const sources = useRegSources();
+  const checkNow = useCheckNow();
   const changes = useRegChanges();
   const [kind, setKind] = useState('all');
   const [version, setVersion] = useState<number | null>(null);
@@ -33,6 +45,24 @@ export function RegulationPage() {
               {open.length} change{open.length > 1 ? 's' : ''} to review
             </Badge>
           ) : undefined
+        }
+        actions={
+          <Button
+            variant="secondary"
+            loading={checkNow.isPending}
+            onClick={() =>
+              checkNow.mutate(undefined, {
+                onSuccess: (r) =>
+                  toast.success('Regulation check started', {
+                    description: `${r?.check_id ? `Check ${r.check_id} ` : ''}${r?.status ?? 'queued'}; new changes appear in the inbox.`,
+                  }),
+                onError: (e) =>
+                  toast.error('Could not start the check', { description: (e as Error).message }),
+              })
+            }
+          >
+            <RefreshCw /> Check now
+          </Button>
         }
       />
       <Tabs value={tab} onValueChange={(t) => setParams({ tab: t })}>

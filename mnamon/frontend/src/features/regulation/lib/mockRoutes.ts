@@ -13,6 +13,11 @@ function find(id: string): RegChange {
 }
 
 export const regulationRoutes: MockRoute[] = [
+  {
+    method: 'POST',
+    path: '/v1/regulation/check-now',
+    handler: () => ({ check_id: `chk-${Date.now().toString(36)}`, status: 'queued' }),
+  },
   { method: 'GET', path: '/v1/regulation/sources', handler: () => buildMockSources() },
   {
     method: 'GET',

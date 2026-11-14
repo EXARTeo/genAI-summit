@@ -84,3 +84,10 @@ export interface RegChange {
   affected: AffectedSystem[];
   traceId?: string;
 }
+
+/** POST /v1/regulation/check-now (reg-memory CheckAccepted, or the CheckRecord when waited for). */
+export interface CheckNowResult {
+  check_id?: string;
+  status?: string;
+  [k: string]: unknown;
+}
