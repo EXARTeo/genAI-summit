@@ -8,7 +8,8 @@ export const auditRoutes: MockRoute[] = [
     method: 'GET',
     path: '/v1/audits',
     // List returns AuditOut (no artifacts / approvals), like the backend.
-    handler: ({ query }) => mockList(query.get('systemId')).map(({ artifacts: _a, approvals: _p, ...rest }) => rest),
+    handler: ({ query }) =>
+      mockList(query.get('systemId')).map(({ artifacts: _a, approvals: _p, ...rest }) => rest),
   },
   {
     method: 'GET',
@@ -18,11 +19,13 @@ export const auditRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/v1/audits/:id/approvals',
-    handler: ({ params }) => mockGet(params.id)?.approvals ?? Promise.reject(mockError(404, 'Audit not found')),
+    handler: ({ params }) =>
+      mockGet(params.id)?.approvals ?? Promise.reject(mockError(404, 'Audit not found')),
   },
   {
     method: 'POST',
     path: '/v1/audits/:id/approvals',
-    handler: ({ params, body }) => mockDecide(params.id, body as ApprovalIn) ?? Promise.reject(mockError(404, 'Audit not found')),
+    handler: ({ params, body }) =>
+      mockDecide(params.id, body as ApprovalIn) ?? Promise.reject(mockError(404, 'Audit not found')),
   },
 ];

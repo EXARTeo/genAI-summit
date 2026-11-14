@@ -16,7 +16,11 @@ describe('mock audit store', () => {
 
   it('approving the dataset gate starts the run and it finishes over time', () => {
     vi.useFakeTimers();
-    const res = mockDecide('aud-sys001-r3', { gate: 'datasets', decision: 'approved', reasonCategory: 'other' })!;
+    const res = mockDecide('aud-sys001-r3', {
+      gate: 'datasets',
+      decision: 'approved',
+      reasonCategory: 'other',
+    })!;
     expect(res.approval.decision).toBe('approved');
     expect(mockGet('aud-sys001-r3')!).toMatchObject({ status: 'running', stage: 'run_tests' });
     vi.advanceTimersByTime(60_000);
@@ -28,10 +32,16 @@ describe('mock audit store', () => {
   it('a rejection with a reason returns a memory proposal path and stops again at the gate', () => {
     vi.useFakeTimers();
     const res = mockDecide('aud-sys001-r3', {
-      gate: 'datasets', decision: 'rejected', reasonCategory: 'unrealistic_data', comment: 'Ages 18–67',
+      gate: 'datasets',
+      decision: 'rejected',
+      reasonCategory: 'unrealistic_data',
+      comment: 'Ages 18–67',
     })!;
     expect(res.memoryProposalPath).toMatch(/^\/memory\/proposals\//);
     vi.advanceTimersByTime(60_000);
-    expect(mockGet('aud-sys001-r3')!).toMatchObject({ status: 'waiting_approval', stage: 'approve_datasets' });
+    expect(mockGet('aud-sys001-r3')!).toMatchObject({
+      status: 'waiting_approval',
+      stage: 'approve_datasets',
+    });
   });
 });

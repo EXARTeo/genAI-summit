@@ -43,22 +43,71 @@ export function verdictStyle(v: string): VerdictStyle {
 }
 
 /** Tailwind classes per tone (semantic tokens from brand.json via CSS vars). */
-export const TONE_CLASSES: Record<Tone, { pill: string; dot: string; text: string; ring: string; bg: string }> = {
-  success: { pill: 'bg-success/15 text-success border-success/30', dot: 'bg-success', text: 'text-success', ring: 'ring-success/40', bg: 'bg-success' },
-  danger: { pill: 'bg-danger/15 text-danger border-danger/30', dot: 'bg-danger', text: 'text-danger', ring: 'ring-danger/40', bg: 'bg-danger' },
-  warning: { pill: 'bg-warning/15 text-warning border-warning/30', dot: 'bg-warning', text: 'text-warning', ring: 'ring-warning/40', bg: 'bg-warning' },
-  info: { pill: 'bg-info/15 text-info border-info/30', dot: 'bg-info', text: 'text-info', ring: 'ring-info/40', bg: 'bg-info' },
-  neutral: { pill: 'bg-surface-muted text-muted border-border', dot: 'bg-muted', text: 'text-muted', ring: 'ring-border', bg: 'bg-muted' },
+export const TONE_CLASSES: Record<
+  Tone,
+  { pill: string; dot: string; text: string; ring: string; bg: string }
+> = {
+  success: {
+    pill: 'bg-success/15 text-success border-success/30',
+    dot: 'bg-success',
+    text: 'text-success',
+    ring: 'ring-success/40',
+    bg: 'bg-success',
+  },
+  danger: {
+    pill: 'bg-danger/15 text-danger border-danger/30',
+    dot: 'bg-danger',
+    text: 'text-danger',
+    ring: 'ring-danger/40',
+    bg: 'bg-danger',
+  },
+  warning: {
+    pill: 'bg-warning/15 text-warning border-warning/30',
+    dot: 'bg-warning',
+    text: 'text-warning',
+    ring: 'ring-warning/40',
+    bg: 'bg-warning',
+  },
+  info: {
+    pill: 'bg-info/15 text-info border-info/30',
+    dot: 'bg-info',
+    text: 'text-info',
+    ring: 'ring-info/40',
+    bg: 'bg-info',
+  },
+  neutral: {
+    pill: 'bg-surface-muted text-muted border-border',
+    dot: 'bg-muted',
+    text: 'text-muted',
+    ring: 'ring-border',
+    bg: 'bg-muted',
+  },
 };
 
 export const GATE_ORDER: GateName[] = ['schema', 'business_rules', 'realism', 'coverage', 'privacy'];
 
 export const GATE_LABELS: Record<GateName, { label: string; checks: string; failAction: string }> = {
   schema: { label: 'Schema', checks: 'Types, enums, ranges, model input signature', failAction: 'Block' },
-  business_rules: { label: 'Business rules', checks: 'Hard rules = 0 violations; soft rules within tolerance', failAction: 'Block (hard) / warn (soft)' },
-  realism: { label: 'Realism', checks: 'Marginals and correlations vs training-data.md', failAction: 'Warn + show at review' },
-  coverage: { label: 'Coverage', checks: 'Every protected group × stratum ≥ min_per_cell', failAction: 'Top-up, else block' },
-  privacy: { label: 'Privacy', checks: 'No real PII; Presidio scan; DCR when a reference exists', failAction: 'Block' },
+  business_rules: {
+    label: 'Business rules',
+    checks: 'Hard rules = 0 violations; soft rules within tolerance',
+    failAction: 'Block (hard) / warn (soft)',
+  },
+  realism: {
+    label: 'Realism',
+    checks: 'Marginals and correlations vs training-data.md',
+    failAction: 'Warn + show at review',
+  },
+  coverage: {
+    label: 'Coverage',
+    checks: 'Every protected group × stratum ≥ min_per_cell',
+    failAction: 'Top-up, else block',
+  },
+  privacy: {
+    label: 'Privacy',
+    checks: 'No real PII; Presidio scan; DCR when a reference exists',
+    failAction: 'Block',
+  },
 };
 
 export function gateTone(s: GateStatus | string): Tone {

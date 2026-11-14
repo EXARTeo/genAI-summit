@@ -16,7 +16,11 @@ import type { GateName, GateResult } from './types';
 
 const pass: GateResult = { status: 'pass' };
 const all = (s: GateResult): Record<GateName, GateResult> => ({
-  schema: s, business_rules: s, realism: s, coverage: s, privacy: s,
+  schema: s,
+  business_rules: s,
+  realism: s,
+  coverage: s,
+  privacy: s,
 });
 
 describe('verdict styling', () => {

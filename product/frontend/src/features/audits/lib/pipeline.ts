@@ -15,10 +15,30 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { id: 'load_context', label: 'Load context', description: 'System card, plugins, applicable requirements, memory', kinds: ['context'] },
-  { id: 'profile_model', label: 'Profile model', description: 'Probe the model: feature sensitivity and decision boundaries', kinds: ['model_profile'] },
-  { id: 'plan_scenarios', label: 'Plan scenarios', description: 'Requirement → test templates, parameterised from the card', kinds: ['scenarios'] },
-  { id: 'analyse_scenarios', label: 'Analyse scenarios', description: 'Coverage per requirement, what testing cannot show', kinds: ['scenario_analysis'] },
+  {
+    id: 'load_context',
+    label: 'Load context',
+    description: 'System card, plugins, applicable requirements, memory',
+    kinds: ['context'],
+  },
+  {
+    id: 'profile_model',
+    label: 'Profile model',
+    description: 'Probe the model: feature sensitivity and decision boundaries',
+    kinds: ['model_profile'],
+  },
+  {
+    id: 'plan_scenarios',
+    label: 'Plan scenarios',
+    description: 'Requirement → test templates, parameterised from the card',
+    kinds: ['scenarios'],
+  },
+  {
+    id: 'analyse_scenarios',
+    label: 'Analyse scenarios',
+    description: 'Coverage per requirement, what testing cannot show',
+    kinds: ['scenario_analysis'],
+  },
   {
     id: 'approve_scenarios',
     label: 'Approve scenarios',
@@ -26,9 +46,24 @@ export const STAGES: StageDef[] = [
     kinds: [],
     gate: { id: 'scenarios', reviews: ['scenarios', 'scenario_analysis'] },
   },
-  { id: 'draft_spec', label: 'Draft generation spec', description: 'GenerationSpec with provenance per field', kinds: ['generation_spec'] },
-  { id: 'generate_data', label: 'Generate data', description: 'DAG sampler, rule repair, counterfactual twins', kinds: ['dataset'] },
-  { id: 'analyse_datasets', label: 'Analyse datasets', description: 'Five gates, coverage, twin pairs, Data Card', kinds: ['dataset_analysis'] },
+  {
+    id: 'draft_spec',
+    label: 'Draft generation spec',
+    description: 'GenerationSpec with provenance per field',
+    kinds: ['generation_spec'],
+  },
+  {
+    id: 'generate_data',
+    label: 'Generate data',
+    description: 'DAG sampler, rule repair, counterfactual twins',
+    kinds: ['dataset'],
+  },
+  {
+    id: 'analyse_datasets',
+    label: 'Analyse datasets',
+    description: 'Five gates, coverage, twin pairs, Data Card',
+    kinds: ['dataset_analysis'],
+  },
   {
     id: 'approve_datasets',
     label: 'Approve datasets',
@@ -36,10 +71,30 @@ export const STAGES: StageDef[] = [
     kinds: [],
     gate: { id: 'datasets', reviews: ['generation_spec', 'dataset_analysis'] },
   },
-  { id: 'run_tests', label: 'Run tests', description: 'Sandbox; one MLflow run per test', kinds: ['test_plan', 'test_result'] },
-  { id: 'analyse', label: 'Analyse', description: 'Findings with evidence, CI and counter-evidence', kinds: ['finding'] },
-  { id: 'critic', label: 'Critic', description: 'A separate agent tries to overturn each finding', kinds: ['critic'] },
-  { id: 'report', label: 'Report', description: 'Engineer report + management traffic lights', kinds: ['report'] },
+  {
+    id: 'run_tests',
+    label: 'Run tests',
+    description: 'Sandbox; one MLflow run per test',
+    kinds: ['test_plan', 'test_result'],
+  },
+  {
+    id: 'analyse',
+    label: 'Analyse',
+    description: 'Findings with evidence, CI and counter-evidence',
+    kinds: ['finding'],
+  },
+  {
+    id: 'critic',
+    label: 'Critic',
+    description: 'A separate agent tries to overturn each finding',
+    kinds: ['critic'],
+  },
+  {
+    id: 'report',
+    label: 'Report',
+    description: 'Engineer report + management traffic lights',
+    kinds: ['report'],
+  },
 ];
 
 const ALIASES: Record<string, string> = {
@@ -81,7 +136,8 @@ export function stepState(stageId: string, audit: Pick<Audit, 'stage' | 'status'
   if (i < cur) return 'done';
   if (i > cur) return 'pending';
   if (status === 'failed') return 'blocked';
-  if (STAGES[i].gate) return status === 'waiting_approval' || status === 'running' ? 'needs-approval' : 'pending';
+  if (STAGES[i].gate)
+    return status === 'waiting_approval' || status === 'running' ? 'needs-approval' : 'pending';
   if (status === 'waiting_approval') return 'needs-approval';
   return status === 'running' || status === 'open' ? 'active' : 'pending';
 }

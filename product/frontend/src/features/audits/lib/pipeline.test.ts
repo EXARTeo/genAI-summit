@@ -41,8 +41,12 @@ describe('stepState', () => {
   });
 
   it('shows needs-approval on a gate the run has reached', () => {
-    expect(stepState('approve_datasets', { stage: 'approve_datasets', status: 'waiting_approval' })).toBe('needs-approval');
-    expect(stepState('approve_datasets', { stage: 'approve_datasets', status: 'running' })).toBe('needs-approval');
+    expect(stepState('approve_datasets', { stage: 'approve_datasets', status: 'waiting_approval' })).toBe(
+      'needs-approval',
+    );
+    expect(stepState('approve_datasets', { stage: 'approve_datasets', status: 'running' })).toBe(
+      'needs-approval',
+    );
   });
 
   it('blocks the current step when the run failed', () => {
@@ -57,15 +61,27 @@ describe('stepState', () => {
   it('computes progress and the default selection', () => {
     expect(progress({ stage: 'load_context', status: 'running' })).toBe(0);
     expect(progress({ stage: 'report', status: 'done' })).toBe(1);
-    expect(defaultSelectedStage({ stage: 'approve_datasets', status: 'waiting_approval' })).toBe('approve_datasets');
+    expect(defaultSelectedStage({ stage: 'approve_datasets', status: 'waiting_approval' })).toBe(
+      'approve_datasets',
+    );
     expect(defaultSelectedStage({ stage: 'x', status: 'done' })).toBe('report');
   });
 });
 
 describe('artifacts', () => {
   const base: Artifact = {
-    id: 'a1', auditId: 'x', kind: 'scenarios', name: 'main', version: 1, status: 'approved',
-    data: {}, fileRefs: [], parentId: null, createdBy: 'agent', createdAt: '', updatedAt: '',
+    id: 'a1',
+    auditId: 'x',
+    kind: 'scenarios',
+    name: 'main',
+    version: 1,
+    status: 'approved',
+    data: {},
+    fileRefs: [],
+    parentId: null,
+    createdBy: 'agent',
+    createdAt: '',
+    updatedAt: '',
   };
 
   it('keeps the latest non-superseded version per (kind, name)', () => {
@@ -80,7 +96,10 @@ describe('artifacts', () => {
   it('shows the reviewed artifacts on a gate step', () => {
     const audit = buildMockAudits()[0];
     const gate = STAGES.find((s) => s.id === 'approve_datasets')!;
-    expect(artifactsForStage(gate, audit.artifacts).map((a) => a.kind)).toEqual(['generation_spec', 'dataset_analysis']);
+    expect(artifactsForStage(gate, audit.artifacts).map((a) => a.kind)).toEqual([
+      'generation_spec',
+      'dataset_analysis',
+    ]);
   });
 
   it('returns both reports for the report step', () => {

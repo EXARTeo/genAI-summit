@@ -24,7 +24,12 @@ function init(): Map<string, Live> {
   for (const a of buildMockAudits()) {
     const pool =
       a.systemId === 'SYS-001'
-        ? full.artifacts.map((x) => ({ ...x, id: x.id.replace(full.id, a.id), auditId: a.id, status: a.status === 'done' ? x.status : 'proposed' }))
+        ? full.artifacts.map((x) => ({
+            ...x,
+            id: x.id.replace(full.id, a.id),
+            auditId: a.id,
+            status: a.status === 'done' ? x.status : 'proposed',
+          }))
         : a.artifacts;
     m.set(a.id, { audit: a, pool, runningSince: null, baseIndex: stageIndex(a.stage) });
   }

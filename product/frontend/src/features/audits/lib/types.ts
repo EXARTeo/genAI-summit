@@ -207,7 +207,13 @@ export interface Finding {
   title: string;
   verdict: Verdict;
   confidence: number; // 0..1
-  metric?: { name: string; value: number; ci: [number, number]; threshold?: number; thresholdSource?: string };
+  metric?: {
+    name: string;
+    value: number;
+    ci: [number, number];
+    threshold?: number;
+    thresholdSource?: string;
+  };
   evidence: { text: string; ci?: [number, number]; runId?: string }[];
   counterEvidence: string[];
   wouldChangeIf: string[];
