@@ -241,11 +241,7 @@ def _killed_reason(
     tail = stderr[-4000:]
     # RLIMIT_FSIZE shows up three ways: SIGXFSZ, the shell's message, or (Python
     # ignores SIGXFSZ, so the write fails instead) EFBIG "File too large".
-    if (
-        disk_over
-        or sig == getattr(signal, "SIGXFSZ", 25)
-        or any(m in tail for m in _DISK_MARKERS)
-    ):
+    if disk_over or sig == getattr(signal, "SIGXFSZ", 25) or any(m in tail for m in _DISK_MARKERS):
         return "disk_limit"
     if sig == getattr(signal, "SIGXCPU", 24):
         return "timeout"
