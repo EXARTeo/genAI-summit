@@ -11,7 +11,7 @@ The agents service writes three kinds of stream; the backend reads them:
   ``raw_events``.
 
 Every entry carries one field, ``data``, holding JSON. The key names are the
-cross-service contract (``docs/agents-contract.md``), so they are constants,
+cross-service contract (``docs/contracts/agents-contract.md``), so they are constants,
 not settings; the group name is the backend's own. Entry ids and field names
 are decoded whether the client returns ``str`` or ``bytes``.
 """

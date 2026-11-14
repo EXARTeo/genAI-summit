@@ -2,7 +2,7 @@
 
 The backend sends every non-image file of a message (and any image past its
 inline budget) as an inline ``attachments`` entry with ``data_base64``
-(``docs/agents-contract.md`` § Attachment). Before a run starts, each one is
+(``docs/contracts/agents-contract.md`` § Attachment). Before a run starts, each one is
 written into the conversation's files at ``/conversation/input/<name>``, where
 the agent, every sub-agent and the sandbox read it. The agent can never write
 there (the workspace write-deny and the files backend both refuse it).

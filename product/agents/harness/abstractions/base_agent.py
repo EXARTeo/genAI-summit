@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 # The closed set of agent kinds, as a manifest's ``type``.
 AgentType = Literal["deep agent", "langgraph agent"]
 
-#: The context keys every run must carry (``docs/agents-contract.md`` § Config).
+#: The context keys every run must carry (``docs/contracts/agents-contract.md`` § Config).
 REQUIRED_CONTEXT_KEYS = ("client_id", "conversation_id")
 
 

@@ -1,4 +1,4 @@
-"""Run DTOs: the ``/stream`` and ``/resume`` bodies (``docs/agents-contract.md``)."""
+"""Run DTOs: the ``/stream`` and ``/resume`` bodies (``docs/contracts/agents-contract.md``)."""
 
 from __future__ import annotations
 

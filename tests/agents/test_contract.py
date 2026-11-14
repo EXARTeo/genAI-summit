@@ -1,4 +1,4 @@
-"""This service's side of ``docs/agents-contract.md``, pinned at the HTTP boundary.
+"""This service's side of ``docs/contracts/agents-contract.md``, pinned at the HTTP boundary.
 
 What the backend relies on, checked through the real app:
 

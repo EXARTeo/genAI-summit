@@ -3,7 +3,7 @@ its AG-UI SSE stream.
 
 The agents service runs the agents; the backend never calls a model itself.
 This module is the whole HTTP surface between the two. The same contract is
-written out for the agents service's authors in the repo's ``docs/agents-contract.md``.
+written out for the agents service's authors in the repo's ``docs/contracts/agents-contract.md``.
 
 Endpoints (base ``AGENTS_SERVICE_URL``; ``{slug}`` is the conversation's agent)
 ------------------------------------------------------------------------------

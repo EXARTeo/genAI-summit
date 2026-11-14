@@ -1,6 +1,6 @@
 """``/tasks`` — the backend's internal task API, keyed by the anonymous ``client_id``.
 
-Pinned: every route answers the shapes of ``docs/agents-contract.md``; another
+Pinned: every route answers the shapes of ``docs/contracts/agents-contract.md``; another
 client's task is a 404 on every route; the internal secret is required; with
 async sub-agents off, ``/unnotified`` and ``/cancel-scope`` are no-ops and the
 others 503.

@@ -135,7 +135,7 @@ services:
     build:
       context: ./agents
     # Runs the agents (OpenAI) and streams AG-UI to the backend
-    # (docs/agents-contract.md). Creates the `agent_runtime` database on the
+    # (docs/contracts/agents-contract.md). Creates the `agent_runtime` database on the
     # product Postgres at start: checkpoints, conversation files, task rows.
     environment:
       APP_ENV: ${APP_ENV:-development}

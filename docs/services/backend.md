@@ -1,7 +1,7 @@
 # Backend: async sub-agents
 
 The agents service runs every sub-agent as a **background task** and announces it on
-Redis streams (protocol: [agents-contract.md § Async sub-agents](agents-contract.md#async-sub-agents)).
+Redis streams (protocol: [agents-contract.md § Async sub-agents](../contracts/agents-contract.md#async-sub-agents)).
 The backend's half:
 
 - **mirrors** the tasks into `conversation_tasks` for the UI;

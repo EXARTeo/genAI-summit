@@ -1,7 +1,7 @@
 """The backend's client for the agents service's internal task API.
 
 The agents service owns and runs every background task; the backend reads and
-acts on them through these calls (``docs/agents-contract.md`` § Async
+acts on them through these calls (``docs/contracts/agents-contract.md`` § Async
 sub-agents). Every call names the acting browser (``client_id``), and the
 agents service answers 404 for a task of another one. ``client_id`` goes only
 here, never into a log or a trace.

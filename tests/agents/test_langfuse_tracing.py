@@ -1,6 +1,6 @@
 """Langfuse tracing: opt-in, fail-open, nested under the backend, masked before anything leaves.
 
-The contract (``harness/observability/langfuse.py`` and ``docs/agents-contract.md``
+The contract (``harness/observability/langfuse.py`` and ``docs/contracts/agents-contract.md``
 section ``trace``):
 
 - off unless ``LANGFUSE_BASE_URL`` and both keys are set, and off means every

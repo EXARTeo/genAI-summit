@@ -1,6 +1,6 @@
 """The internal task API for the backend — ``TaskOut``, ``OutboxItem`` and the request bodies.
 
-These are the cross-service contract (``docs/agents-contract.md``, "Async
+These are the cross-service contract (``docs/contracts/agents-contract.md``, "Async
 sub-agents"): the backend validates the same shapes. ``client_id`` — the
 backend's anonymous ``X-Client-Id`` — is in every request so each call is
 checked against the task row's owner (a mismatch is a 404, never a hint that

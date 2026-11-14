@@ -5,7 +5,7 @@ and the UI agree on.
 streams, internal HTTP) and validated here before anything is stored or
 forwarded; ``TaskOut`` is also what the backend serves to the browser from its
 ``conversation_tasks`` mirror. Field names are snake_case on purpose: they are
-the cross-service contract (``docs/agents-contract.md`` § Async sub-agents).
+the cross-service contract (``docs/contracts/agents-contract.md`` § Async sub-agents).
 
 ``client_id`` (the owning browser) is read from the agents service but never
 serialised back out: it is a capability, and the browser already knows its own.

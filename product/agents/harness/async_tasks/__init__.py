@@ -10,7 +10,7 @@
 * ``runner``       — runs, settles and wakes tasks.
 
 The protocol the backend speaks with this package is the "Async sub-agents"
-section of ``docs/agents-contract.md``.
+section of ``docs/contracts/agents-contract.md``.
 
 Deliberately exports nothing: ``harness.abstractions.deep_agent`` imports the
 light modules directly, and the runner (which imports the agent registry)

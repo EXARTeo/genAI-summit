@@ -54,7 +54,7 @@ class LaunchTokenError(Exception):
 class TraceCarrier(BaseModel):
     """The Langfuse trace a task's runs nest under: the spawning run's ``config.trace``.
 
-    The same shape the backend sends (``docs/agents-contract.md``). Every id is
+    The same shape the backend sends (``docs/contracts/agents-contract.md``). Every id is
     pattern-checked, so nothing but ids rides the token; ``user_id`` is the
     backend's ``h:<16 hex>`` pseudonym, never the raw client id.
     """

@@ -1,7 +1,7 @@
 # Agents service
 
 `product/agents/` runs the agents and streams their work to the backend as
-AG-UI events over SSE. It implements [the backend contract](agents-contract.md)
+AG-UI events over SSE. It implements [the backend contract](../contracts/agents-contract.md)
 exactly; this page is how it is built inside. Port **8003**, FastAPI, OpenAI
 models through LangChain/deepagents, durable state in the `agent_runtime`
 Postgres database.

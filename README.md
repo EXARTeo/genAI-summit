@@ -64,10 +64,10 @@ genAI-summit/
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md)
+- [Getting started](docs/guides/getting-started.md)
 - [Branding](branding/README.md)
 - [Presentations](presentations/README.md)
-- [Architecture](docs/architecture.md)
+- [Architecture](docs/architecture/README.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)

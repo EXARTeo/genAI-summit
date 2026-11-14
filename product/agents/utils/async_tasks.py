@@ -1,7 +1,7 @@
 """Endpoint logic for ``/ap`` (the Agent Protocol subset) and ``/tasks`` (the backend's task API).
 
 The routers stay thin; everything they do is here. The wire contract is the
-"Async sub-agents" section of ``docs/agents-contract.md``.
+"Async sub-agents" section of ``docs/contracts/agents-contract.md``.
 
 **Who may do what.** Every ``/ap`` call carries a task-launch token
 (``harness.async_tasks.token``) — the caller's identity, never read from the

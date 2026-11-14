@@ -1,7 +1,7 @@
 """``/conversation/input/``: the uploads, written from the run request.
 
 The backend sends every non-image file (and any image past its inline budget)
-as an inline ``attachments`` entry (``docs/agents-contract.md`` § Attachment).
+as an inline ``attachments`` entry (``docs/contracts/agents-contract.md`` § Attachment).
 ``ingest_uploads`` writes each one into the conversation's files before the run
 starts. Pinned here:
 

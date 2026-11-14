@@ -133,7 +133,7 @@ def run_config(
     run_id: str = "r1",
     **extra: Any,
 ) -> dict[str, Any]:
-    """A contract ``Config`` block (``docs/agents-contract.md``)."""
+    """A contract ``Config`` block (``docs/contracts/agents-contract.md``)."""
     return {
         "run_config": {"configurable": {"thread_id": thread_id}},
         "context": {"client_id": client_id, "conversation_id": conversation_id, "run_id": run_id},

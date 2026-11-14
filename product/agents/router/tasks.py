@@ -2,7 +2,7 @@
 
 ``require_internal_caller`` on every route, and the acting ``client_id`` in each
 request is checked against the task row (a mismatch is a 404). Logic lives in
-``utils.async_tasks``; the contract is ``docs/agents-contract.md``.
+``utils.async_tasks``; the contract is ``docs/contracts/agents-contract.md``.
 """
 
 from fastapi import APIRouter, Depends, Query, Response, status

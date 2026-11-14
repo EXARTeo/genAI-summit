@@ -23,11 +23,11 @@ The script:
 
 ## Configuration
 
-All configuration comes from environment variables, loaded from `.env` locally. See [`.env.example`](../.env.example) for the full list. Never commit `.env` or real keys.
+All configuration comes from environment variables, loaded from `.env` locally. See [`.env.example`](../../.env.example) for the full list. Never commit `.env` or real keys.
 
 ## Run
 
-The product's services run with Docker Compose from the product folder (`product/` until it is named). Its variables are in [`product/.env.example`](../product/.env.example) (copy to `product/.env`); services and ports in [product/README.md](../product/README.md).
+The product's services run with Docker Compose from the product folder (`product/` until it is named). Its variables are in [`product/.env.example`](../../product/.env.example) (copy to `product/.env`); services and ports in [product/README.md](../../product/README.md).
 
 ```bash
 docker compose -f product/docker-compose.yaml up -d --build
