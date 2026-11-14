@@ -320,6 +320,9 @@ async def record_approval(
         comment=payload.comment,
         edits=payload.edits,
         decided_by=actor,
+        # Stamped here, not by the database: SQLite's now() has 1 s resolution,
+        # so two decisions in one second tied and sorted by random uuid.
+        at=datetime.now(UTC).replace(tzinfo=None),
     )
     db.add(approval)
     await db.flush()
