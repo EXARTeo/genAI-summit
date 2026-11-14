@@ -139,14 +139,24 @@ scenarios:
   training_data: data/training-data.md
   reference_sample: mlflow-dataset://cv-sample-v1      # optional, for SDV
   data_policy: synthetic_only                          # never send real personal data
+  generation: {mode: zero_shot, seed: 42, min_per_cell: 50, n_max: 5000}   # zero_shot | reference_sample
+  metamorphic_relations:                               # optional: "if input changes like X, output must Y"
+    - "more years_experience, all else equal → score does not decrease"
 ```
+
+`data/data-dictionary.yaml` carries the business logic the generator needs: file-level `population`
+(stats from the training-data description, used by the realism gate), `rules` (`hard | soft`, whitelisted
+expressions, no `eval`) and `label_rule`; per field `role` (`protected | proxy | feature | label | id | surface`),
+`proxy_for`, `values` + `distribution`, `range`, `nullable`, `depends_on` + `conditional`, `source`
+(Faker/list/LLM text), `monotone`, `provenance`. Full schema and the SYS-001 example:
+[synthetic-data.md § 4](synthetic-data.md).
 
 How the agent uses a plugin:
 
 | Step | Reads from the plugin |
 | --- | --- |
 | `plan_tests` | `placement` (test the stage alone, the whole chain, or both), `expected_behaviour`, `README.md`, `docs/` → which requirements apply and which templates fit |
-| `generate_data` | `data/data-dictionary.yaml`, `data/training-data.md`, `example_input`, `scenarios.*` → personas, use cases, edge cases and counterfactual twins that are valid inputs and realistic against the training population |
+| `generate_data` | `data/data-dictionary.yaml`, `data/training-data.md`, `example_input`, `scenarios.*`, memory → the LLM drafts a **GenerationSpec** (marginals, causal graph, rules; every item tagged `dictionary \| training_doc \| memory \| llm_assumption`); deterministic code samples, enforces rules and builds counterfactual twins; 5 gates (schema, rules, realism, coverage, privacy) → dataset + `DataCard.yaml` ([synthetic-data.md](synthetic-data.md)) |
 | `execute` | `access.type` picks the sandbox adapter (MLflow load, HTTP, LLM chat, batch, dataset-only); `limits` set rate and volume |
 | `analyse` / `critic` | `io.output` to read results; `must` / `must_not` as checks; `known_limitations` and the training-data description as counter-evidence ("synthetic population differs from training data") |
 
@@ -184,7 +194,8 @@ Per-system entries can be **promoted** to general. Promotion is a separate, logg
 | Like / dislike on a chat answer (already stored by the backend) | Low-weight signal; only becomes memory if a human writes a reason |
 
 Every rejection asks for a **reason category** (`wrong_fact`, `wrong_interpretation`, `missing_info`,
-`wrong_metric`, `unrealistic_data`, `org_policy`, `other`) plus free text.
+`wrong_metric`, `unrealistic_data`, `org_policy`, `other`) plus free text. An `unrealistic_data` rejection
+points at the GenerationSpec field or rule ids it is about, so the next spec fixes exactly that.
 
 ### Memory files
 
