@@ -83,6 +83,60 @@ class FetchSettings(BaseSettings):
         default_factory=lambda: SecretStr(""), validation_alias="FIRECRAWL_API_KEY"
     )
     firecrawl_url: str = Field("https://api.firecrawl.dev", validation_alias="FIRECRAWL_API_URL")
+    # Verifies Firecrawl webhooks (X-Firecrawl-Signature: sha256=HMAC(raw body)).
+    firecrawl_webhook_secret: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="FIRECRAWL_WEBHOOK_SECRET"
+    )
+
+
+class LlmSettings(BaseSettings):
+    """Google Gemini, the only LLM. Every LLM step has a deterministic fallback."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    google_api_key: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="GOOGLE_API_KEY"
+    )
+    model: str = Field("gemini-3.5-flash-lite", validation_alias="GEMINI_MODEL")
+    timeout_seconds: float = Field(60.0, validation_alias="GEMINI_TIMEOUT_SECONDS")
+    # Items per classification / triage call; the rest falls back to the heuristic.
+    max_items: int = Field(40, ge=1, le=200, validation_alias="GEMINI_MAX_ITEMS")
+
+
+class WatchSettings(BaseSettings):
+    """The watcher: scheduled checks, discovery, releases."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    # Minutes between scheduled checks of every enabled source; 0 = off.
+    interval_minutes: int = Field(60, ge=0, validation_alias="REG_MEMORY_WATCH_INTERVAL_MINUTES")
+    discovery_enabled: bool = Field(True, validation_alias="REG_MEMORY_DISCOVERY_ENABLED")
+    sparql_url: str = Field(
+        "https://publications.europa.eu/webapi/rdf/sparql", validation_alias="REG_MEMORY_SPARQL_URL"
+    )
+    # The first release on an empty store becomes active without a HITL accept (the baseline).
+    auto_activate_first: bool = Field(True, validation_alias="REG_MEMORY_AUTO_ACTIVATE_FIRST")
+    # Where the demo-art6-guideline-mirror source is fetched (e.g. a GitHub Pages copy).
+    demo_mirror_url: str = Field(
+        "http://localhost:8010/demo/mirror/art6-guidelines.html",
+        validation_alias="REG_MEMORY_DEMO_MIRROR_URL",
+    )
+
+
+class NotifySettings(BaseSettings):
+    """Where a new RegChange is announced (both optional, best effort)."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    backend_internal_url: str = Field("", validation_alias="BACKEND_INTERNAL_URL")
+    backend_internal_secret: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="BACKEND_INTERNAL_SECRET"
+    )
+    telegram_bot_token: SecretStr = Field(
+        default_factory=lambda: SecretStr(""), validation_alias="TELEGRAM_BOT_TOKEN"
+    )
+    telegram_chat_id: str = Field("", validation_alias="TELEGRAM_CHAT_ID")
+    telegram_api_url: str = Field("https://api.telegram.org", validation_alias="TELEGRAM_API_URL")
 
 
 class SecuritySettings(BaseSettings):
@@ -118,6 +172,9 @@ class RateLimitSettings(BaseSettings):
     # Reads: sources, documents, texts, run status.
     read_max_attempts: int = Field(240, validation_alias="READ_RATE_LIMIT_MAX_ATTEMPTS")
     read_window_seconds: int = Field(60, validation_alias="READ_RATE_LIMIT_WINDOW_SECONDS")
+    # Writes: check-now, release build/activate, proposals, demo mirror edits, webhooks.
+    write_max_attempts: int = Field(30, validation_alias="WRITE_RATE_LIMIT_MAX_ATTEMPTS")
+    write_window_seconds: int = Field(60, validation_alias="WRITE_RATE_LIMIT_WINDOW_SECONDS")
 
 
 class ClientSettings(BaseSettings):
@@ -162,6 +219,9 @@ class Settings(BaseSettings):
     app: AppSettings = Field(default_factory=AppSettings)
     store: StoreSettings = Field(default_factory=StoreSettings)
     fetch: FetchSettings = Field(default_factory=FetchSettings)
+    llm: LlmSettings = Field(default_factory=LlmSettings)
+    watch: WatchSettings = Field(default_factory=WatchSettings)
+    notify: NotifySettings = Field(default_factory=NotifySettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     rate_limit: RateLimitSettings = Field(default_factory=RateLimitSettings)
     client: ClientSettings = Field(default_factory=ClientSettings)

@@ -133,3 +133,7 @@ read_rate_limit = rate_limit(
     (settings.rate_limit.read_max_attempts, settings.rate_limit.read_window_seconds),
     scope="read",
 )
+write_rate_limit = rate_limit(
+    (settings.rate_limit.write_max_attempts, settings.rate_limit.write_window_seconds),
+    scope="write",
+)

@@ -1,0 +1,486 @@
+# Requirements derived from the consolidated AI Act (02024R1689-20260727), MVP scope:
+# provider obligations for high-risk AI systems (Art. 6 basis, 9-15, 17; Art. 4a for
+# bias-detection data) and Art. 50 transparency (SYS-004). Schema: PDF §12.3,
+# validated by engine/kb/corpus.py. `source` = the provision the obligation comes from
+# (ids from the provision parser); `obligation` paraphrases it, the verbatim text
+# lives in the provision. valid_from is filled per release from the source provision.
+# Drafted from the downloaded text; every entry still needs human review.
+
+# ---- Art. 6: classification basis -------------------------------------------------------
+
+- id: REQ.AIA.6.2.annex-iii-high-risk
+  source: AIA.6.2
+  related: [AIA.ANNEX_III, AIA.6.3]
+  actor: provider
+  applies_if: {basis: [annex_iii]}
+  modality: shall
+  obligation: >-
+    Treat an AI system listed in Annex III as high-risk and apply Chapter III, Sections 2 and 3,
+    unless the Art. 6(3) derogation (no significant risk of harm, narrow procedural or
+    preparatory task, no profiling) applies and is documented.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.6.4.non-high-risk-assessment
+  source: AIA.6.4
+  related: [AIA.6.3, AIA.49.2]
+  actor: provider
+  applies_if: {basis: [annex_iii], risk_class: [limited, minimal, not_high_risk]}
+  modality: shall
+  obligation: >-
+    A provider that considers an Annex III system not high-risk documents that assessment
+    before placing it on the market or putting it into service, registers it (Art. 49(2)) and
+    provides the documentation to national competent authorities on request.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 9: risk management system -----------------------------------------------------
+
+- id: REQ.AIA.9.1.risk-management-system
+  source: AIA.9.1
+  related: [AIA.9.2]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Establish, implement, document and maintain a risk management system for the high-risk AI
+    system, run as a continuous iterative process over the whole lifecycle.
+  testability: process
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.9.2.a.risk-identification
+  source: AIA.9.2.a
+  related: [AIA.9.2.b]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Identify and analyse the known and reasonably foreseeable risks to health, safety or
+    fundamental rights under intended use, and estimate and evaluate risks under reasonably
+    foreseeable misuse.
+  testability: model_and_data_test
+  test_templates: [TT.robustness.edge_cases, TT.fairness.group_metrics]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.9.5.residual-risk-acceptable
+  source: AIA.9.5
+  related: [AIA.9.5.a, AIA.9.5.b, AIA.9.5.c]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Adopt risk management measures so that the residual risk of each hazard and the overall
+    residual risk are judged acceptable: eliminate or reduce risks by design, mitigate the rest,
+    and inform and train deployers.
+  testability: process
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.9.6.testing-for-risk-measures
+  source: AIA.9.6
+  related: [AIA.9.8]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Test the high-risk AI system to identify the most appropriate risk management measures and
+    to ensure it performs consistently for its intended purpose and complies with Section 2.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup, TT.robustness.perturbation]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.9.8.predefined-metrics
+  source: AIA.9.8
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Test during development and in any event before placing on the market, against prior
+    defined metrics and probabilistic thresholds appropriate to the intended purpose.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup, TT.fairness.group_metrics, TT.robustness.perturbation]
+  notes: >-
+    The Act sets no numeric thresholds: they are the provider's declared metrics or
+    organisational thresholds on the system card, and findings must say so.
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.9.9.vulnerable-groups
+  source: AIA.9.9
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Consider whether the system is likely to adversely impact persons under 18 and, as
+    appropriate, other vulnerable groups.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup, TT.data.representation]
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 10 (+ Art. 4a): data and data governance --------------------------------------
+
+- id: REQ.AIA.10.2.b.data-provenance
+  source: AIA.10.2.b
+  related: [AIA.10.2.a, AIA.10.2.c, AIA.10.2.d]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Govern training, validation and testing data: document design choices, collection
+    processes and origin of data (and the original purpose for personal data), preparation
+    operations and the assumptions about what the data measure.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.10.2.f.bias-examination
+  source: AIA.10.2.f
+  related: [AIA.10.3]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Examine training, validation and testing data for possible biases likely to affect health
+    and safety, have a negative impact on fundamental rights or lead to prohibited
+    discrimination, especially where outputs influence future inputs.
+  testability: model_and_data_test
+  test_templates: [TT.fairness.group_metrics, TT.fairness.counterfactual, TT.data.representation]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.10.2.g.bias-mitigation
+  source: AIA.10.2.g
+  related: [AIA.10.2.f]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Take appropriate measures to detect, prevent and mitigate the biases identified under
+    point (f), and re-test after mitigation.
+  testability: model_and_data_test
+  test_templates: [TT.fairness.group_metrics, TT.fairness.counterfactual]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.10.2.h.data-gaps
+  source: AIA.10.2.h
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Identify relevant data gaps or shortcomings that prevent compliance and how they can be
+    addressed.
+  testability: model_and_data_test
+  test_templates: [TT.data.representation]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.10.3.representative-data
+  source: AIA.10.3
+  related: [AIA.10.4]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Use data sets that are relevant, sufficiently representative, as free of errors and
+    complete as possible, with appropriate statistical properties for the persons or groups on
+    whom the system is used, taking the geographical, contextual, behavioural and functional
+    setting into account.
+  testability: model_and_data_test
+  test_templates: [TT.data.representation, TT.accuracy.subgroup]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.4a.1.special-category-data-safeguards
+  source: AIA.4a.1
+  related: [AIA.4a.1.a, AIA.4a.1.b, AIA.4a.1.c, AIA.4a.1.d, AIA.4a.1.e, AIA.4a.1.f, AIA.10.1]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: may
+  obligation: >-
+    Special categories of personal data may be processed for bias detection and correction only
+    where strictly necessary and with all the safeguards of Art. 4a(1)(a)-(f): no effective
+    alternative (synthetic or anonymised data), re-use limits and pseudonymisation, access
+    controls, no transfer, deletion after correction, reasons recorded.
+  testability: process
+  test_templates: []
+  notes: >-
+    Moved from former Art. 10(5) by Reg (EU) 2026/1744. Decides whether tests may use real
+    protected attributes; synthetic data is the default in this product.
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 11 / 12: documentation and logs ------------------------------------------------
+
+- id: REQ.AIA.11.1.technical-documentation
+  source: AIA.11.1
+  related: [AIA.ANNEX_IV]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Draw up the technical documentation (at least the Annex IV elements) before placing on the
+    market or putting into service, keep it up to date, and make it demonstrate compliance with
+    Section 2.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.12.1.automatic-logging
+  source: AIA.12.1
+  related: [AIA.12.2, AIA.12.2.a, AIA.12.2.b, AIA.12.2.c]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Make the system technically allow automatic recording of events (logs) over its lifetime,
+    enabling traceability for risk situations, post-market monitoring and deployer monitoring.
+  testability: model_and_data_test
+  test_templates: [TT.robustness.edge_cases]
+  notes: Testable as "every inference call leaves a log record with inputs, output and time".
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 13: transparency to deployers --------------------------------------------------
+
+- id: REQ.AIA.13.1.interpretable-output
+  source: AIA.13.1
+  related: [AIA.13.3.b.iv, AIA.13.3.b.vii]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Design the system so that its operation is sufficiently transparent for deployers to
+    interpret its output and use it appropriately.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.13.3.b.ii.declared-accuracy
+  source: AIA.13.3.b.ii
+  related: [AIA.15.3]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    State in the instructions for use the level of accuracy (with its metrics), robustness and
+    cybersecurity against which the system was tested and validated, and known circumstances
+    that may affect them.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup, TT.robustness.perturbation]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.13.3.b.v.group-performance
+  source: AIA.13.3.b.v
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    When appropriate, state the system's performance for the specific persons or groups of
+    persons on whom it is intended to be used.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup, TT.fairness.group_metrics]
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 14: human oversight ------------------------------------------------------------
+
+- id: REQ.AIA.14.1.human-oversight-design
+  source: AIA.14.1
+  related: [AIA.14.3]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Design the system, including human-machine interface tools, so that natural persons can
+    effectively oversee it while in use, with oversight measures built in or specified for the
+    deployer.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.14.4.b.automation-bias
+  source: AIA.14.4.b
+  related: [AIA.14.4.c]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Enable overseers to remain aware of automation bias and to correctly interpret the output
+    (e.g. scores shown with uncertainty and explanation, not as a final decision).
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.14.4.d.override
+  source: AIA.14.4.d
+  related: [AIA.14.4.e]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Enable overseers to decide not to use the system, to disregard, override or reverse its
+    output, and to interrupt it safely (a "stop" procedure).
+  testability: process
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 15: accuracy, robustness, cybersecurity ----------------------------------------
+
+- id: REQ.AIA.15.1.accuracy-consistency
+  source: AIA.15.1
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Achieve an appropriate level of accuracy, robustness and cybersecurity and perform
+    consistently in those respects throughout the lifecycle.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup, TT.robustness.perturbation]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.15.3.declared-accuracy-metrics
+  source: AIA.15.3
+  related: [AIA.13.3.b.ii]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Declare the levels of accuracy and the relevant accuracy metrics in the instructions for
+    use; measured accuracy must meet what is declared.
+  testability: model_and_data_test
+  test_templates: [TT.accuracy.subgroup]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.15.4.robustness
+  source: AIA.15.4
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Make the system as resilient as possible to errors, faults or inconsistencies within the
+    system or its environment (technical redundancy, fail-safe plans; feedback loops mitigated
+    for systems that keep learning).
+  testability: model_and_data_test
+  test_templates: [TT.robustness.perturbation, TT.robustness.edge_cases]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.15.5.cybersecurity
+  source: AIA.15.5
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Make the system resilient against attempts by unauthorised third parties to alter its use,
+    outputs or performance by exploiting vulnerabilities (data poisoning, model poisoning,
+    adversarial examples, model evasion, confidentiality attacks, model flaws).
+  testability: model_and_data_test
+  test_templates: [TT.security.prompt_injection, TT.robustness.perturbation]
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 17: quality management system --------------------------------------------------
+
+- id: REQ.AIA.17.1.quality-management-system
+  source: AIA.17.1
+  related: [AIA.17.1.a, AIA.17.1.g, AIA.17.1.h, AIA.17.1.m]
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Put in place a documented quality management system (written policies, procedures and
+    instructions) covering at least the aspects of Art. 17(1)(a)-(m).
+  testability: process
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.17.1.d.test-procedures
+  source: AIA.17.1.d
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Define examination, test and validation procedures before, during and after development,
+    and how often they run (the reproducible test plan this product produces).
+  testability: process
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.17.1.f.data-management
+  source: AIA.17.1.f
+  actor: provider
+  applies_if: {risk_class: [high]}
+  modality: shall
+  obligation: >-
+    Have systems and procedures for data management (acquisition, collection, labelling,
+    storage, retention, ...) for operations before and for placing on the market.
+  testability: documentation
+  test_templates: []
+  provenance: drafted_by_agent
+  review: pending
+
+# ---- Art. 50: transparency for certain AI systems (SYS-004) ------------------------------
+
+- id: REQ.AIA.50.1.ai-interaction-disclosure
+  source: AIA.50.1
+  related: [AIA.50.5]
+  actor: provider
+  applies_if: {features_any: [interacts_with_persons, chatbot]}
+  modality: shall
+  obligation: >-
+    Design AI systems that interact directly with natural persons so that those persons are
+    informed they are interacting with an AI system, unless obvious from the context.
+  testability: model_and_data_test
+  test_templates: [TT.transparency.ai_disclosure, TT.security.prompt_injection]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.50.2.synthetic-content-marking
+  source: AIA.50.2
+  actor: provider
+  applies_if: {features_any: [generates_synthetic_content]}
+  modality: shall
+  obligation: >-
+    Mark synthetic audio, image, video or text outputs in a machine-readable format so they are
+    detectable as artificially generated or manipulated, with effective, interoperable, robust
+    and reliable technical solutions.
+  testability: model_and_data_test
+  test_templates: [TT.transparency.ai_disclosure]
+  provenance: drafted_by_agent
+  review: pending
+
+- id: REQ.AIA.50.5.disclosure-timing
+  source: AIA.50.5
+  related: [AIA.50.1]
+  actor: provider
+  applies_if: {features_any: [interacts_with_persons, chatbot, generates_synthetic_content]}
+  modality: shall
+  obligation: >-
+    Give the Art. 50 information clearly and distinguishably at the latest at the first
+    interaction or exposure, meeting accessibility requirements.
+  testability: model_and_data_test
+  test_templates: [TT.transparency.ai_disclosure]
+  provenance: drafted_by_agent
+  review: pending

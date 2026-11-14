@@ -27,7 +27,6 @@ from engine.catalog.loader import Catalog, Source, load_catalog
 from engine.diff import diff_pending
 from engine.extract.stage import extract_pending
 from engine.extract.text import BINARY_EXTS, guess_ext
-from engine.fetch import firecrawl
 from engine.fetch.cellar import cellar_url, fetch_celex
 from engine.fetch.http import (
     ChallengeError,
@@ -39,6 +38,7 @@ from engine.fetch.http import (
     filename_from_headers,
     find_links,
 )
+from engine.firecrawl.client import FirecrawlConfig, scrape_result
 from engine.store import Store, now_iso
 
 logger = get_logger(__name__)
@@ -97,8 +97,8 @@ class Ingestor:
             }
         )
         async with self.sem:
-            if fetcher == "firecrawl":
-                return await self._firecrawl(url)
+            if fetcher == "firecrawl" and self.config.firecrawl_api_key:
+                return await self._firecrawl(url)  # without a key: plain HTTP below
             if fetcher == "cellar":
                 return await fetch_celex(
                     self.client, kw["celex"], kw["fmt"], **cond, options=self.config.fetch
@@ -111,12 +111,8 @@ class Ingestor:
                 return await self._firecrawl(url)
 
     async def _firecrawl(self, url: str) -> FetchResult:
-        return await firecrawl.scrape(
-            self.client,
-            url,
-            api_key=self.config.firecrawl_api_key,
-            base_url=self.config.firecrawl_url,
-        )
+        cfg = FirecrawlConfig(self.config.firecrawl_api_key, self.config.firecrawl_url)
+        return await scrape_result(self.client, cfg, url)
 
     async def fetch_doc(
         self,
