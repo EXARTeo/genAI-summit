@@ -426,7 +426,7 @@ def containers() -> Svg:
             ("store", "datastore"),
         ],
     )
-    s.text(960, 845, "Dashed teal arrows: every step is traced in Langfuse", 13.5, A)
+    s.text(960, 845, "Dashed blue arrows: every step is traced in Langfuse", 13.5, A)
     return s
 
 
@@ -959,7 +959,7 @@ def agent_context() -> Svg:
             ("output", "audit record"),
         ],
     )
-    s.text(960, 860, "Teal: feedback becomes memory; dashed teal: memory read back", 13.5, A)
+    s.text(960, 860, "Blue: feedback becomes memory; dashed blue: memory read back", 13.5, A)
     return s
 
 
