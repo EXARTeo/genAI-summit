@@ -21,6 +21,9 @@ export interface DropdownMenuProps {
   trigger: ReactNode;
   items: DropdownItem[];
   align?: 'start' | 'center' | 'end';
+  /** Which side of the trigger the menu opens on (default bottom). */
+  side?: 'top' | 'right' | 'bottom' | 'left';
+  sideOffset?: number;
   className?: string;
 }
 
@@ -28,14 +31,22 @@ const itemCls =
   'relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[highlighted]:bg-surface-muted data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:text-muted';
 
 /** Data-driven dropdown menu. */
-export function DropdownMenu({ trigger, items, align = 'end', className }: DropdownMenuProps) {
+export function DropdownMenu({
+  trigger,
+  items,
+  align = 'end',
+  side,
+  sideOffset = 6,
+  className,
+}: DropdownMenuProps) {
   return (
     <Menu.Root>
       <Menu.Trigger asChild>{trigger}</Menu.Trigger>
       <Menu.Portal>
         <Menu.Content
           align={align}
-          sideOffset={6}
+          side={side}
+          sideOffset={sideOffset}
           className={cn(
             'z-50 min-w-[11rem] rounded-xl border border-border bg-surface p-1 text-text shadow-lift',
             'data-[state=open]:animate-[fade-in_160ms_ease-out]',

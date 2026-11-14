@@ -1,5 +1,5 @@
 /** react-query wrappers for the conversation list, one conversation, search and the agents. */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/shared/lib/api';
 import {
   deleteConversation,
@@ -7,21 +7,39 @@ import {
   listAgents,
   listArchived,
   listConversations,
+  listConversationsPage,
   listPinned,
   renameConversation,
   searchChats,
   setArchived,
   setPinned,
 } from '../handlers/chat';
+import { nextPageParam } from '../lib/sidebarList';
 import type { ConversationSummary } from '../lib/types';
 import { chatKeys } from './keys';
 
-export function useConversationList(filter: 'recent' | 'pinned' | 'archived') {
+export function useConversationList(
+  filter: 'recent' | 'pinned' | 'archived',
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: chatKeys.list(filter),
     queryFn: () =>
       filter === 'pinned' ? listPinned() : filter === 'archived' ? listArchived() : listConversations(),
     select: (page) => page.items,
+  });
+}
+
+export const CHAT_PAGE_SIZE = 30;
+
+/** The sidebar's Chats list, paged (magenticx loads more as the list scrolls to its end). */
+export function useConversationPages(size = CHAT_PAGE_SIZE) {
+  return useInfiniteQuery({
+    queryKey: [...chatKeys.list('recent'), 'pages', size] as const,
+    queryFn: ({ pageParam }) => listConversationsPage(pageParam, size),
+    initialPageParam: 1,
+    getNextPageParam: (last, all) => nextPageParam(last, all.length, size),
   });
 }
 
