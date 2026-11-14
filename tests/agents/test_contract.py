@@ -171,6 +171,7 @@ async def test_the_agent_list_has_every_registered_agent_and_one_default(client,
             "type",
             "description",
             "icon",
+            "kind",
             "default",
         }
     assert [item["slug"] for item in agents if item["default"]] == [

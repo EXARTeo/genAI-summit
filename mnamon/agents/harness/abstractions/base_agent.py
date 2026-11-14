@@ -49,6 +49,9 @@ class BaseAgent:
     type: AgentType = "langgraph agent"
     description: str | None = None
     icon: str | None = None
+    #: ``"chat"``: a conversation partner the chat may pick. ``"workflow"``: a
+    #: fixed pipeline other features start (listed, but not for the chat picker).
+    kind: str = "chat"
     #: The stream modes the compiled graph is streamed with.
     stream_mode: Any = "custom"
     #: Prefix for this family's execution log events.
@@ -92,6 +95,7 @@ class BaseAgent:
             "type": cls.type,
             "description": cls.description or "",
             "icon": cls.icon or "",
+            "kind": cls.kind,
         }
 
     @property

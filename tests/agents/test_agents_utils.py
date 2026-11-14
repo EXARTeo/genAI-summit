@@ -201,6 +201,7 @@ def test_manifest_from_spec_normalises_the_type():
         "type": "deep agent",
         "description": "A probe agent",
         "icon": "Bot",
+        "kind": "chat",
     }
 
 

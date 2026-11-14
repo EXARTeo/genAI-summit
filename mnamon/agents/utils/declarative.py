@@ -12,6 +12,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from core.settings import settings
+
 if TYPE_CHECKING:  # pragma: no cover - typing only, see the module docstring
     from harness.abstractions.agent_spec import AgentSpec
 
@@ -37,6 +39,18 @@ def read_prompt(value: str, source_dir: Path) -> str:
     return target.read_text(encoding="utf-8")
 
 
+#: The placeholder an ``agent.yaml`` model id may carry for the deployment's Gemini model.
+GEMINI_MODEL_PLACEHOLDER = "${GEMINI_MODEL}"
+
+
+def expand_model_id(model_id: str) -> str:
+    """``google_genai:${GEMINI_MODEL}`` -> ``google_genai:<GEMINI_MODEL>``; others unchanged.
+
+    So a definition follows the model the deployment's ``.env`` picks instead of
+    pinning one in the image."""
+    return model_id.replace(GEMINI_MODEL_PLACEHOLDER, settings.gemini.model)
+
+
 def manifest_from_spec(spec: AgentSpec) -> dict[str, Any]:
     """The registry manifest for a YAML agent (mirrors ``BaseAgent.manifest``).
 
@@ -51,7 +65,8 @@ def manifest_from_spec(spec: AgentSpec) -> dict[str, Any]:
         "type": "deep agent",
         "description": spec.description or "",
         "icon": spec.icon or "",
+        "kind": "chat",
     }
 
 
-__all__ = ["manifest_from_spec", "read_prompt"]
+__all__ = ["GEMINI_MODEL_PLACEHOLDER", "expand_model_id", "manifest_from_spec", "read_prompt"]

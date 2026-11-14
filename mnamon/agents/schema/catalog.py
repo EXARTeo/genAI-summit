@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
+
+#: ``chat``: the chat's agent picker lists it. ``workflow``: a pipeline the
+#: product's features start (e.g. ``audit-pipeline``); a chat UI hides it.
+AgentKind = Literal["chat", "workflow"]
 
 
 class AgentManifest(BaseModel):
@@ -19,6 +23,8 @@ class AgentManifest(BaseModel):
     type: str
     description: str
     icon: str
+    #: Whether a chat may pick it (``chat``) or only a feature runs it (``workflow``).
+    kind: AgentKind = "chat"
     #: The agent a new conversation starts with (``DEFAULT_AGENT_SLUG``).
     default: bool = False
 

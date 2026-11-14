@@ -80,6 +80,8 @@ class AuditPipelineAgent(LangGraphAgent):
         "scenarios, synthetic data, sandbox tests, findings, critic and reports, with human gates."
     )
     icon = "ShieldCheck"
+    # A gated pipeline started by the audit features, never a chat partner.
+    kind = "workflow"
     stream_mode: Any = ["custom", "updates"]
 
     def __init__(
