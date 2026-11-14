@@ -45,6 +45,7 @@ The product folder is `product/` until a name is chosen. Full table (images, net
 | Service | Folder | Port (host → container) | Responsibility |
 | --- | --- | --- | --- |
 | `backend` | `product/backend/` | 8100 → 8000 | FastAPI API; runs `alembic upgrade head` on start: [backend](../services/backend.md) |
+| `frontend` | `product/frontend/` | 8080 → 8080 | Engineer workspace (Vite + React SPA, nginx proxies `/api` to the backend): [frontend](../services/frontend.md), [audit workflow](../services/frontend-audit-workflow.md) |
 | `agents` | `product/agents/` | not published (8003) | Runs the agents (OpenAI, deep agents, async sub-agents, MCP, sandbox) and streams AG-UI to the backend: [agents service](../services/agents-service.md), [contract](../contracts/agents-contract.md) |
 | `postgres` | (image) | not published | Backend database + `agent_runtime` (checkpoints, conversation files, tasks) |
 | `redis` | (image) | not published | Backend cache (`volatile-lru`) |
@@ -57,7 +58,7 @@ The product folder is `product/` until a name is chosen. Full table (images, net
 
 | Container | Role | Tech (proposal) | Maps to |
 | --- | --- | --- | --- |
-| `frontend` | Engineer workspace: systems, system card, test plan, dataset auditor, findings, reports, regulation-change inbox | Next.js | new |
+| `frontend` | Engineer workspace: systems, system card, test plan, dataset auditor, findings, reports, regulation-change inbox | Vite + React + Tailwind (nginx) | running |
 | `backend` | API, system cards, runs, findings, evidence, notifications, webhooks (Firecrawl, Telegram), job queue | FastAPI + Postgres + Redis | existing `backend` |
 | `agent` | Test pipeline and impact pipeline | LangGraph + hackathon LLM provider | existing `agents` |
 | `reg-memory` (RKS) | Regulatory Knowledge Service: **all** regulatory knowledge (AI Act, Omnibus, guidelines, FAQs, codes of practice, standards, national law, internal policies), versions, diff, watcher, change judge | FastAPI + Postgres/pgvector + YAML corpus in git | new |

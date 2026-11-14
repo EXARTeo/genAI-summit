@@ -16,6 +16,8 @@ docs/
 | `architecture/` | [Synthetic test data](architecture/synthetic-data.md) | How `generate_data` builds schema-correct, business-realistic test data: LLM-drafted GenerationSpec → DAG sampler + rule enforcement, twins and edge cases per template, validation gates, Data Card, sandbox libraries, MVP cut |
 | `architecture/` | [Diagrams](architecture/diagrams/) | PNG + SVG: containers, engineer pipeline, regulation change, traceability (rebuild: `scripts/build-diagrams.*`) |
 | `architecture/` | [Design document (PDF, Greek)](architecture/ai-act-governance-copilot.pdf) | Full system design: personas, layers, agents, HITL gates, data model, eval, MVP |
+| `services/` | [Frontend](services/frontend.md) | Engineer workspace scaffold: structure, design system (`@/shared/ui`), motion, brand tokens and palette (logo TODO), API client + mock mode, systems feature, how to add a feature, Docker/nginx |
+| `services/` | [Frontend: audit workflow](services/frontend-audit-workflow.md) | Audit run page (live pipeline stepper, artifacts, Langfuse links), approvals inbox + drawer, memory ledger, regulation changes |
 | `services/` | [Backend: systems, files, memory, audits](services/backend-systems.md) | Systems, versioned workspace files, memory, audits, approvals, seed import and the agents' internal API |
 | `services/` | [Backend: async sub-agents](services/backend.md) | The backend's task mirror, task routes and sockets, channel frames, the wake-up flow and its settings |
 | `services/` | [Agents service](services/agents-service.md) | How the agents service is built: run path, filesystem and uploads, tools and approvals, MCP, sandbox, tracing, env vars |

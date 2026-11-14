@@ -18,6 +18,7 @@ First start takes about a minute: Langfuse runs its Postgres and ClickHouse migr
 | Service | Image | Host port | Networks | Healthcheck |
 | --- | --- | --- | --- | --- |
 | `backend` | built from `./backend` (python:3.12-slim) | `127.0.0.1:${BACKEND_PORT:-8100}` → 8000 | `backend`, `edge`, `langfuse` | `GET /health` (python urllib) |
+| `frontend` | built from `./frontend` (node:22 build → nginx-unprivileged 1.27.3), read-only root fs | `127.0.0.1:${FRONTEND_PORT:-8080}` → 8080 | `edge` | `GET /healthz` (wget) |
 | `agents` | built from `./agents` (python:3.12-slim) | none (8003 internal) | `backend`, `edge`, `langfuse`, `mcp_net`, `sandbox_net` | `GET /health` (python urllib) |
 | `reg-memory` | built from `./reg-memory` (python:3.12-slim), volume `reg-memory-data` → `/data` | none (8010 internal) | `backend`, `edge` | `GET /health` (python urllib) |
 | `model-gateway` | built from `./model-gateway` (python:3.12-slim) | `127.0.0.1:${MODEL_GATEWAY_PORT:-8200}` → 8000 | `backend`, `edge`, `sandbox_models` | `GET /health` (python urllib) |

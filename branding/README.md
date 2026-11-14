@@ -2,7 +2,12 @@
 
 The single source of truth for the product's identity. Everything else (the frontend, the presentations, the docs) reads from here instead of copying colours or names.
 
-> **Status:** placeholder values. Replace `name`, `tagline`, colours, fonts and logos once the brand is decided.
+> **Status:** working brand. `name` is **AI Act Copilot** (TODO: confirm or rename) and the palette is an
+> "AI governance / trust" look (ink/indigo base, teal accent, amber for human approvals).
+>
+> **TODO(brand): replace placeholder logo.** `logo/logo.svg` (shield + check) is a placeholder; the frontend
+> copies it in `product/frontend/public/favicon.svg` and `product/frontend/src/shared/ui/logo.tsx`. The PNGs
+> (`logo-on-light.png`, `logo-on-dark.png`, `icon.png`) do not exist yet, so decks show a text wordmark.
 
 ## Files
 
@@ -28,6 +33,11 @@ Colours are **semantic**: code and slides ask for `primary` or `muted`, never a 
 | `primary` | Brand colour: title slides, buttons, highlights |
 | `primary_foreground` | Text on top of `primary` |
 | `accent` | Small highlights: bars, bullets, links |
+| `surface_muted` | Sunken areas: table headers, code, inputs at rest |
+| `ring` | Focus rings |
+| `accent_foreground` | Text on top of `accent` |
+| `success`, `danger`, `info` | Semantic states (supports compliance, gap, info) |
+| `warning`, `warning_foreground` | Human-in-the-loop: approvals, needs-review, inconclusive |
 
 ## Generate CSS variables
 
@@ -41,4 +51,6 @@ The CSS defines `--color-*` and `--font-*` variables on `:root`, switches to dar
 
 1. Edit `brand.json` (and drop the new logo files into `logo/`).
 2. Run `./scripts/build-decks.sh` (or `.ps1`) to rebuild every deck with the new look.
-3. Run `uv run python branding/export_tokens.py` and copy `dist/tokens.css` into the frontend.
+3. Run `uv run python branding/export_tokens.py --frontend` (or `npm run tokens` in `product/frontend/`): it
+   writes `product/frontend/src/styles/theme/tokens.css`, which Tailwind reads (`--rgb-*` channels allow
+   opacity like `bg-primary/10`). `tests/test_branding.py` fails when that file is stale.
