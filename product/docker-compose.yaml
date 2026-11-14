@@ -137,6 +137,36 @@ services:
       - edge
       - langfuse
 
+  frontend: # 8080 (nginx), published on 8080
+    build:
+      context: ./frontend
+      # Baked into the static build (Vite); change them and rebuild.
+      args:
+        VITE_USE_MOCKS: ${VITE_USE_MOCKS:-false}
+        VITE_LANGFUSE_URL: ${VITE_LANGFUSE_URL:-http://localhost:3400}
+        VITE_LANGFUSE_PROJECT_ID: ${VITE_LANGFUSE_PROJECT_ID:-product}
+    # Serves the SPA and proxies /api (HTTP + WebSockets) to backend:8000, so the
+    # browser has one origin. Starts without the backend (nginx resolves per request).
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 4
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging: *logging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+    networks:
+      - edge        # reaches backend:8000; published UI port
+
   agents: # 8003, not published
     build:
       context: ./agents
