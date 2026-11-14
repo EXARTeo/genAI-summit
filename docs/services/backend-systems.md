@@ -98,6 +98,14 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 | `POST /internal/audits/{id}/artifacts` | new artifact version (actor `agent[:name]`) |
 | `PUT /internal/audits/{id}/datasets/public/{slug}/{name}` | store one file of a human-approved public reference dataset (`router/internal_datasets.py`); only `data.csv`, `mapping.yaml`, `datasheet.md`, `source.json` under `datasets/public/<slug>/` (lower-case slug), JSON `{content, contentType?, reason?, data?}`, logged with run/trace ids |
 
+| `GET /internal/impact-index` | per system: its latest audit (with findings) → live `findings` (artifact data + `id`), `tests` (test_result rows), context `requirements`, `kb_version` (the change judge's impact index) |
+| `POST /internal/systems/{id}/audits` | a new audit started by an agent (the change judge's re-run, actor `agent:<X-Agent-Name>`); starts its pipeline |
+| `PUT /internal/regulation/changes/{id}/judgement` | `{affected: [...], decidedBy}` from the change judge onto `regulation_changes.data` (`judge: done`; a human `humanDecision` is kept) |
+
+`POST /v1/systems/{id}/audits` (and the internal one) call the agents service's `POST /audits/{id}/run`
+(`utils/audit_pipeline.py: start_pipeline`, best effort, off with `AUDIT_PIPELINE_AUTOSTART=false` or
+`data.autostart: false`).
+
 The agent cannot write the system folder, except `datasets/public/<slug>/` (the four files above) for a public dataset a human approved.
 
 ## Audit data and status

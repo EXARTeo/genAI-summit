@@ -2,14 +2,13 @@
 
 `product/agents/` runs the agents and streams their work to the backend as
 AG-UI events over SSE. It implements [the backend contract](../contracts/agents-contract.md)
-exactly; this page is how it is built inside. Port **8003**, FastAPI, OpenAI
-models through LangChain/deepagents, durable state in the `agent_runtime`
-Postgres database.
+exactly; this page is how it is built inside. Port **8003**, FastAPI, **Google
+Gemini** models through LangChain (`langchain-google-genai`) and deepagents, durable state in the
+`agent_runtime` Postgres database.
 
-> Hackathon rule: this is the runtime only. **No agent ships with it**: the
-> product agent is written after kickoff as `product/agents/definitions/<agent-name>/`
-> (see [Adding an agent](#adding-an-agent)), and the harness is customised to fit
-> the idea. Until then `GET /agents` is `[]` and a run answers 404.
+It ships one Python agent, **`audit-pipeline`** (the engineer audit pipeline and the change judge:
+[agents pipeline](agents-pipeline.md)); declarative chat agents go in `product/agents/definitions/<slug>/`
+(see [Adding an agent](#adding-an-agent)).
 
 ## Routes
 
@@ -21,6 +20,8 @@ Postgres database.
 | `POST` | `/agents/{slug}/resume` | secret | Resume a run paused on HITL interrupt(s) (contract § `/resume`) |
 | `*` | `/ap/...` | secret + launch token | The Agent Protocol the async sub-agents call, in process |
 | `*` | `/tasks/...` | secret | The backend's internal task API (async sub-agents) |
+| `POST` | `/audits/{id}/run`, `/audits/{id}/resume`; `GET /audits/{id}/state` | secret | Start / resume (a gate decision) / inspect an audit's pipeline ([agents pipeline](agents-pipeline.md)) |
+| `POST` | `/changes/{id}/judge` | secret | Impact index + change judge for a RegChange |
 | `GET` | `/internal/systems/{id}/memory` | secret | Read-only view of a system's agent memory: `MEMORY.md` + every entry with provenance (debugging, judges; [Memory](#memory)) |
 
 "Secret" is `X-Internal-Service-Secret` equal to `INTERNAL_SERVICE_SECRET`
@@ -40,7 +41,9 @@ product/agents/
                        hitl_resume (the resume Command), checkpointer (head + bindings),
                        declarative (YAML helpers), async_tasks
   schema/              DTOs, one module per concept (import the leaf module)
-  definitions/         the product's agent definitions, one folder per agent (empty for now)
+  definitions/         declarative agent definitions, one folder per agent
+  pipeline/            the audit pipeline (graph, deep-agent steps, prompts, verifiers) and the
+                       impact pipeline (impact index, change judge): agents-pipeline.md
   core/                settings, logging (hashed ids), security (internal secret), error_handling
   harness/
     abstractions/      BaseAgent, DeepAgent, LangGraphAgent, AgentSpec, YamlDeepAgent
@@ -51,7 +54,8 @@ product/agents/
     filesystem/        the run's mount table, branch scratch, sandbox backend
     memory/            per-system agent memory: system_memories table, /memory/ mount, binding
     middlewares/       tool errors, summarization (compaction), rate-limit retry
-    models/            reasoning summaries for OpenAI reasoning models
+    models/            Gemini model access (gemini.py), the scripted fake model (fake.py),
+                       reasoning summaries (OpenAI-only; unused by the product)
     observability/     Langfuse (opt-in, fail-open), nested under the backend's trace
     prompt_engineering/ the composed system prompt, one module per section
     tools/             ask_user, present_artifact, view_image, render_chart, remember, forget;
@@ -234,8 +238,8 @@ public datasets that match an audited system before any synthetic data is made
   through `PUT /internal/audits/{id}/datasets/public/{slug}/{file}` (`BACKEND_INTERNAL_URL`, default
   `http://backend:8000`, secret `INTERNAL_SERVICE_SECRET`).
 
-`build_public_dataset_tools()` returns both as LangChain tools; they are not in the registry yet (the pipeline
-wires them). Local try-out: `python -m harness.tools.public_datasets search --system-dir <case> --out-dir <dir>`,
+`build_public_dataset_tools()` returns both as LangChain tools; the audit pipeline calls `run_search` /
+`run_fetch` directly in its `find_public_data` node and gate. Local try-out: `python -m harness.tools.public_datasets search --system-dir <case> --out-dir <dir>`,
 then `fetch --candidates <json> --id <id> --approved-by <who> --out-dir <dir>`. Tests:
 `tests/agents/test_public_datasets.py` (mocked HTTP).
 
@@ -255,7 +259,10 @@ fail-open: a Langfuse outage costs traces, never a run.
 | `APP_ENV` | `development` | Anything but `development`/`test` requires `INTERNAL_SERVICE_SECRET` |
 | `LOG_LEVEL` / `LOG_FORMAT` | `INFO` / `console` | `json` for structured logs |
 | `LOG_REDACTION_SECRET` | random per process | Keys the `h:` id hashes; use the backend's value |
-| `OPENAI_API_KEY` | | The models |
+| `GOOGLE_API_KEY` | | Gemini, the only provider; empty = a clear `RUN_ERROR` ([agents pipeline](agents-pipeline.md#model-access-gemini)) |
+| `GEMINI_MODEL` / `GEMINI_MODEL_REASONING` | `gemini-3.5-flash-lite` / empty | Default and reasoning-role models |
+| `AGENTS_FAKE_LLM` | `false` | Deterministic stub model for dry runs |
+| `REG_MEMORY_URL`, `PIPELINE_*`, `CHANGE_JUDGE_MODEL`, `OUMI_*` | | The pipelines ([settings](agents-pipeline.md#pipeline-settings)) |
 | `AGENT_RUNTIME_DATABASE_URL` | `postgresql://postgres:postgres@postgres:5432/agent_runtime` | psycopg conninfo; the database is created if missing |
 | `LANGGRAPH_AES_KEY` | empty (plaintext) | 16, 24 or 32 **characters** (e.g. `openssl rand -hex 16`); encrypts checkpoints and files. Never change it once data exists |
 | `INTERNAL_SERVICE_SECRET` | empty | The caller secret (see Routes) |
@@ -267,7 +274,7 @@ fail-open: a Langfuse outage costs traces, never a run.
 | `LANGFUSE_BASE_URL` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | empty | Tracing off unless all three are set |
 | `DEFAULT_AGENT_SLUG` | none | Marked `default` in `GET /agents` (set it to the product agent's slug) |
 | `AGENTS_DIR` | the image's `definitions/` | Folder of `<slug>/agent.yaml` definitions |
-| `AGENT_MODELS` | gpt-6-luna, gpt-5, gpt-4o(-mini) | JSON `{"provider:model": {"reasoning": bool, "context_window": int}}` |
+| `AGENT_MODELS` | `google_genai:gemini-3.5-{flash-lite,flash,pro}` | JSON `{"provider:model": {"reasoning": bool, "context_window": int}}` |
 | `OUTPUT_MAX_FILE_BYTES` / `OUTPUT_MAX_FILES` | 26214400 / 20 | Presented bytes per file / per run |
 | `CONVERSATION_FILE_MAX_BYTES` | 104857600 | One stored file |
 | `MEMORY_MAX_ENTRIES_PER_SYSTEM` | 200 | New memory entries per audited system (updates always allowed) |
@@ -282,7 +289,7 @@ A folder `product/agents/definitions/<agent-name>/` (the folder name is the slug
 set `DEFAULT_AGENT_SLUG` to it) with:
 
 - `agent.yaml`: `id`, `slug`, `name`, `version`, `type: deep_agent`,
-  `description`, `icon`, `prompt: ./AGENT.md`, `model: {main: openai:<model>}`,
+  `description`, `icon`, `prompt: ./AGENT.md`, `model: {main: google_genai:<model>}`,
   `tools` (`{native: render_chart}` or `{server_id: tavily, tool_name: tavily-search}`),
   `all_mcp_tools`, `subagents` (name, description, prompt, optional model and
   tool subset, nested `subagents` up to 3 levels), `hitl` (`tool: true|false`;
