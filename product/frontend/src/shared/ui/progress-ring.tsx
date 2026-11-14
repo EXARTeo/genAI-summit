@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { color } from '@/shared/lib/consts/ui';
 import { cn } from '@/shared/lib/utils';
 import type { BadgeTone } from './badge';
 
@@ -15,12 +16,12 @@ export interface ProgressRingProps {
 }
 
 const COLOR: Record<string, string> = {
-  primary: 'rgb(var(--rgb-primary))',
-  accent: 'rgb(var(--rgb-accent))',
-  success: 'rgb(var(--rgb-success))',
-  warning: 'rgb(var(--rgb-warning))',
-  danger: 'rgb(var(--rgb-danger))',
-  info: 'rgb(var(--rgb-info))',
+  primary: color('primary'),
+  accent: color('accent'),
+  success: color('success'),
+  warning: color('warning'),
+  danger: color('danger'),
+  info: color('info'),
 };
 
 let gradientSeq = 0;
@@ -50,19 +51,12 @@ export function ProgressRing({
         {tone === 'gradient' && (
           <defs>
             <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="rgb(var(--rgb-primary))" />
-              <stop offset="100%" stopColor="rgb(var(--rgb-accent))" />
+              <stop offset="0%" stopColor={color('primary')} />
+              <stop offset="100%" stopColor={color('accent')} />
             </linearGradient>
           </defs>
         )}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="rgb(var(--rgb-border))"
-          strokeWidth={stroke}
-        />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color('border')} strokeWidth={stroke} />
         <motion.circle
           cx={size / 2}
           cy={size / 2}

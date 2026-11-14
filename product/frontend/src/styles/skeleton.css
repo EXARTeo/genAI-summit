@@ -1,19 +1,17 @@
+/* Loading skeletons. Colours: --skeleton-* in theme/components.css. */
 .skeleton {
   position: relative;
   overflow: hidden;
-  border-radius: 0.5rem;
-  background: rgb(var(--rgb-surface-muted));
+  border-radius: var(--radius-lg);
+  background: var(--skeleton-bg);
 }
 .skeleton::after {
   content: '';
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgb(var(--rgb-surface) / 0.65), transparent);
+  background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
-}
-:root[data-theme='dark'] .skeleton::after {
-  background: linear-gradient(90deg, transparent, rgb(var(--rgb-text) / 0.06), transparent);
 }
 @keyframes skeleton-shimmer {
   to {

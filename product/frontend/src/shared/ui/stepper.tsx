@@ -37,7 +37,7 @@ function Indicator({ state, index }: { state: StepState; index: number }) {
   switch (state) {
     case 'done':
       return (
-        <span className={cn(base, 'border-success bg-success text-white')}>
+        <span className={cn(base, 'border-success bg-success text-success-foreground')}>
           <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
             <motion.path
               d="M5 12.5l4.5 4.5L19 7.5"

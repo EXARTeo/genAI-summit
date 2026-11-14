@@ -1,8 +1,25 @@
+/*
+ * Global stylesheet entry point. The rules live in ./styles/*.css, one file per concern;
+ * this file only wires them together, in cascade order. Keep every statement an @import
+ * (postcss-import silently drops imports that follow any other statement).
+ *
+ * Theme layers (src/styles/theme), in order:
+ *   1. tokens.css      brand palette, GENERATED from branding/brand.json (npm run tokens)
+ *   2. semantic.css    roles: background, foreground, surface/raised/sunken, primary, status, chart, hover
+ *   3. shape.css       radii, shadows, layout sizes, easing
+ *   4. components.css  per-component vars: shell, sidebar, scrim, toast, skeleton, flow
+ * tailwind.config.ts reads only these CSS vars; components never hard-code a colour.
+ */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
+
 @import './styles/theme/tokens.css';
-@import './styles/theme/surfaces.css';
+@import './styles/theme/semantic.css';
+@import './styles/theme/shape.css';
+@import './styles/theme/components.css';
+
 @import './styles/base.css';
+@import './styles/misc.css';
 @import './styles/motion.css';
 @import './styles/skeleton.css';
 @import './styles/scrollbars.css';
@@ -10,6 +27,6 @@
 @import './styles/markdown.css';
 @import './styles/flow.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';

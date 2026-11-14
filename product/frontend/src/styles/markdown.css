@@ -1,7 +1,7 @@
 .markdown {
   font-size: 14px;
   line-height: 1.65;
-  color: rgb(var(--rgb-text));
+  color: rgb(var(--foreground));
   overflow-wrap: anywhere;
 }
 .markdown > * + * {
@@ -29,7 +29,7 @@
   margin-top: 0;
 }
 .markdown a {
-  color: rgb(var(--rgb-primary));
+  color: rgb(var(--primary));
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -47,23 +47,23 @@
   margin-top: 0.25em;
 }
 .markdown li::marker {
-  color: rgb(var(--rgb-accent));
+  color: rgb(var(--accent));
 }
 .markdown blockquote {
-  border-left: 3px solid rgb(var(--rgb-primary) / 0.5);
+  border-left: 3px solid rgb(var(--primary) / 0.5);
   padding-left: 0.9em;
-  color: rgb(var(--rgb-muted));
+  color: rgb(var(--muted-foreground));
 }
 .markdown code {
   font-size: 0.85em;
   padding: 0.12em 0.38em;
   border-radius: 0.35rem;
-  background: rgb(var(--rgb-surface-muted));
+  background: rgb(var(--surface-sunken));
 }
 .markdown pre {
   padding: 0.9rem 1rem;
   border-radius: 0.6rem;
-  background: rgb(var(--rgb-surface-muted));
+  background: rgb(var(--surface-sunken));
   overflow-x: auto;
 }
 .markdown pre code {
@@ -78,16 +78,16 @@
 }
 .markdown th,
 .markdown td {
-  border-bottom: 1px solid rgb(var(--rgb-border));
+  border-bottom: 1px solid rgb(var(--border));
   padding: 0.45rem 0.75rem 0.45rem 0;
   text-align: left;
 }
 .markdown th {
   font-size: 12px;
   font-weight: 500;
-  color: rgb(var(--rgb-muted));
+  color: rgb(var(--muted-foreground));
 }
 .markdown hr {
   border: 0;
-  border-top: 1px solid rgb(var(--rgb-border));
+  border-top: 1px solid rgb(var(--border));
 }

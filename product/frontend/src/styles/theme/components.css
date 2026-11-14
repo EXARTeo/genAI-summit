@@ -1,0 +1,56 @@
+/*
+ * Layer 4 of 4: component vars. The look of individual components, built only from
+ * semantic.css + shape.css. Tweak a component's look here, not in its .tsx.
+ */
+:root {
+  /* App frame: the sidebar sits on this tint; the main content floats beside it as a
+     rounded card. Sidebar geometry: a 2.25rem icon box behind a 0.875rem lead centres
+     exactly in the 4rem collapsed rail, so icons stay pinned while the width animates. */
+  --shell-frame: color-mix(in srgb, rgb(var(--surface-sunken)) 70%, rgb(var(--border)));
+  --shell-card: rgb(var(--background));
+  --shell-card-radius: 1.75rem;
+  --shell-card-shadow: 0 12px 40px -16px rgb(var(--ink-black) / 0.22);
+  /* Inner height of the main card: full-height pages (chat) use
+     calc(var(--shell-viewport) - var(--topbar-height)). The lg card has a 12 px margin
+     top and bottom and a 1 px border. */
+  --shell-viewport: 100dvh;
+  --topbar-bg: color-mix(in srgb, var(--shell-card) 85%, transparent);
+
+  /* Sidebar active ("pinned") entry. */
+  --nav-active-bg: rgb(var(--primary) / 0.1);
+  --nav-active-ring: rgb(var(--primary) / 0.16);
+
+  /* Switch thumb. */
+  --switch-thumb: rgb(var(--ink-white));
+
+  /* Modal overlays (dialogs, sheets, mobile drawer). */
+  --scrim: rgb(var(--ink-black) / 0.4);
+
+  /* Toasts (sonner). */
+  --toast-radius: var(--radius-2xl);
+  --toast-shadow: 0 12px 32px -10px rgb(var(--foreground) / 0.25);
+
+  /* Skeleton shimmer. */
+  --skeleton-bg: rgb(var(--surface-sunken));
+  --skeleton-shine: rgb(var(--surface) / 0.65);
+
+  /* Scrollbars. */
+  --scrollbar-thumb: rgb(var(--muted-foreground) / 0.3);
+  --scrollbar-thumb-hover: rgb(var(--muted-foreground) / 0.55);
+
+  /* React Flow canvases. */
+  --flow-node-radius: var(--radius-2xl);
+  --flow-edge: rgb(var(--muted-foreground) / 0.6);
+  --flow-dots: rgb(var(--muted-foreground) / 0.3);
+}
+@media (min-width: 1024px) {
+  :root {
+    --shell-viewport: calc(100dvh - 1.5rem - 2px);
+  }
+}
+:root[data-theme='dark'] {
+  --shell-frame: color-mix(in srgb, rgb(var(--background)) 40%, rgb(var(--ink-black)));
+  --shell-card-shadow: 0 12px 40px -16px rgb(var(--ink-black) / 0.7);
+  --scrim: rgb(var(--ink-black) / 0.6);
+  --skeleton-shine: rgb(var(--foreground) / 0.06);
+}

@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { PanelLeft, Search } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import { env } from '@/shared/lib/env';
+import { INTERACTIVE_SURFACE, RAISED_ON_FRAME } from '@/shared/lib/consts/ui';
 import { cn } from '@/shared/lib/utils';
 import { useNavBadges } from '@/shared/stores/nav';
 import { useUiStore } from '@/shared/stores/ui';
@@ -19,8 +20,7 @@ import { SidebarSlotTarget } from './sidebarSlot';
  * - the top action is a raised card (border + shadow-sm on the card colour) that
  *   flattens to a plain icon row when the rail collapses.
  */
-const ROW =
-  'group/nav relative flex h-9 w-full items-center gap-1 rounded-xl px-1.5 text-sm text-text/90 outline-none transition-colors duration-150 hover:bg-[var(--hover-surface)] active:bg-[var(--hover-surface-strong)] focus-visible:bg-[var(--hover-surface-strong)]';
+const ROW = `group/nav relative flex h-9 w-full items-center gap-1 rounded-xl px-1.5 text-sm text-text/90 outline-none transition-colors duration-150 ${INTERACTIVE_SURFACE}`;
 const ICON_BOX = 'relative z-[1] grid size-9 shrink-0 place-items-center';
 const ICON = 'size-[18px] transition-transform duration-300 ease-out motion-safe:group-hover/nav:scale-110';
 const PILL_TWEEN = { type: 'tween', duration: 0.22, ease: [0.16, 1, 0.3, 1] } as const;
@@ -155,7 +155,7 @@ export function SidebarContent({
               type="button"
               onClick={toggle}
               aria-label="Collapse sidebar"
-              className="sidebar-reveal absolute right-1 top-1.5 hidden size-9 place-items-center rounded-xl text-muted transition-colors hover:bg-[var(--hover-surface)] hover:text-text lg:grid"
+              className="sidebar-reveal absolute right-1 top-1.5 hidden size-9 place-items-center rounded-xl text-muted transition-colors hover:bg-hover hover:text-text lg:grid"
             >
               <PanelLeft className="size-5" />
             </button>
@@ -176,9 +176,7 @@ export function SidebarContent({
             className={cn(
               ROW,
               'h-10 border font-medium text-text',
-              collapsed
-                ? 'border-transparent px-[5px]'
-                : 'border-border/70 bg-[var(--shell-card)] px-[5px] shadow-sm hover:bg-[var(--shell-card)] hover:shadow-card dark:border-border',
+              collapsed ? 'border-transparent px-[5px]' : cn('px-[5px]', RAISED_ON_FRAME),
             )}
           >
             <span className={ICON_BOX}>
@@ -230,7 +228,7 @@ export function Sidebar() {
       data-state={collapsed ? 'collapsed' : 'expanded'}
       className={cn(
         'sticky top-0 hidden h-svh shrink-0 overflow-hidden transition-[width] duration-200 ease-linear lg:block',
-        collapsed ? 'w-[var(--sidebar-width-collapsed)]' : 'w-[var(--sidebar-width)]',
+        collapsed ? 'w-sidebar-collapsed' : 'w-sidebar',
       )}
     >
       <SidebarContent collapsed={collapsed} layoutGroup="rail" />

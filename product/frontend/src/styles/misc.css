@@ -1,0 +1,20 @@
+/* Small shared utility classes (not covered by Tailwind). */
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Metrics, ids, durations: always tabular. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv11';
+}
+
+/* Small uppercase section label. */
+.label-caps {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--muted-foreground));
+}

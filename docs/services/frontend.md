@@ -38,7 +38,7 @@ src/
 │   ├── lib/              api.ts, client-id.ts, env.ts, query-client.ts, motion.ts, format.ts, utils.ts, mocks/
 │   ├── hooks/            useTheme, useHotkey, useMediaQuery
 │   └── stores/           zustand: theme, ui (sidebar, palette), nav (sidebar badge counts)
-├── styles/               theme/tokens.css (generated), theme/surfaces.css, base, motion, skeleton, toast, scrollbars, markdown, flow
+├── styles/               theme/{tokens (generated), semantic, shape, components}.css, base, misc, motion, skeleton, toast, scrollbars, markdown, flow (see Theming)
 └── test/setup.ts         jest-dom, jsdom polyfills (matchMedia, ResizeObserver, Storage on Node ≥ 22)
 ```
 
@@ -100,9 +100,38 @@ Import everything from `@/shared/ui`. Exact exports:
 | States | `Skeleton`, `SkeletonText`, `SkeletonCard`, `EmptyState`, `ErrorState` (understands `ApiError`, retry) |
 | Misc | `Tabs` (+ `Tabs.List/Trigger/Content`), `Tooltip`, `TooltipProvider`, `Toaster` / `toast` (sonner), `Logo`, `LogoMark` |
 
-Colours are Tailwind tokens backed by CSS variables: `background`, `surface`, `surface-muted`, `text`,
-`muted`, `border`, `ring`, `primary(-foreground)`, `accent(-foreground)`, `success`, `warning(-foreground)`,
-`danger`, `info`, all with opacity (`bg-primary/10`). Never write hex values in components.
+Colours are Tailwind tokens backed by CSS variables (see Theming): `background`, `foreground` (= `text`),
+`surface` (+ `-raised`, `-sunken`; `surface-muted` = `sunken`), `muted`, `border`, `ring`,
+`primary|accent|success|warning|danger|info` each with `-foreground`, `chart-1..5`, all with opacity
+(`bg-primary/10`); plus full-colour component tokens `hover(-strong)`, `shell-frame`, `shell-card`, `topbar`,
+`scrim`, `switch-thumb`. Never write hex, `rgb()`, or Tailwind palette colours (`white`, `black`, `zinc-*`) in
+components.
+
+## Theming
+
+Organised like magenticx `agentic_ui` (`src/styles/theme/`): four layers, imported in this order by `src/index.css`
+(the single entry point; one file per concern after them, Tailwind last).
+
+| Layer | File | Holds | Change it for |
+| --- | --- | --- | --- |
+| 1. Brand palette | `theme/tokens.css` (**generated**, do not edit) | `--color-*` (hex) + `--rgb-*` (channels) for light, dark and `prefers-color-scheme` | Nothing: edit `branding/brand.json` and regenerate |
+| 2. Semantic | `theme/semantic.css` | Roles as `R G B` channels: `--background`, `--foreground`, `--surface(-raised/-sunken)`, `--muted-foreground`, `--border`, `--ring`, `--primary`, `--accent`, status + `-foreground`, `--chart-1..5`, `--hover-surface(-strong)`, `--selection`, `--focus-ring*` | Re-mapping a role (e.g. raised surfaces, chart order) |
+| 3. Shape | `theme/shape.css` | Radii (`--radius-sm..2xl`), shadows (`--shadow-sm/soft/pop`, light + dark), layout sizes (`--content-max`, `--topbar-height`, `--sidebar-width*`), easing and durations | Corners, depth, spacing of the shell |
+| 4. Components | `theme/components.css` | `--shell-frame/card/card-radius/card-shadow`, `--topbar-bg`, `--nav-active-*`, `--scrim`, `--switch-thumb`, `--toast-*`, `--skeleton-*`, `--scrollbar-*`, `--flow-*` | One component's look |
+
+- `tailwind.config.ts` reads **only** these vars (colours, radii, shadows, widths); components use Tailwind
+  classes or, for inline styles / SVG / charts, `color('primary', 0.2)` from `src/shared/lib/consts/ui.ts`.
+- Repeated class recipes live in `src/shared/lib/consts/ui.ts` (`INTERACTIVE_SURFACE`, `INTERACTIVE_SURFACE_QUIET`,
+  `RAISED_ON_FRAME`): plain Tailwind strings, so `cn()` can still merge them.
+- Dark mode: `data-theme="light|dark"` on `<html>` (set before paint by `public/theme-init.js`, then by
+  `src/shared/stores/theme.ts`); Tailwind `dark:` matches `[data-theme="dark"]`. Layers 2-4 derive from the palette,
+  so only layers 1, 3 and 4 have dark overrides.
+- Optional brand keys (no rename needed): add `success_foreground`, `danger_foreground`, `info_foreground` or
+  `chart_1`..`chart_5` to both palettes in `brand.json` and they override the fallbacks in `semantic.css`.
+
+**Re-theme the whole app (light + dark):** edit the colours in `branding/brand.json`, then run
+`npm run tokens` in `product/frontend/` (= `uv run python branding/export_tokens.py --frontend` from the repo
+root). Vite hot-reloads the result; `tests/test_branding.py` fails if `tokens.css` is stale.
 
 ## Motion
 

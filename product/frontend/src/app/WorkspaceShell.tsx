@@ -40,13 +40,13 @@ export function WorkspaceShell() {
   const sectionKey = location.pathname.split('/').slice(0, 3).join('/');
 
   return (
-    <div className="flex h-svh overflow-hidden bg-[var(--shell-frame)]">
+    <div className="flex h-svh overflow-hidden bg-shell-frame">
       <Sidebar />
 
       <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
-          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] bg-[var(--shell-frame)] shadow-pop data-[state=open]:animate-[sheet-in-left_260ms_cubic-bezier(0.16,1,0.3,1)] lg:hidden">
+          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim lg:hidden" />
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-sidebar bg-shell-frame shadow-pop data-[state=open]:animate-[sheet-in-left_260ms_cubic-bezier(0.16,1,0.3,1)] lg:hidden">
             <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">Main navigation</DialogPrimitive.Description>
             <SidebarContent
@@ -60,7 +60,7 @@ export function WorkspaceShell() {
 
       <div
         data-testid="main-card"
-        className="relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--shell-card)] lg:my-3 lg:mr-3 lg:rounded-[var(--shell-card-radius)] lg:border lg:border-border/60 lg:shadow-[var(--shell-card-shadow)]"
+        className="relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-shell-card lg:my-3 lg:mr-3 lg:rounded-shell lg:border lg:border-border/60 lg:shadow-shell"
       >
         <TopBar />
         <main className="mx-auto w-full max-w-content flex-1 px-4 py-6 lg:px-8 lg:py-8">

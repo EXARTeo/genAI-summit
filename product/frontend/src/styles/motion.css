@@ -3,13 +3,6 @@
  * Rule: subtle (<= 400 ms, small distances), never blocks input, and everything
  * collapses to instant under prefers-reduced-motion.
  */
-:root {
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --dur-slow: 240ms;
-}
 
 /* Clickable surface: border + shadow only, no jump. */
 .hover-lift {
@@ -31,7 +24,7 @@
   margin-left: 2px;
   vertical-align: text-bottom;
   border-radius: 1px;
-  background: rgb(var(--rgb-accent));
+  background: rgb(var(--accent));
   animation: caret-blink 1s steps(2, start) infinite;
 }
 @keyframes caret-blink {
@@ -61,19 +54,19 @@
   position: absolute;
   inset: -3px;
   border-radius: inherit;
-  box-shadow: 0 0 0 0 rgb(var(--rgb-warning) / 0.35);
+  box-shadow: 0 0 0 0 rgb(var(--warning) / 0.35);
   animation: approval-pulse 2.4s var(--ease-out) infinite;
   pointer-events: none;
 }
 @keyframes approval-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgb(var(--rgb-warning) / 0.3);
+    box-shadow: 0 0 0 0 rgb(var(--warning) / 0.3);
   }
   70% {
-    box-shadow: 0 0 0 5px rgb(var(--rgb-warning) / 0);
+    box-shadow: 0 0 0 5px rgb(var(--warning) / 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgb(var(--rgb-warning) / 0);
+    box-shadow: 0 0 0 0 rgb(var(--warning) / 0);
   }
 }
 
@@ -89,7 +82,7 @@
   right: 0;
   top: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgb(var(--rgb-primary)), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--primary)), transparent);
   background-size: 50% 100%;
   background-repeat: no-repeat;
   animation: live-slide 1.8s var(--ease-in-out) infinite;
@@ -107,8 +100,8 @@
 /* Agent working: a thin teal arc spinning on a faint ring. */
 .agent-orb {
   border-radius: 9999px;
-  border: 1.5px solid rgb(var(--rgb-primary) / 0.2);
-  border-top-color: rgb(var(--rgb-primary));
+  border: 1.5px solid rgb(var(--primary) / 0.2);
+  border-top-color: rgb(var(--primary));
   animation: orb-spin 0.9s linear infinite;
 }
 @keyframes orb-spin {
@@ -124,14 +117,14 @@
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: rgb(var(--rgb-primary));
+  background: rgb(var(--primary));
 }
 .live-dot::after {
   content: '';
   position: absolute;
   inset: -3px;
   border-radius: inherit;
-  background: rgb(var(--rgb-primary) / 0.35);
+  background: rgb(var(--primary) / 0.35);
   animation: live-breathe 1.8s var(--ease-in-out) infinite;
 }
 @keyframes live-breathe {
@@ -150,11 +143,11 @@
 .text-shimmer {
   background: linear-gradient(
     90deg,
-    rgb(var(--rgb-text)) 0%,
-    rgb(var(--rgb-text)) 40%,
-    rgb(var(--rgb-muted)) 50%,
-    rgb(var(--rgb-text)) 60%,
-    rgb(var(--rgb-text)) 100%
+    rgb(var(--foreground)) 0%,
+    rgb(var(--foreground)) 40%,
+    rgb(var(--muted-foreground)) 50%,
+    rgb(var(--foreground)) 60%,
+    rgb(var(--foreground)) 100%
   );
   background-size: 250% 100%;
   -webkit-background-clip: text;

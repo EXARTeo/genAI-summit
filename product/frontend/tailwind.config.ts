@@ -1,8 +1,10 @@
 import type { Config } from 'tailwindcss';
 
-// Colours come from branding/brand.json via src/styles/theme/tokens.css (generated).
-// Never hard-code brand hex values here or in components.
-const token = (name: string) => `rgb(var(--rgb-${name}) / <alpha-value>)`;
+// Tailwind reads ONLY CSS variables (src/styles/theme/*). Colours come from
+// branding/brand.json via the generated tokens.css -> semantic.css; radii and shadows
+// from shape.css; shell/component colours from components.css.
+// Never hard-code hex, rgb or Tailwind palette colours (zinc, white, black...) here or in components.
+const channel = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
 
 const config: Config = {
   darkMode: ['class', '[data-theme="dark"]'],
@@ -11,26 +13,53 @@ const config: Config = {
     container: { center: true, padding: '1rem' },
     extend: {
       colors: {
-        background: token('background'),
-        surface: { DEFAULT: token('surface'), muted: token('surface-muted') },
-        text: token('text'),
-        muted: token('muted'),
-        border: token('border'),
-        ring: token('ring'),
-        primary: { DEFAULT: token('primary'), foreground: token('primary-foreground') },
-        accent: { DEFAULT: token('accent'), foreground: token('accent-foreground') },
-        success: token('success'),
-        warning: { DEFAULT: token('warning'), foreground: token('warning-foreground') },
-        danger: token('danger'),
-        info: token('info'),
+        background: channel('background'),
+        foreground: channel('foreground'),
+        surface: {
+          DEFAULT: channel('surface'),
+          raised: channel('surface-raised'),
+          sunken: channel('surface-sunken'),
+          // Legacy alias of `sunken`.
+          muted: channel('surface-sunken'),
+        },
+        text: channel('foreground'),
+        muted: channel('muted-foreground'),
+        border: channel('border'),
+        ring: channel('ring'),
+        primary: { DEFAULT: channel('primary'), foreground: channel('primary-foreground') },
+        accent: { DEFAULT: channel('accent'), foreground: channel('accent-foreground') },
+        success: { DEFAULT: channel('success'), foreground: channel('success-foreground') },
+        warning: { DEFAULT: channel('warning'), foreground: channel('warning-foreground') },
+        danger: { DEFAULT: channel('danger'), foreground: channel('danger-foreground') },
+        info: { DEFAULT: channel('info'), foreground: channel('info-foreground') },
+        chart: {
+          1: channel('chart-1'),
+          2: channel('chart-2'),
+          3: channel('chart-3'),
+          4: channel('chart-4'),
+          5: channel('chart-5'),
+        },
+        // Full colours (no opacity modifier): component vars from theme/components.css.
+        hover: { DEFAULT: 'var(--hover-surface)', strong: 'var(--hover-surface-strong)' },
+        shell: { frame: 'var(--shell-frame)', card: 'var(--shell-card)' },
+        topbar: 'var(--topbar-bg)',
+        scrim: 'var(--scrim)',
+        'switch-thumb': 'var(--switch-thumb)',
+        'nav-active': 'var(--nav-active-bg)',
       },
       fontFamily: {
         sans: ['var(--font-body)', 'Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
         heading: ['var(--font-heading)', 'Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'JetBrains Mono Variable', 'ui-monospace', 'monospace'],
       },
-      // Radii: 6 (controls), 8 (lg: buttons, inputs), 10 (xl: cards), 12 (2xl: dialogs, sheets).
-      borderRadius: { md: '0.375rem', lg: '0.5rem', xl: '0.625rem', '2xl': '0.75rem' },
+      borderRadius: {
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
+        shell: 'var(--shell-card-radius)',
+      },
       fontSize: {
         '2xs': ['11px', { lineHeight: '16px' }],
         xs: ['12px', { lineHeight: '16px' }],
@@ -41,14 +70,21 @@ const config: Config = {
         '2xl': ['22px', { lineHeight: '28px', letterSpacing: '-0.02em' }],
         '3xl': ['28px', { lineHeight: '34px', letterSpacing: '-0.025em' }],
       },
+      // Bare `border` / preflight default: the brand border, not Tailwind's gray-200.
+      borderColor: { DEFAULT: channel('border') },
+      ringColor: { DEFAULT: channel('ring') },
       maxWidth: { content: 'var(--content-max)' },
+      width: { sidebar: 'var(--sidebar-width)', 'sidebar-collapsed': 'var(--sidebar-width-collapsed)' },
+      height: { topbar: 'var(--topbar-height)' },
       boxShadow: {
+        sm: 'var(--shadow-sm)',
         card: 'var(--shadow-soft)',
         lift: 'var(--shadow-pop)',
         pop: 'var(--shadow-pop)',
         glow: 'var(--shadow-pop)',
+        shell: 'var(--shell-card-shadow)',
       },
-      transitionTimingFunction: { 'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      transitionTimingFunction: { 'out-expo': 'var(--ease-out)' },
     },
   },
   plugins: [],

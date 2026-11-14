@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { AlertTriangle, ArrowRight, Check, ShieldAlert, X } from 'lucide-react';
 import { useState } from 'react';
+import { color } from '@/shared/lib/consts/ui';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Tooltip } from '@/shared/ui';
@@ -229,7 +230,7 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
                           'num grid h-9 w-20 place-items-center rounded-md text-xs font-medium',
                           low && 'ring-2 ring-danger',
                         )}
-                        style={{ background: `rgb(var(--rgb-primary) / ${0.06 + 0.4 * (n / max)})` }}
+                        style={{ background: color('primary', 0.06 + 0.4 * (n / max)) }}
                       >
                         {n}
                       </motion.div>

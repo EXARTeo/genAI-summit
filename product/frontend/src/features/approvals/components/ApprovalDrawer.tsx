@@ -99,7 +99,7 @@ const DECISION_COPY: Record<Decision, { effect: string; submit: string; on: stri
   rejected: {
     effect: 'The run stops here.',
     submit: 'Reject run',
-    on: 'border-danger/70 bg-danger/[0.06] [&_.icon]:bg-danger [&_.icon]:text-white',
+    on: 'border-danger/70 bg-danger/[0.06] [&_.icon]:bg-danger [&_.icon]:text-danger-foreground',
   },
 };
 

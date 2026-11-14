@@ -1,12 +1,13 @@
 import { AlertTriangle } from 'lucide-react';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts';
+import { color } from '@/shared/lib/consts/ui';
 import { Badge, KeyValue } from '@/shared/ui';
 import type { ModelProfileData } from '../../lib/types';
 import { SimpleTable, SubHeading } from './common';
 
-const NEUTRAL = 'rgb(var(--rgb-text) / 0.22)';
-const WARN = 'rgb(var(--rgb-warning))';
-const MUTED = 'rgb(var(--rgb-muted))';
+const NEUTRAL = color('foreground', 0.22);
+const WARN = color('warning');
+const MUTED = color('muted-foreground');
 
 /** Feature sensitivity (one series, sorted) with protected proxies flagged in amber + icon. */
 export function ModelProfileView({ data }: { data: ModelProfileData }) {
@@ -69,7 +70,7 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
                     dy={4}
                     textAnchor="end"
                     fontSize={12}
-                    fill={r?.protectedProxy ? WARN : 'rgb(var(--rgb-text))'}
+                    fill={r?.protectedProxy ? WARN : color('foreground')}
                     style={{ fontFamily: "'JetBrains Mono Variable', ui-monospace, monospace" }}
                   >
                     {r?.protectedProxy ? '⚠ ' : ''}
@@ -81,11 +82,11 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
               tickLine={false}
             />
             <RTooltip
-              cursor={{ fill: 'rgb(var(--rgb-text) / 0.04)' }}
+              cursor={{ fill: color('foreground', 0.04) }}
               contentStyle={{
-                background: 'rgb(var(--rgb-surface))',
-                border: '1px solid rgb(var(--rgb-border))',
-                borderRadius: 8,
+                background: color('surface'),
+                border: `1px solid ${color('border')}`,
+                borderRadius: 'var(--radius-lg)',
                 fontSize: 12,
               }}
               formatter={(v: number, _n, p) => [

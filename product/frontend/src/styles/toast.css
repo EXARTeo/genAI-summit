@@ -1,29 +1,29 @@
-/* sonner, themed with the brand tokens */
+/* sonner, themed with the semantic tokens. Shape: --toast-* in theme/components.css. */
 [data-sonner-toaster] {
-  --normal-bg: rgb(var(--rgb-surface));
-  --normal-border: rgb(var(--rgb-border));
-  --normal-text: rgb(var(--rgb-text));
-  --success-bg: rgb(var(--rgb-surface));
-  --success-border: rgb(var(--rgb-success) / 0.4);
-  --success-text: rgb(var(--rgb-text));
-  --error-bg: rgb(var(--rgb-surface));
-  --error-border: rgb(var(--rgb-danger) / 0.4);
-  --error-text: rgb(var(--rgb-text));
-  --warning-bg: rgb(var(--rgb-surface));
-  --warning-border: rgb(var(--rgb-warning) / 0.45);
-  --warning-text: rgb(var(--rgb-text));
-  --border-radius: 0.75rem;
+  --normal-bg: rgb(var(--surface));
+  --normal-border: rgb(var(--border));
+  --normal-text: rgb(var(--foreground));
+  --success-bg: rgb(var(--surface));
+  --success-border: rgb(var(--success) / 0.4);
+  --success-text: rgb(var(--foreground));
+  --error-bg: rgb(var(--surface));
+  --error-border: rgb(var(--danger) / 0.4);
+  --error-text: rgb(var(--foreground));
+  --warning-bg: rgb(var(--surface));
+  --warning-border: rgb(var(--warning) / 0.45);
+  --warning-text: rgb(var(--foreground));
+  --border-radius: var(--toast-radius);
   font-family: var(--font-body), 'Inter Variable', system-ui, sans-serif;
 }
 [data-sonner-toast] {
-  box-shadow: 0 12px 32px -10px rgb(var(--rgb-text) / 0.25) !important;
+  box-shadow: var(--toast-shadow) !important;
 }
 [data-sonner-toast][data-type='success'] [data-icon] {
-  color: rgb(var(--rgb-success));
+  color: rgb(var(--success));
 }
 [data-sonner-toast][data-type='error'] [data-icon] {
-  color: rgb(var(--rgb-danger));
+  color: rgb(var(--danger));
 }
 [data-sonner-toast][data-type='warning'] [data-icon] {
-  color: rgb(var(--rgb-warning));
+  color: rgb(var(--warning));
 }

@@ -1,0 +1,61 @@
+/*
+ * Layer 2 of 4: semantic tokens.
+ *
+ *   tokens.css      generated brand palette (branding/brand.json): --color-* (hex), --rgb-* (channels)
+ *   semantic.css    THIS FILE: the roles the UI asks for, as "R G B" channels
+ *   shape.css       radii, shadows, layout sizes, easing (no colour decisions)
+ *   components.css  per-component vars (shell, sidebar, overlays, toasts, flow, markdown, ...)
+ *
+ * Components and Tailwind only ever read these semantic names (or component vars),
+ * never the --rgb-* palette directly, so a palette swap in brand.json re-themes everything.
+ * Every value is an "R G B" triplet so opacity works: rgb(var(--primary) / 0.1), bg-primary/10.
+ *
+ * Optional brand keys: `success_foreground`, `danger_foreground`, `info_foreground` and
+ * `chart_1..5` may be added to brand.json; until then the fallbacks below apply.
+ */
+:root {
+  /* Pure ink, only for scrims and shadows. */
+  --ink-black: 0 0 0;
+  --ink-white: 255 255 255;
+
+  /* Surfaces: page < surface (cards) < raised (popovers, floating) ; sunken = wells, inputs, code. */
+  --background: var(--rgb-background);
+  --foreground: var(--rgb-text);
+  --surface: var(--rgb-surface);
+  --surface-raised: var(--rgb-surface);
+  --surface-sunken: var(--rgb-surface-muted);
+  --muted-foreground: var(--rgb-muted);
+  --border: var(--rgb-border);
+  --ring: var(--rgb-ring);
+
+  /* Brand roles. */
+  --primary: var(--rgb-primary);
+  --primary-foreground: var(--rgb-primary-foreground);
+  --accent: var(--rgb-accent);
+  --accent-foreground: var(--rgb-accent-foreground);
+
+  /* Status: green/red only for verdicts, amber only for "needs a human". */
+  --success: var(--rgb-success);
+  --success-foreground: var(--rgb-success-foreground, var(--ink-white));
+  --warning: var(--rgb-warning);
+  --warning-foreground: var(--rgb-warning-foreground);
+  --danger: var(--rgb-danger);
+  --danger-foreground: var(--rgb-danger-foreground, var(--ink-white));
+  --info: var(--rgb-info);
+  --info-foreground: var(--rgb-info-foreground, var(--ink-white));
+
+  /* Chart series, assigned by index. */
+  --chart-1: var(--rgb-chart-1, var(--primary));
+  --chart-2: var(--rgb-chart-2, var(--info));
+  --chart-3: var(--rgb-chart-3, var(--warning));
+  --chart-4: var(--rgb-chart-4, var(--success));
+  --chart-5: var(--rgb-chart-5, var(--danger));
+
+  /* Interaction: neutral hover / press fills, selection, focus. Full colours, not channels. */
+  --hover-surface: rgb(var(--foreground) / 0.06);
+  --hover-surface-strong: rgb(var(--foreground) / 0.1);
+  --selection: rgb(var(--primary) / 0.25);
+  --focus-ring: rgb(var(--ring));
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+}

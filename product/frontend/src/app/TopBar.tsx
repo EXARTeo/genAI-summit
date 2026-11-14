@@ -19,7 +19,7 @@ export function TopBar() {
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const section = useSectionLabel();
   return (
-    <header className="sticky top-0 z-30 flex h-[var(--topbar-height)] shrink-0 items-center gap-2 bg-[color-mix(in_srgb,var(--shell-card)_85%,transparent)] px-3 backdrop-blur-md lg:px-6">
+    <header className="sticky top-0 z-30 flex h-topbar shrink-0 items-center gap-2 bg-topbar px-3 backdrop-blur-md lg:px-6">
       <IconButton
         label="Open menu"
         icon={<Menu />}

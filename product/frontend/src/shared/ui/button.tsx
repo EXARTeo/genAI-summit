@@ -15,7 +15,7 @@ export const buttonVariants = cva(
         ghost: 'text-muted hover:bg-surface-muted hover:text-text',
         outline: 'border border-border bg-transparent text-text hover:bg-surface-muted',
         accent: 'bg-accent text-accent-foreground shadow-card hover:bg-accent/90',
-        danger: 'bg-danger text-white shadow-card hover:bg-danger/90',
+        danger: 'bg-danger text-danger-foreground shadow-card hover:bg-danger/90',
         warning: 'bg-warning text-warning-foreground shadow-card hover:bg-warning/90',
         link: 'h-auto px-0 text-primary underline-offset-4 hover:underline',
       },

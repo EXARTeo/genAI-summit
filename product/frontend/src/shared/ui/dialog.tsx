@@ -16,8 +16,7 @@ interface BaseProps {
   className?: string;
 }
 
-const overlay =
-  'fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-[overlay-in_180ms_ease-out] dark:bg-black/60';
+const overlay = 'fixed inset-0 z-50 bg-scrim data-[state=open]:animate-[overlay-in_180ms_ease-out]';
 
 export interface DialogProps extends BaseProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';

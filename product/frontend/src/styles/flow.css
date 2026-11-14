@@ -1,16 +1,16 @@
 @import '@xyflow/react/dist/style.css';
 
-/* React Flow themed with the brand tokens */
+/* React Flow, themed with the semantic tokens. Shape: --flow-* in theme/components.css. */
 .react-flow {
   --xy-background-color: transparent;
-  --xy-edge-stroke: rgb(var(--rgb-muted) / 0.6);
-  --xy-edge-stroke-selected: rgb(var(--rgb-primary));
-  --xy-node-border-radius: 0.75rem;
-  --xy-controls-button-background-color: rgb(var(--rgb-surface));
-  --xy-controls-button-background-color-hover: rgb(var(--rgb-surface-muted));
-  --xy-controls-button-color: rgb(var(--rgb-text));
-  --xy-controls-button-border-color: rgb(var(--rgb-border));
-  --xy-background-pattern-dots-color: rgb(var(--rgb-muted) / 0.3);
+  --xy-edge-stroke: var(--flow-edge);
+  --xy-edge-stroke-selected: rgb(var(--primary));
+  --xy-node-border-radius: var(--flow-node-radius);
+  --xy-controls-button-background-color: rgb(var(--surface));
+  --xy-controls-button-background-color-hover: rgb(var(--surface-sunken));
+  --xy-controls-button-color: rgb(var(--foreground));
+  --xy-controls-button-border-color: rgb(var(--border));
+  --xy-background-pattern-dots-color: var(--flow-dots);
   --xy-attribution-background-color: transparent;
 }
 .react-flow__attribution {
