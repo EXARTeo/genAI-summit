@@ -39,6 +39,7 @@ node_modules/
 # --- Data, models and outputs (keep large files out of git) ---
 data/
 models/
+!product/agents/harness/models/
 outputs/
 *.gguf
 *.safetensors
