@@ -26,7 +26,17 @@ if str(SERVICE_ROOT) not in sys.path:
 # Settings are read at import time, so the environment is set before the app loads.
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("REG_MEMORY_HOST_INTERVAL_SECONDS", "0")
-os.environ.setdefault("FIRECRAWL_API_KEY", "")
+# No paid / external integrations in tests, whatever the developer's .env says.
+for _name in (
+    "FIRECRAWL_API_KEY",
+    "FIRECRAWL_WEBHOOK_SECRET",
+    "GOOGLE_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID",
+    "BACKEND_INTERNAL_URL",
+):
+    os.environ[_name] = ""
+os.environ["REG_MEMORY_WATCH_INTERVAL_MINUTES"] = "0"
 
 from core.security.rate_limit import backend as rate_limit_backend  # noqa: E402
 from core.settings import settings  # noqa: E402

@@ -63,7 +63,8 @@ def find_references(text: str, known: set[str], instrument: str = "AIA") -> list
         rid = _resolve(cand, known)
         if rid and rid not in out:
             out.append(rid)
-    return out
+    # "point 4(a) of Annex III" also matches a bare "Annex III": keep the specific id only.
+    return [r for r in out if not any(o.startswith(r + ".") for o in out)]
 
 
 def split_sections(text: str) -> list[tuple[str | None, str]]:

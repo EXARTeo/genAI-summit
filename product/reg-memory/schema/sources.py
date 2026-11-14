@@ -20,6 +20,8 @@ class SourceOut(BaseModel):
     notes: str
     enabled: bool
     follow_links: dict[str, Any] | None = None
+    monitor: bool = False
+    discover: dict[str, Any] | None = None
     # Latest fetch of the source's main document (None = never fetched).
     latest: dict[str, Any] | None = None
     documents: int = 0

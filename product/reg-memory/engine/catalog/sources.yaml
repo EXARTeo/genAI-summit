@@ -114,6 +114,7 @@ sources:
     url: https://digital-strategy.ec.europa.eu/en/library/draft-commission-guidelines-classification-high-risk-ai-systems
     follow_links: *ec-downloads
     tags: [ai-act, art-6, high-risk]
+    monitor: true   # the final Art. 6 guidelines are expected: watch closely
     notes: Draft of 19 May 2026 (targeted consultation). Announcement page is guidelines-high-risk-draft-news.
 
   - id: guidelines-high-risk-draft-news
@@ -134,7 +135,9 @@ sources:
     publisher: European Commission
     fetcher: http
     url: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai
-    tags: [ai-act, timeline]
+    tags: [ai-act, timeline, index]
+    discover:   # new library / FAQ pages linked from the policy page -> proposed sources
+      pattern: ^https://digital-strategy\.ec\.europa\.eu/en/(library|faqs)/[a-z0-9-]+$
 
   - id: ai-act-service-desk-faq
     title: AI Act Service Desk FAQ
@@ -145,6 +148,7 @@ sources:
     fetcher: http
     url: https://ai-act-service-desk.ec.europa.eu/en/faq
     tags: [ai-act, faq]
+    monitor: true   # Firecrawl change tracking on every check (when keyed)
 
   # ---- Standards (status and metadata only) -----------------------------------
 
@@ -208,7 +212,7 @@ sources:
   - {id: library-digital-omnibus-ai-proposal, title: "Digital Omnibus on AI - proposal page", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/library/digital-omnibus-ai-regulation-proposal", formats: [html], tags: [ai-act, omnibus]}
   - {id: service-desk-ai-act-explorer, title: "Service Desk - AI Act explorer (links per article/annex)", kind: consolidated, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/ai-act-explorer", formats: [html], tags: [ai-act, articles], notes: "314 per-item pages /en/ai-act/article-N, /en/ai-act/annex-N; follow_links candidate, throttle 3 s"}
   - {id: service-desk-implementation-timeline, title: "Service Desk - AI Act implementation timeline", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/ai-act/timeline/timeline-implementation-eu-ai-act", formats: [html], tags: [ai-act, timeline]}
-  - {id: service-desk-resources, title: "Service Desk - resources index", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/resources", formats: [html], tags: [ai-act, index]}
+  - {id: service-desk-resources, title: "Service Desk - resources index", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/resources", formats: [html], tags: [ai-act, index], discover: {pattern: '^https://ai-act-service-desk\.ec\.europa\.eu/en/(?!form/|resources|faq$|ai-act/(article|annex|recital))[a-z0-9-]+(/[a-z0-9-]+)*$'}}
   - {id: service-desk-national-resources, title: "Service Desk - national resources", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/national-resources", formats: [html], tags: [ai-act, national-authorities]}
 
   # --- Implementing / Commission acts (Cellar) ---
@@ -229,3 +233,20 @@ sources:
   - {id: gr-law-5321-2026, title: "Ν. 5321/2026 - Μέτρα εφαρμογής του Κανονισμού (ΕΕ) 2024/1689 (ΦΕΚ Α' 114/20.07.2026)", kind: national_law, binding: true, status: final, publisher: "Hellenic Republic (unofficial mirror: Taxheaven)", fetcher: http, url: "https://www.taxheaven.gr/law/5321/2026", formats: [html], tags: [greece, national-law], notes: "unofficial consolidation; official FEK (et.gr) not fetchable"}
   - {id: gr-bill-ai-act-implementation, title: "Σχέδιο νόμου - Μέτρα εφαρμογής του Κανονισμού (ΕΕ) 2024/1689 (bill)", kind: national_law, binding: false, status: draft, publisher: Hellenic Parliament, fetcher: http, url: "https://www.hellenicparliament.gr/UserFiles/c8827c35-4399-4fbb-8ea6-aebdc768f4f7/13353094.pdf", formats: [pdf], tags: [greece, bill]}
   - {id: gr-bill-ai-act-explanatory-report, title: "Αιτιολογική έκθεση - Μέτρα εφαρμογής του Κανονισμού (ΕΕ) 2024/1689", kind: other, binding: false, status: final, publisher: Hellenic Parliament, fetcher: http, url: "https://www.hellenicparliament.gr/UserFiles/c8827c35-4399-4fbb-8ea6-aebdc768f4f7/13353095.pdf", formats: [pdf], tags: [greece, explanatory-memo]}
+
+  # ---- Demo -----------------------------------------------------------------------
+  # A page we control (served by reg-memory itself at /demo/mirror/art6-guidelines.html,
+  # editable with PUT /v1/demo/mirror), so the live "change -> check now -> RegChange"
+  # demo works without waiting for the EU. REG_MEMORY_DEMO_MIRROR_URL points it at a
+  # public copy (e.g. GitHub Pages) for Firecrawl monitoring.
+  - id: demo-art6-guideline-mirror
+    title: "Demo mirror: Guidelines on high-risk classification (Art. 6), worked examples"
+    kind: guideline
+    binding: false
+    status: draft
+    publisher: Demo mirror (not an EU source)
+    fetcher: http
+    url: http://localhost:8010/demo/mirror/art6-guidelines.html
+    formats: [html]
+    monitor: true
+    tags: [demo, ai-act, art-6, annex-iii]

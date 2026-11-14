@@ -13,12 +13,11 @@ from schema.ingest import IngestRun
 from utils import state
 
 logger = get_logger(__name__)
-_lock = asyncio.Lock()
 _tasks: dict[str, asyncio.Task] = {}
 
 
 async def _run(run_id: str, source_ids: list[str] | None, force: bool) -> None:
-    async with _lock, state.client_factory() as client:
+    async with state.write_lock(), state.client_factory() as client:
         try:
             await run_ingest(
                 state.get_catalog(),

@@ -41,6 +41,15 @@ class FollowLinks(BaseModel):
     binary: bool = True
 
 
+class Discover(BaseModel):
+    """Index page watched for new documents: links matching ``pattern`` that are not
+    yet in the catalog become proposed sources (the page itself is the source)."""
+
+    pattern: str
+    hosts: list[str] = Field(default_factory=list)  # allowlist; empty = the page's host
+    max: int = 200
+
+
 class Source(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]*$")
     title: str
@@ -56,6 +65,9 @@ class Source(BaseModel):
     tags: list[str] = Field(default_factory=list)
     notes: str = ""
     enabled: bool = True
+    # Firecrawl change tracking on every scheduled check (when FIRECRAWL_API_KEY is set).
+    monitor: bool = False
+    discover: Discover | None = None
 
     @model_validator(mode="after")
     def _target(self) -> Source:
@@ -81,6 +93,18 @@ class Catalog(BaseModel):
         return next((s for s in self.sources if s.id == source_id), None)
 
 
-def load_catalog(path: Path) -> Catalog:
+def load_catalog(
+    path: Path, overlay: Path | None = None, url_overrides: dict[str, str] | None = None
+) -> Catalog:
+    """The git catalog, plus the data-side ``overlay`` (accepted proposals) and per-id
+    URL overrides (e.g. the demo mirror's public copy)."""
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    return Catalog.model_validate(raw)
+    sources = list(raw.get("sources") or [])
+    if overlay and overlay.exists():
+        ids = {s.get("id") for s in sources}
+        extra = (yaml.safe_load(overlay.read_text(encoding="utf-8")) or {}).get("sources") or []
+        sources += [s for s in extra if s.get("id") not in ids]
+    for s in sources:
+        if url_overrides and s.get("id") in url_overrides and url_overrides[s["id"]]:
+            s["url"] = url_overrides[s["id"]]
+    return Catalog.model_validate({"sources": sources})
