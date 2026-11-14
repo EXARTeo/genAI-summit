@@ -20,6 +20,7 @@ import {
   statusLabel,
   stepState,
 } from '../lib/pipeline';
+import { auditCardVersion, auditKbVersion } from '../lib/adapters';
 
 function RunSkeleton() {
   return (
@@ -113,8 +114,8 @@ export function AuditRunPage() {
         description={
           <span className="num flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
             <span>{audit.systemId}</span>
-            {audit.data.kbVersion && <span>kb {audit.data.kbVersion}</span>}
-            {audit.data.cardVersion != null && <span>card v{audit.data.cardVersion}</span>}
+            {auditKbVersion(audit) && <span>kb {auditKbVersion(audit)}</span>}
+            {auditCardVersion(audit) != null && <span>card v{auditCardVersion(audit)}</span>}
             {audit.data.trigger && audit.data.trigger !== 'manual' && (
               <span className="font-sans">Triggered by {audit.data.trigger}</span>
             )}

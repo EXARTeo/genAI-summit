@@ -45,7 +45,9 @@ export function openGates(audits: AuditDetail[]): OpenGate[] {
     const i = stageIndex(a.stage);
     const stage = STAGES[i];
     if (!stage?.gate) continue;
-    if (a.status !== 'waiting_approval' && a.status !== 'running') continue;
+    // A working stage with a gate (find_public_data) is open only once it waits.
+    const waits = a.status === 'waiting_approval' || (a.status === 'running' && stage.kinds.length === 0);
+    if (!waits) continue;
     const decided = a.approvals.some(
       (p) => p.gate === stage.gate!.id && p.decision === 'approved' && p.at >= a.updatedAt,
     );
@@ -95,7 +97,12 @@ export function validateDraft(d: DecisionDraft): string[] {
 }
 
 /** Build the backend ApprovalIn. What to remember from a decision is up to the agents. */
-export function toApprovalIn(gate: string, d: DecisionDraft, artifactId?: string | null): ApprovalIn {
+export function toApprovalIn(
+  gate: string,
+  d: DecisionDraft,
+  artifactId?: string | null,
+  edits: Record<string, unknown> = {},
+): ApprovalIn {
   if (validateDraft(d).length) throw new Error('invalid decision draft');
   return {
     gate,
@@ -103,6 +110,15 @@ export function toApprovalIn(gate: string, d: DecisionDraft, artifactId?: string
     artifactId: artifactId ?? null,
     reasonCategory: d.reasonCategory,
     comment: d.comment.trim() || null,
-    edits: {},
+    edits,
   };
+}
+
+/**
+ * The public_data gate's edits: the picked candidate id goes to the pipeline as `edits.selected`
+ * (agents/pipeline/graph.py gate_public_data). Approve needs a pick; any other decision makes the
+ * pipeline continue zero-shot from the data dictionary (the run does not stop at this gate).
+ */
+export function publicDataEdits(selected: string | null): Record<string, unknown> {
+  return selected ? { selected } : {};
 }

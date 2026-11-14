@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildMockAudits } from '@/features/audits/lib/mocks';
-import { EMPTY_DRAFT, REASONS, openGates, toApprovalIn, validateDraft } from './approvals';
+import { EMPTY_DRAFT, REASONS, openGates, publicDataEdits, toApprovalIn, validateDraft } from './approvals';
 
 describe('open gates', () => {
   it('lists audits paused at a HITL gate', () => {
@@ -63,5 +63,25 @@ describe('decision draft', () => {
       edits: {},
     });
     expect(() => toApprovalIn('datasets', EMPTY_DRAFT)).toThrow();
+  });
+});
+
+describe('public_data gate', () => {
+  const base = buildMockAudits().find((a) => a.id === 'aud-sys001-r3')!;
+  it('is open only once find_public_data waits', () => {
+    const waiting = { ...base, stage: 'find_public_data', status: 'waiting_approval' };
+    expect(openGates([waiting])[0]).toMatchObject({ gate: 'public_data', stageId: 'find_public_data' });
+    expect(openGates([{ ...waiting, status: 'running' }])).toEqual([]);
+  });
+
+  it('sends the picked dataset as edits.selected', () => {
+    const body = toApprovalIn(
+      'public_data',
+      { decision: 'approved', reasonCategory: 'other', comment: '' },
+      'art-1',
+      publicDataEdits('uci:597'),
+    );
+    expect(body.edits).toEqual({ selected: 'uci:597' });
+    expect(publicDataEdits(null)).toEqual({});
   });
 });

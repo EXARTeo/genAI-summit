@@ -4,6 +4,7 @@ import {
   STAGES,
   artifactsForStage,
   defaultSelectedStage,
+  gateStage,
   latestByKind,
   progress,
   stageForKind,
@@ -14,9 +15,24 @@ import {
 import type { Artifact } from './types';
 
 describe('stage mapping', () => {
-  it('has the 13 pipeline stages with two HITL gates', () => {
-    expect(STAGES).toHaveLength(13);
-    expect(STAGES.filter((s) => s.gate).map((s) => s.id)).toEqual(['approve_scenarios', 'approve_datasets']);
+  it('has the 14 pipeline stages with three HITL gates', () => {
+    expect(STAGES).toHaveLength(14);
+    expect(STAGES.filter((s) => s.gate).map((s) => s.id)).toEqual([
+      'find_public_data',
+      'approve_scenarios',
+      'approve_datasets',
+    ]);
+  });
+
+  it('find_public_data runs, then waits at the public_data gate', () => {
+    expect(stepState('find_public_data', { stage: 'find_public_data', status: 'running' })).toBe('active');
+    expect(stepState('find_public_data', { stage: 'find_public_data', status: 'waiting_approval' })).toBe(
+      'needs-approval',
+    );
+    expect(stepState('approve_scenarios', { stage: 'approve_scenarios', status: 'running' })).toBe(
+      'needs-approval',
+    );
+    expect(gateStage('public_data')?.id).toBe('find_public_data');
   });
 
   it('accepts artifact-kind aliases for backend stages', () => {

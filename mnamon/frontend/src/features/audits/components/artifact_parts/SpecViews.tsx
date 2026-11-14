@@ -14,9 +14,10 @@ import {
   gateTone,
   overallGateStatus,
   provenanceOfLine,
+  provenanceStyle,
 } from '../../lib/styling';
-import type { DatasetAnalysisData, GenerationSpecData, Provenance } from '../../lib/types';
-import { SimpleTable, SubHeading } from './common';
+import type { DatasetAnalysisData, DatasetData, GenerationSpecData, Provenance } from '../../lib/types';
+import { DASH, SimpleTable, SubHeading, dash } from './common';
 
 /** YAML with each `provenance:` block tinted; llm_assumption blocks in amber. */
 export function ProvenanceYaml({ yaml }: { yaml: string }) {
@@ -70,6 +71,8 @@ export function ProvenanceYaml({ yaml }: { yaml: string }) {
 }
 
 export function GenerationSpecView({ data }: { data: GenerationSpecData }) {
+  const llm = data.assumptions.filter((a) => a.provenance === 'llm_assumption');
+  const sourced = data.assumptions.filter((a) => a.provenance !== 'llm_assumption');
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-2">
@@ -79,21 +82,48 @@ export function GenerationSpecView({ data }: { data: GenerationSpecData }) {
           </Badge>
         ))}
       </div>
-      {data.assumptions.length > 0 && (
+      {data.problems && data.problems.length > 0 && (
+        <div className="mb-4 rounded-lg border border-danger/40 bg-danger/[0.06] p-3 text-sm">
+          <div className="mb-1 flex items-center gap-2 font-medium text-danger">
+            <X className="size-4" /> Spec problems
+          </div>
+          <ul className="space-y-0.5 break-words">
+            {data.problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {llm.length > 0 && (
         <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
           <div className="mb-1 flex items-center gap-2 font-medium text-warning">
-            <AlertTriangle className="size-4" /> {data.assumptions.length} LLM assumption
-            {data.assumptions.length > 1 ? 's' : ''} to check
+            <AlertTriangle className="size-4" /> {llm.length} LLM assumption
+            {llm.length > 1 ? 's' : ''} to check
           </div>
           <ul className="space-y-0.5">
-            {data.assumptions.map((a) => (
-              <li key={a.field}>
-                <span className="font-mono text-xs">{a.field}</span> · {a.what}
+            {llm.map((a) => (
+              <li key={a.field} className="break-words">
+                <span className="font-mono text-xs">{a.field}</span> · {dash(a.what)}
               </li>
             ))}
           </ul>
         </div>
       )}
+      {sourced.length > 0 && (
+        <>
+          <SubHeading>Sourced values</SubHeading>
+          <ul className="mb-4 space-y-1 text-sm">
+            {sourced.map((a) => (
+              <li key={a.field} className="flex flex-wrap items-center gap-2 break-words">
+                <Badge tone={provenanceStyle(a.provenance).tone}>{provenanceStyle(a.provenance).label}</Badge>
+                <span className="font-mono text-xs">{a.field}</span>
+                <span className="text-muted">{dash(a.what)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {data.rationale && <p className="mb-4 text-sm text-muted">{data.rationale}</p>}
       {data.diff && data.diff.length > 0 && (
         <>
           <SubHeading>Diff vs the last approved spec</SubHeading>
@@ -107,13 +137,15 @@ export function GenerationSpecView({ data }: { data: GenerationSpecData }) {
                 <ArrowRight className="size-3 text-muted" />
                 <span className="text-success">{d.after}</span>
               </span>,
-              <Badge tone={PROVENANCE[d.provenance].tone}>{PROVENANCE[d.provenance].label}</Badge>,
+              <Badge tone={provenanceStyle(d.provenance).tone}>{provenanceStyle(d.provenance).label}</Badge>,
             ])}
           />
         </>
       )}
-      <SubHeading>{data.testSpec} GenerationSpec</SubHeading>
-      <ProvenanceYaml yaml={data.yaml} />
+      <SubHeading>
+        {data.testSpec ?? DASH} GenerationSpec{data.mode ? ` · ${data.mode}` : ''}
+      </SubHeading>
+      {data.yaml ? <ProvenanceYaml yaml={data.yaml} /> : <p className="text-sm text-muted">{DASH}</p>}
     </div>
   );
 }
@@ -196,6 +228,7 @@ export function GateCards({ gates }: { gates: DatasetAnalysisData['gates'] }) {
 
 /** Group × stratum counts; one hue, opacity by count; cells under min_per_cell flagged. */
 export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['coverage'] }) {
+  if (coverage.rows.length === 0) return <p className="text-sm text-muted">{DASH}</p>;
   const max = Math.max(...coverage.counts.flat(), 1);
   return (
     <div className="overflow-x-auto">
@@ -215,7 +248,7 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
             <tr key={r}>
               <th className="pr-3 text-right font-mono text-2xs font-normal text-muted">{r}</th>
               {coverage.cols.map((c, j) => {
-                const n = coverage.counts[i][j];
+                const n = coverage.counts[i]?.[j] ?? 0;
                 const low = n < coverage.minPerCell;
                 return (
                   <td key={c} className="p-0.5">
@@ -251,14 +284,17 @@ export function CoverageHeatmap({ coverage }: { coverage: DatasetAnalysisData['c
 }
 
 export function TwinPairViewer({ data }: { data: DatasetAnalysisData }) {
-  const [mode, setMode] = useState<'a' | 'b' | 'c'>('b');
+  const [picked, setMode] = useState<string | null>(null);
+  const mode = picked ?? data.twinModes.find((t) => t.mode === 'b')?.mode ?? data.twinModes[0]?.mode ?? 'b';
+  if (data.twinModes.length === 0 && data.twins.length === 0)
+    return <p className="text-sm text-muted">{DASH}</p>;
   const pairs = data.twins.filter((t) => t.mode === mode);
   const m = data.twinModes.find((x) => x.mode === mode);
   return (
     <div>
       <div className="grid gap-2 sm:grid-cols-3">
         {data.twinModes.map((t) => {
-          const strong = t.ci[1] < 0 || t.ci[0] > 0;
+          const strong = t.ci != null && (t.ci[1] < 0 || t.ci[0] > 0);
           return (
             <button
               key={t.mode}
@@ -273,23 +309,46 @@ export function TwinPairViewer({ data }: { data: DatasetAnalysisData }) {
             >
               <div className="flex items-center justify-between">
                 <span className="text-2xs font-medium text-muted">Mode {t.mode}</span>
-                {strong ? <Badge tone="danger">effect</Badge> : <Badge>no effect</Badge>}
+                {t.ci == null ? null : strong ? (
+                  <Badge tone="danger">effect</Badge>
+                ) : (
+                  <Badge>no effect</Badge>
+                )}
               </div>
               <div className="mt-1 text-sm font-medium">{t.label}</div>
-              <div className="text-xs text-muted">{t.description}</div>
-              <div className="num mt-3 flex items-baseline gap-3">
-                <span className={cn('text-lg font-semibold', strong && 'text-danger')}>
-                  {t.meanDelta.toFixed(3)}
-                </span>
-                <span className="text-xs text-muted">Δ score · {Math.round(t.flipRate * 100)}% flip</span>
-              </div>
-              <div className="num font-mono text-2xs text-muted">{formatCI(t.ci, 3)}</div>
+              <div className="text-xs text-muted">{dash(t.description)}</div>
+              {t.meanDelta != null || t.flipRate != null ? (
+                <div className="num mt-3 flex items-baseline gap-3">
+                  <span className={cn('text-lg font-semibold', strong && 'text-danger')}>
+                    {t.meanDelta != null ? t.meanDelta.toFixed(3) : DASH}
+                  </span>
+                  <span className="text-xs text-muted">
+                    Δ score · {t.flipRate != null ? `${Math.round(t.flipRate * 100)}%` : DASH} flip
+                  </span>
+                </div>
+              ) : (
+                <div className="num mt-3 flex items-baseline gap-3">
+                  <span className="text-lg font-semibold">
+                    {t.pairs != null ? t.pairs.toLocaleString() : DASH}
+                  </span>
+                  <span className="text-xs text-muted">
+                    pairs{t.validShare != null && ` · ${Math.round(t.validShare * 100)}% valid`}
+                  </span>
+                </div>
+              )}
+              {t.ci && <div className="num font-mono text-2xs text-muted">{formatCI(t.ci, 3)}</div>}
             </button>
           );
         })}
       </div>
       <div className="mt-3 space-y-3">
-        {pairs.length === 0 && <p className="text-sm text-muted">No sample pairs for mode {mode}.</p>}
+        {pairs.length === 0 && (
+          <p className="text-sm text-muted">
+            {data.twins.length === 0
+              ? 'Score deltas per pair come from the test run.'
+              : 'No sample pairs shown for this mode.'}
+          </p>
+        )}
         {pairs.map((p) => {
           const keys = Object.keys(p.base);
           return (
@@ -349,20 +408,104 @@ export function DatasetAnalysisView({ data }: { data: DatasetAnalysisData }) {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-2 text-sm">
-        <span className="num font-mono text-2xs text-muted">{data.datasetId}</span>
-        <Badge>{data.rows.toLocaleString()} rows</Badge>
-        <Badge>{data.pairs.toLocaleString()} pairs</Badge>
+        <span className="num font-mono text-2xs text-muted [overflow-wrap:anywhere]">
+          {dash(data.datasetId)}
+        </span>
+        <Badge>{data.rows != null ? data.rows.toLocaleString() : DASH} rows</Badge>
+        <Badge>{data.pairs != null ? data.pairs.toLocaleString() : DASH} pairs</Badge>
         <Badge tone={gateTone(overall)} icon={overall === 'fail' ? <ShieldAlert /> : undefined}>
           gates: {overall}
         </Badge>
       </div>
       <SubHeading>Validation gates</SubHeading>
       <GateCards gates={data.gates} />
-      <SubHeading>Coverage: nationality × postcode_region</SubHeading>
+      <SubHeading>Coverage{data.coverage.label ? `: ${data.coverage.label}` : ''}</SubHeading>
       <CoverageHeatmap coverage={data.coverage} />
       <SubHeading>Counterfactual twins</SubHeading>
       <TwinPairViewer data={data} />
       <SubHeading>Limitations</SubHeading>
+      {data.limitations.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+        {data.limitations.map((l) => (
+          <li key={l}>{l}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The generated dataset (generate_data): Data Card summary and a few sample rows. */
+export function DatasetView({ data }: { data: DatasetData }) {
+  return (
+    <div>
+      {data.problems.length > 0 && (
+        <div className="mb-4 rounded-lg border border-danger/40 bg-danger/[0.06] p-3 text-sm text-danger">
+          <div className="font-medium">{data.status ?? 'problems'}</div>
+          <ul className="break-words">
+            {data.problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="num font-mono text-2xs text-muted [overflow-wrap:anywhere]">
+          {dash(data.datasetId)}
+        </span>
+        <Badge>{data.rows != null ? data.rows.toLocaleString() : DASH} rows</Badge>
+        {data.mode && <Badge>{data.mode}</Badge>}
+        {data.method && <Badge>{data.method}</Badge>}
+        {data.seed != null && <Badge>seed {data.seed}</Badge>}
+      </div>
+      <SubHeading>Composition</SubHeading>
+      <div className="flex flex-wrap gap-1.5">
+        {Object.keys(data.byTest).length === 0 && <span className="text-sm text-muted">{DASH}</span>}
+        {Object.entries(data.byTest).map(([k, n]) => (
+          <Badge key={k}>
+            {k} · {n.toLocaleString()}
+          </Badge>
+        ))}
+        {Object.entries(data.twinsByMode).map(([k, n]) => (
+          <Badge key={k} tone="primary">
+            twins {k.replace(/_/g, ' ')} · {n.toLocaleString()}
+          </Badge>
+        ))}
+      </div>
+      {data.population.length > 0 && (
+        <>
+          <SubHeading>Population vs training-data.md</SubHeading>
+          <SimpleTable
+            head={['Statistic', 'Stated', 'Observed', '']}
+            rows={data.population.map((p) => [
+              <span className="font-mono text-xs">{p.stat}</span>,
+              <span className="num">{dash(p.stated)}</span>,
+              <span className="num">{dash(p.observed)}</span>,
+              p.ok == null ? (
+                DASH
+              ) : p.ok ? (
+                <Badge tone="success">within tolerance</Badge>
+              ) : (
+                <Badge tone="warning">off</Badge>
+              ),
+            ])}
+          />
+        </>
+      )}
+      {data.sample.rows.length > 0 && (
+        <>
+          <SubHeading>Sample rows</SubHeading>
+          <SimpleTable
+            head={data.sample.columns}
+            rows={data.sample.rows.map((r) =>
+              data.sample.columns.map((c) => (
+                <span className="whitespace-nowrap font-mono text-xs">{r[c]}</span>
+              )),
+            )}
+          />
+        </>
+      )}
+      <SubHeading>Limitations</SubHeading>
+      {data.limitations.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
         {data.limitations.map((l) => (
           <li key={l}>{l}</li>

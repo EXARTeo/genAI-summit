@@ -51,7 +51,8 @@ function tick(l: Live, now = Date.now()): AuditDetail {
   if (a.status === 'running' && l.runningSince != null) {
     let i = l.baseIndex + Math.floor((now - l.runningSince) / STEP_MS);
     // Stop at the first gate after the base index.
-    const gate = STAGES.findIndex((s, k) => k > l.baseIndex && s.gate);
+    // Work stages with a gate (find_public_data) skip it in mock mode: no candidates score high enough.
+    const gate = STAGES.findIndex((s, k) => k > l.baseIndex && s.gate && s.kinds.length === 0);
     if (gate >= 0 && i >= gate) {
       i = gate;
       a.status = 'waiting_approval';
@@ -124,4 +125,33 @@ export function mockDecide(id: string, body: ApprovalIn): ApprovalResult | undef
   }
   l.audit.updatedAt = now;
   return { approval, artifact: null };
+}
+
+/** A new mock audit (POST /v1/systems/{id}/audits): runs from load_context to the first gate. */
+export function mockStart(systemId: string, data: Record<string, unknown> = {}): AuditDetail {
+  const m = db();
+  const template = [...m.values()].find((l) => l.audit.systemId === systemId) ?? [...m.values()][0];
+  const id = `aud-${systemId.toLowerCase()}-${Date.now().toString(36)}`;
+  const now = new Date().toISOString();
+  const audit: AuditDetail = {
+    id,
+    systemId,
+    status: 'running',
+    stage: STAGES[0].id,
+    createdBy: 'engineer:you',
+    data: { trigger: 'manual', ...data },
+    createdAt: now,
+    updatedAt: now,
+    artifacts: [],
+    approvals: [],
+  };
+  const pool = (template?.pool ?? []).map((x) => ({
+    ...x,
+    id: `${id}-${x.kind}-${x.name}`,
+    auditId: id,
+    status: 'proposed',
+  }));
+  m.set(id, { audit, pool, runningSince: Date.now(), baseIndex: 0 });
+  const { artifacts: _a, approvals: _p, ...out } = tick(m.get(id)!);
+  return { ...out, artifacts: [], approvals: [] };
 }

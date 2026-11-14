@@ -3,7 +3,7 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip as RTooltip, XAxis, Y
 import { color } from '@/shared/lib/consts/ui';
 import { Badge, KeyValue } from '@/shared/ui';
 import type { ModelProfileData } from '../../lib/types';
-import { SimpleTable, SubHeading } from './common';
+import { DASH, SimpleTable, SubHeading, dash } from './common';
 
 const NEUTRAL = color('foreground', 0.22);
 const WARN = color('warning');
@@ -17,9 +17,15 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
       <KeyValue
         columns={3}
         items={[
-          { label: 'Model', value: `${data.model.name} v${data.model.version}`, mono: true },
-          { label: 'Flavor', value: data.model.flavor },
-          { label: 'Probes', value: data.probes.toLocaleString() },
+          {
+            label: 'Model',
+            value: data.model.name
+              ? `${data.model.name}${data.model.version ? ` v${data.model.version}` : ''}`
+              : DASH,
+            mono: true,
+          },
+          { label: 'Flavor', value: dash(data.model.flavor) },
+          { label: 'Probes', value: data.probes != null ? data.probes.toLocaleString() : DASH },
           ...Object.entries(data.model.metrics).map(([k, v]) => ({
             label: k.toUpperCase(),
             value: v.toFixed(2),
@@ -41,7 +47,13 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
         How much the score moves when each feature is perturbed. Amber = a known proxy for a protected
         attribute.
       </p>
-      <div className="h-64 w-full" role="img" aria-label="Feature sensitivity bar chart">
+      {rows.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
+      <div
+        className="w-full"
+        style={{ height: Math.max(rows.length * 28 + 16, 64), display: rows.length ? undefined : 'none' }}
+        role="img"
+        aria-label="Feature sensitivity bar chart"
+      >
         <ResponsiveContainer>
           <BarChart
             data={rows}
@@ -60,7 +72,8 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
             <YAxis
               type="category"
               dataKey="feature"
-              width={180}
+              interval={0}
+              width={150}
               tick={({ x, y, payload }) => {
                 const r = rows.find((f) => f.feature === payload.value);
                 return (
@@ -111,17 +124,25 @@ export function ModelProfileView({ data }: { data: ModelProfileData }) {
       </div>
 
       <SubHeading>Decision boundaries</SubHeading>
-      <SimpleTable
-        head={['Feature', 'Boundary', 'Flip rate', 'Note']}
-        rows={data.boundary.map((b) => [
-          <span className="font-mono text-xs">{b.feature}</span>,
-          b.threshold,
-          <span className={b.flipRate >= 0.15 ? 'font-semibold text-danger' : ''}>
-            {Math.round(b.flipRate * 100)}%
-          </span>,
-          <span className="text-muted">{b.note}</span>,
-        ])}
-      />
+      {data.boundary.length === 0 ? (
+        <p className="text-sm text-muted">{DASH}</p>
+      ) : (
+        <SimpleTable
+          head={['Feature', 'Boundary', 'Flip rate', 'Note']}
+          rows={data.boundary.map((b) => [
+            <span className="font-mono text-xs">{b.feature}</span>,
+            dash(b.threshold),
+            b.flipRate == null ? (
+              DASH
+            ) : (
+              <span className={b.flipRate >= 0.15 ? 'font-semibold text-danger' : ''}>
+                {Math.round(b.flipRate * 100)}%
+              </span>
+            ),
+            <span className="text-muted">{dash(b.note)}</span>,
+          ])}
+        />
+      )}
 
       {data.notes.length > 0 && (
         <>

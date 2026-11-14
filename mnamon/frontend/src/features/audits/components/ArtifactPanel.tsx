@@ -5,27 +5,38 @@ import { formatRelative } from '@/shared/lib/format';
 import { fadeIn } from '@/shared/lib/motion';
 import { AgentThinking, Button, CodeBlock, EmptyState, StatusPill, Tabs } from '@/shared/ui';
 import { STAGES, artifactsForStage, formatDuration, type StageDef, type StepState } from '../lib/pipeline';
-import type {
-  Artifact,
-  ContextData,
-  CriticData,
-  DatasetAnalysisData,
-  FindingsData,
-  GenerationSpecData,
-  ModelProfileData,
-  ReportData,
-  ScenarioAnalysisData,
-  ScenariosData,
-} from '../lib/types';
+import {
+  findingsFromArtifacts,
+  reportsFromArtifacts,
+  toContext,
+  toCritic,
+  toDataset,
+  toDatasetAnalysis,
+  toFindings,
+  toGenerationSpec,
+  toModelProfile,
+  toPublicCandidates,
+  toScenarioAnalysis,
+  toScenarios,
+  toTestResults,
+} from '../lib/adapters';
+import type { Artifact } from '../lib/types';
 import { TraceLink } from './artifact_parts/common';
 import { CriticView, FindingsView, ReportView } from './artifact_parts/FindingViews';
 import { ModelProfileView } from './artifact_parts/ModelProfileView';
-import { ContextView, ScenarioAnalysisView, ScenariosView } from './artifact_parts/PlanViews';
-import { DatasetAnalysisView, GenerationSpecView } from './artifact_parts/SpecViews';
+import {
+  ContextView,
+  PublicCandidatesView,
+  ScenarioAnalysisView,
+  ScenariosView,
+  TestResultsView,
+} from './artifact_parts/PlanViews';
+import { DatasetAnalysisView, DatasetView, GenerationSpecView } from './artifact_parts/SpecViews';
 
 const TITLES: Record<string, string> = {
   context: 'Context',
   model_profile: 'Model profile',
+  public_dataset_candidates: 'Public dataset candidates',
   scenarios: 'Scenarios',
   scenario_analysis: 'Scenario analysis',
   generation_spec: 'Generation spec',
@@ -38,28 +49,40 @@ const TITLES: Record<string, string> = {
   report: 'Report',
 };
 
-/** Renders one artifact by kind; unknown kinds fall back to JSON. */
+/** Renders one artifact by kind through its adapter; unknown kinds fall back to JSON. */
 export function ArtifactBody({ a }: { a: Artifact }) {
-  const d = a.data as unknown;
+  const d: unknown = a.data;
   switch (a.kind) {
     case 'context':
-      return <ContextView data={d as ContextData} />;
+      return <ContextView data={toContext(d)} />;
     case 'model_profile':
-      return <ModelProfileView data={d as ModelProfileData} />;
+      return <ModelProfileView data={toModelProfile(d)} />;
+    case 'public_dataset_candidates':
+      return <PublicCandidatesView data={toPublicCandidates(d)} />;
     case 'scenarios':
-      return <ScenariosView data={d as ScenariosData} />;
+      return <ScenariosView data={toScenarios(d)} />;
     case 'scenario_analysis':
-      return <ScenarioAnalysisView data={d as ScenarioAnalysisData} />;
+      return <ScenarioAnalysisView data={toScenarioAnalysis(d)} />;
     case 'generation_spec':
-      return <GenerationSpecView data={d as GenerationSpecData} />;
+      return <GenerationSpecView data={toGenerationSpec(d)} />;
+    case 'dataset':
+      return <DatasetView data={toDataset(d)} />;
     case 'dataset_analysis':
-      return <DatasetAnalysisView data={d as DatasetAnalysisData} />;
+      return <DatasetAnalysisView data={toDatasetAnalysis(d)} />;
+    case 'test_result':
+      return <TestResultsView data={toTestResults(d)} />;
     case 'finding':
-      return <FindingsView data={d as FindingsData} />;
+      return <FindingsView data={toFindings(d)} />;
     case 'critic':
-      return <CriticView data={d as CriticData} />;
+      return <CriticView data={toCritic(d)} />;
     case 'report':
-      return <ReportView data={d as ReportData} />;
+      return (
+        <div className="space-y-8">
+          {reportsFromArtifacts([a]).map((r) => (
+            <ReportView key={r.key} data={r.report} />
+          ))}
+        </div>
+      );
     default:
       return <CodeBlock code={JSON.stringify(a.data, null, 2)} language="json" maxHeight="28rem" />;
   }
@@ -74,7 +97,7 @@ function ArtifactHeader({ a }: { a: Artifact }) {
       </span>
       <span className="num font-mono">v{a.version}</span>
       <StatusPill status={a.status} />
-      <span className="ml-auto">
+      <span className="ml-auto truncate">
         {a.createdBy} · {formatRelative(a.updatedAt)}
       </span>
     </div>
@@ -134,6 +157,8 @@ export function ArtifactPanel({
   onReview,
 }: ArtifactPanelProps) {
   const list = artifactsForStage(stage, artifacts);
+  const reports = stage.id === 'report' ? reportsFromArtifacts(list) : [];
+  const findingArts = list.filter((a) => a.kind === 'finding');
   let body: ReactNode;
 
   if (stage.gate && state === 'needs-approval') {
@@ -179,23 +204,42 @@ export function ArtifactPanel({
           description={stage.gate ? 'See the approvals recorded for this audit.' : stage.description}
         />
       );
-  } else if (stage.id === 'report' && list.length > 1) {
+  } else if (stage.id === 'report' && reports.length > 1) {
     body = (
-      <Tabs defaultValue={list[0].name}>
+      <Tabs defaultValue={reports[0].key}>
         <Tabs.List>
-          {list.map((a) => (
-            <Tabs.Trigger key={a.id} value={a.name}>
-              {a.name === 'management' ? 'Management' : a.name === 'engineer' ? 'Engineer' : a.name}
+          {reports.map((r) => (
+            <Tabs.Trigger key={r.key} value={r.key}>
+              {r.report.audience === 'management' ? 'Management' : 'Engineer'}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
-        {list.map((a) => (
-          <Tabs.Content key={a.id} value={a.name}>
-            <ArtifactHeader a={a} />
-            <ArtifactBody a={a} />
+        {reports.map((r) => (
+          <Tabs.Content key={r.key} value={r.key}>
+            <ArtifactHeader a={r.artifact} />
+            <ReportView data={r.report} />
           </Tabs.Content>
         ))}
       </Tabs>
+    );
+  } else if (findingArts.length > 1) {
+    const rest = list.filter((a) => a.kind !== 'finding');
+    body = (
+      <div className="space-y-8">
+        <div>
+          <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+            <span className="font-medium text-text">Findings</span>
+            <span className="num">{findingArts.length} artifacts</span>
+          </div>
+          <FindingsView data={{ findings: findingsFromArtifacts(findingArts) }} />
+        </div>
+        {rest.map((a) => (
+          <div key={a.id}>
+            <ArtifactHeader a={a} />
+            <ArtifactBody a={a} />
+          </div>
+        ))}
+      </div>
     );
   } else {
     body = (

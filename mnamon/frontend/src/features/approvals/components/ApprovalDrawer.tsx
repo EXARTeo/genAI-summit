@@ -3,22 +3,26 @@ import { Check, MessageSquareWarning, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ArtifactBody } from '@/features/audits/components/ArtifactPanel';
 import { TraceLink } from '@/features/audits/components/artifact_parts/common';
+import { PublicCandidatesView } from '@/features/audits/components/artifact_parts/PlanViews';
 import { GateCards, ProvenanceYaml } from '@/features/audits/components/artifact_parts/SpecViews';
 import { useAudit, useDecideGate } from '@/features/audits/hooks/useAudits';
+import {
+  auditKbVersion,
+  toDatasetAnalysis,
+  toGenerationSpec,
+  toPublicCandidates,
+  toScenarioAnalysis,
+} from '@/features/audits/lib/adapters';
 import { latestByKind, gateStage } from '@/features/audits/lib/pipeline';
 import { canApproveDataset, overallGateStatus } from '@/features/audits/lib/styling';
-import type {
-  DatasetAnalysisData,
-  Decision,
-  GenerationSpecData,
-  ScenarioAnalysisData,
-} from '@/features/audits/lib/types';
+import type { Decision } from '@/features/audits/lib/types';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Button, ErrorState, Field, Sheet, Skeleton, Tabs, Textarea, toast } from '@/shared/ui';
 import {
   DECISIONS,
   EMPTY_DRAFT,
   REASONS,
+  publicDataEdits,
   toApprovalIn,
   validateDraft,
   type DecisionDraft,
@@ -103,34 +107,62 @@ const DECISION_COPY: Record<Decision, { effect: string; submit: string; on: stri
   },
 };
 
+/** The public_data gate never stops the run: anything but approve means zero-shot. */
+const PUBLIC_DATA_COPY: Record<Decision, { effect: string; submit: string }> = {
+  approved: { effect: 'Fetch the picked dataset as the reference sample.', submit: 'Use this dataset' },
+  changes_requested: { effect: 'Skip public data; generate zero-shot.', submit: 'Skip public data' },
+  rejected: { effect: 'No public data; generate zero-shot. The run continues.', submit: 'Go zero-shot' },
+};
+
 export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDrawerProps) {
   const { data: audit, isLoading, error, refetch } = useAudit(auditId ?? undefined);
   const decide = useDecideGate(auditId ?? '');
   const [draft, setDraft] = useState<DecisionDraft>(EMPTY_DRAFT);
   const [touched, setTouched] = useState(false);
   const [burst, setBurst] = useState(false);
+  const [pick, setPick] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setDraft(EMPTY_DRAFT);
       setTouched(false);
       setBurst(false);
+      setPick(null);
     }
   }, [open, auditId, gate]);
 
   const stage = gate ? gateStage(gate) : undefined;
   const by = latestByKind(audit?.artifacts ?? []);
-  const datasetAnalysis = by.dataset_analysis?.[0]?.data as DatasetAnalysisData | undefined;
-  const spec = by.generation_spec?.[0]?.data as GenerationSpecData | undefined;
-  const scenarioAnalysis = by.scenario_analysis?.[0]?.data as ScenarioAnalysisData | undefined;
+  const first = (k: string) => by[k]?.[0]?.data;
+  const datasetAnalysis = first('dataset_analysis')
+    ? toDatasetAnalysis(first('dataset_analysis'))
+    : undefined;
+  const spec = first('generation_spec') ? toGenerationSpec(first('generation_spec')) : undefined;
+  const scenarioAnalysis = first('scenario_analysis')
+    ? toScenarioAnalysis(first('scenario_analysis'))
+    : undefined;
+  const candidates =
+    gate === 'public_data' && first('public_dataset_candidates')
+      ? toPublicCandidates(first('public_dataset_candidates'))
+      : undefined;
   const reviewed = (stage?.gate?.reviews ?? []).flatMap((k) => by[k] ?? []);
-  const blocked = gate === 'datasets' && datasetAnalysis ? !canApproveDataset(datasetAnalysis.gates) : false;
-  const errors = validateDraft(draft);
+  const blocked =
+    gate === 'datasets' && datasetAnalysis && Object.keys(datasetAnalysis.gates).length > 0
+      ? !canApproveDataset(datasetAnalysis.gates)
+      : false;
+  const needsPick = gate === 'public_data' && draft.decision === 'approved' && !pick;
+  const errors = [
+    ...validateDraft(draft),
+    ...(needsPick ? ['Pick a dataset to approve, or reject for zero-shot.'] : []),
+  ];
+  const copy = (d: Decision) =>
+    gate === 'public_data' ? { ...DECISION_COPY[d], ...PUBLIC_DATA_COPY[d] } : DECISION_COPY[d];
 
   const submit = () => {
     setTouched(true);
     if (!gate || errors.length) return;
-    decide.mutate(toApprovalIn(gate, draft, reviewed[0]?.id), {
+    const edits = gate === 'public_data' && draft.decision === 'approved' ? publicDataEdits(pick) : {};
+    decide.mutate(toApprovalIn(gate, draft, reviewed[0]?.id, edits), {
       onSuccess: () => {
         if (draft.decision === 'approved') {
           setBurst(true);
@@ -167,7 +199,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
             loading={decide.isPending}
             disabled={!draft.decision || (draft.decision === 'approved' && blocked)}
           >
-            {draft.decision ? DECISION_COPY[draft.decision].submit : 'Choose a decision'}
+            {draft.decision ? copy(draft.decision).submit : 'Choose a decision'}
           </Button>
         </div>
       }
@@ -181,7 +213,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
             <div className="space-y-0.5 text-xs text-muted">
               <div className="num flex items-center gap-3">
                 <span className="font-mono">{audit.id}</span>
-                <span className="font-mono">kb {audit.data.kbVersion ?? '–'}</span>
+                <span className="font-mono">kb {auditKbVersion(audit) ?? '–'}</span>
                 <TraceLink
                   className="ml-auto"
                   traceId={audit.data.stageTraces?.[stage?.id ?? ''] ?? audit.data.traceId}
@@ -220,21 +252,23 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                       )}
                     </div>
                     <GateCards gates={datasetAnalysis.gates} />
-                    {spec && spec.assumptions.length > 0 && (
+                    {spec && spec.assumptions.some((a) => a.provenance === 'llm_assumption') && (
                       <div className="rounded-lg border border-border p-3 text-sm">
                         <div className="mb-1.5 text-xs font-medium text-muted">
                           Check these: values the LLM assumed, not taken from your documents
                         </div>
                         <ul className="space-y-1">
-                          {spec.assumptions.map((a) => (
-                            <li key={a.field} className="flex gap-2">
-                              <span className="mt-2 size-1 shrink-0 rounded-full bg-warning" />
-                              <span>
-                                <span className="font-mono text-xs">{a.field}</span>{' '}
-                                <span className="text-muted">·</span> {a.what}
-                              </span>
-                            </li>
-                          ))}
+                          {spec.assumptions
+                            .filter((a) => a.provenance === 'llm_assumption')
+                            .map((a) => (
+                              <li key={a.field} className="flex gap-2">
+                                <span className="mt-2 size-1 shrink-0 rounded-full bg-warning" />
+                                <span>
+                                  <span className="font-mono text-xs">{a.field}</span>{' '}
+                                  <span className="text-muted">·</span> {a.what ?? '–'}
+                                </span>
+                              </li>
+                            ))}
                         </ul>
                       </div>
                     )}
@@ -242,8 +276,17 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                 )}
                 {gate === 'scenarios' && scenarioAnalysis && (
                   <p className="rounded-lg border border-border bg-surface-muted/60 p-3 text-sm">
-                    {scenarioAnalysis.summary}
+                    {scenarioAnalysis.summary ?? '–'}
                   </p>
+                )}
+                {gate === 'public_data' && candidates && (
+                  <>
+                    <p className="text-sm text-muted">
+                      Pick the public dataset the generator uses as a reference sample, then approve. Reject
+                      to generate zero-shot from the data dictionary; the run continues either way.
+                    </p>
+                    <PublicCandidatesView data={candidates} selected={pick} onSelect={setPick} />
+                  </>
                 )}
               </Tabs.Content>
               <Tabs.Content value="analysis" className="space-y-6">
@@ -263,7 +306,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                         <div className="text-success">+ {d.after}</div>
                       </div>
                     ))}
-                    <ProvenanceYaml yaml={spec.yaml} />
+                    {spec.yaml && <ProvenanceYaml yaml={spec.yaml} />}
                   </>
                 ) : scenarioAnalysis?.diff ? (
                   <div className="space-y-1 font-mono text-xs">
@@ -311,7 +354,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                       onClick={() => choose(d)}
                       className={cn(
                         'flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50',
-                        on ? DECISION_COPY[d].on : 'border-border hover:border-text/25',
+                        on ? copy(d).on : 'border-border hover:border-text/25',
                       )}
                     >
                       <span className="icon grid size-6 shrink-0 place-items-center rounded-full bg-surface-muted text-muted transition-colors">
@@ -319,7 +362,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                       </span>
                       <span className="min-w-0">
                         <span className="block text-sm font-medium">{DECISIONS[d].label}</span>
-                        <span className="block text-2xs text-muted">{DECISION_COPY[d].effect}</span>
+                        <span className="block text-2xs text-muted">{copy(d).effect}</span>
                       </span>
                     </button>
                   );

@@ -14,10 +14,21 @@ import { cn } from '@/shared/lib/utils';
 import { Badge, KeyValue, Markdown } from '@/shared/ui';
 import { TONE_CLASSES, ciCrosses, formatCI, trafficTone, verdictStyle } from '../../lib/styling';
 import type { CriticData, Finding, FindingsData, ReportData } from '../../lib/types';
-import { CitationChip, ConfidenceBar, SubHeading, VerdictPill } from './common';
+import { CitationChip, ConfidenceBar, DASH, SubHeading, VerdictPill, dash } from './common';
 
 /** Metric value with its CI on a small number line, threshold marked. */
-function CIBar({ metric }: { metric: NonNullable<Finding['metric']> }) {
+function CIBar({ metric: m }: { metric: NonNullable<Finding['metric']> }) {
+  if (m.value == null) {
+    return (
+      <div className="rounded-lg border border-border bg-surface-muted/30 p-4 text-sm">
+        <span className="text-xs text-muted">{m.name}</span> <span className="num">{DASH}</span>
+        {m.thresholdText && (
+          <span className="ml-2 font-mono text-xs text-muted">threshold {m.thresholdText}</span>
+        )}
+      </div>
+    );
+  }
+  const metric = { ...m, value: m.value, ci: m.ci ?? ([m.value, m.value] as [number, number]) };
   const lo = Math.min(metric.ci[0], metric.threshold ?? metric.ci[0]);
   const hi = Math.max(metric.ci[1], metric.threshold ?? metric.ci[1]);
   const pad = (hi - lo) * 0.25 || 0.1;
@@ -52,13 +63,14 @@ function CIBar({ metric }: { metric: NonNullable<Finding['metric']> }) {
       </div>
       <div className="num flex flex-wrap justify-between gap-2 text-2xs text-muted">
         <span>
-          95% CI <span className="font-mono text-text">{formatCI(metric.ci).replace(/^95% CI /, '')}</span>
+          95% CI{' '}
+          <span className="font-mono text-text">{m.ci ? formatCI(m.ci).replace(/^95% CI /, '') : DASH}</span>
         </span>
         {metric.threshold != null && (
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-0.5 rounded-full bg-danger" />
-            threshold <span className="font-mono text-text">{metric.threshold}</span> ·{' '}
-            {metric.thresholdSource}
+            threshold <span className="font-mono text-text">{metric.thresholdText ?? metric.threshold}</span>
+            {metric.thresholdSource && <> · {metric.thresholdSource}</>}
           </span>
         )}
       </div>
@@ -87,14 +99,17 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
             <VerdictPill verdict={f.verdict} />
             {f.critic?.adjusted && (
               <Badge tone="warning" icon={<RotateCcw />}>
-                critic: was {f.critic.originalVerdict}
+                critic: was {(f.critic.originalVerdict ?? DASH).replace(/_/g, ' ')}
               </Badge>
             )}
+            {f.critic?.call && !f.critic.adjusted && <Badge>critic: {f.critic.call}</Badge>}
           </div>
-          <div className="mt-1.5 text-sm font-medium">{f.title}</div>
+          <div className="mt-1.5 text-sm font-medium">{dash(f.title)}</div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
             <ConfidenceBar value={f.confidence} />
-            <span className="font-mono text-2xs text-muted">{f.requirement}</span>
+            <span className="font-mono text-2xs text-muted [overflow-wrap:anywhere]">
+              {dash(f.requirement)}
+            </span>
           </div>
         </div>
         <ChevronDown
@@ -109,13 +124,14 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
         >
           {f.metric && <CIBar metric={f.metric} />}
           <SubHeading>Reasoning</SubHeading>
-          <p className="text-sm">{f.reasoning}</p>
+          <p className="text-sm">{dash(f.reasoning)}</p>
           <SubHeading>Evidence</SubHeading>
+          {f.evidence.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
           <ul className="space-y-1.5 text-sm">
             {f.evidence.map((e) => (
               <li key={e.text} className="flex gap-2">
                 <FlaskConical className="mt-0.5 size-3.5 shrink-0 text-muted" />
-                <span>
+                <span className="min-w-0 break-words">
                   {e.text}
                   {e.ci && <span className="ml-1 font-mono text-xs text-muted">{formatCI(e.ci, 3)}</span>}
                   {e.runId && <span className="ml-1 font-mono text-xs text-muted">· {e.runId}</span>}
@@ -124,6 +140,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
             ))}
           </ul>
           <SubHeading>Counter-evidence</SubHeading>
+          {f.counterEvidence.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
           <ul className="space-y-1.5 text-sm">
             {f.counterEvidence.map((c) => (
               <li key={c} className="flex gap-2">
@@ -133,6 +150,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
             ))}
           </ul>
           <SubHeading>Would change if</SubHeading>
+          {f.wouldChangeIf.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
           <ul className="space-y-1.5 text-sm">
             {f.wouldChangeIf.map((c) => (
               <li key={c} className="flex gap-2">
@@ -144,10 +162,21 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
           {f.critic && (
             <>
               <SubHeading>Critic</SubHeading>
-              <p className="text-sm text-muted">{f.critic.note}</p>
+              <p className="text-sm text-muted">{dash(f.critic.note)}</p>
+            </>
+          )}
+          {f.limitations && f.limitations.length > 0 && (
+            <>
+              <SubHeading>Limitations</SubHeading>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+                {f.limitations.map((l) => (
+                  <li key={l}>{l}</li>
+                ))}
+              </ul>
             </>
           )}
           <SubHeading>Sources</SubHeading>
+          {f.citations.length === 0 && <p className="text-sm text-muted">{DASH}</p>}
           <div className="flex flex-wrap gap-1.5">
             {f.citations.map((c) => (
               <CitationChip key={c.provision} c={c} />
@@ -160,6 +189,7 @@ export function FindingCard({ f, defaultOpen }: { f: Finding; defaultOpen?: bool
 }
 
 export function FindingsView({ data }: { data: FindingsData }) {
+  if (data.findings.length === 0) return <p className="text-sm text-muted">No findings {DASH}</p>;
   const counts = data.findings.reduce<Record<string, number>>(
     (m, f) => ({ ...m, [f.verdict]: (m[f.verdict] ?? 0) + 1 }),
     {},
@@ -199,7 +229,7 @@ export function CriticView({ data }: { data: CriticData }) {
     <div>
       <p className="mb-4 flex gap-2 rounded-lg border border-border bg-surface-muted/40 p-3 text-sm">
         <Gavel className="mt-0.5 size-4 shrink-0 text-muted" />
-        {data.summary}
+        {dash(data.summary)}
       </p>
       <motion.ul variants={staggerList(0.07)} initial="initial" animate="animate" className="space-y-2">
         {data.reviews.map((r) => (
@@ -210,19 +240,20 @@ export function CriticView({ data }: { data: CriticData }) {
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-muted">{r.findingId}</span>
-              <Badge tone={OUTCOME[r.outcome]}>{r.outcome}</Badge>
+              <Badge tone={OUTCOME[r.outcome as keyof typeof OUTCOME] ?? 'neutral'}>{r.outcome}</Badge>
               {r.newVerdict && (
                 <span className="inline-flex items-center gap-1 text-xs">
                   <ArrowRight className="size-3" /> <VerdictPill verdict={r.newVerdict} />
                 </span>
               )}
               <span className="ml-auto font-mono text-xs text-muted">
-                confidence {r.confidenceDelta > 0 ? '+' : ''}
-                {Math.round(r.confidenceDelta * 100)} pts
+                {r.confidenceDelta != null
+                  ? `confidence ${r.confidenceDelta > 0 ? '+' : ''}${Math.round(r.confidenceDelta * 100)} pts`
+                  : `confidence ${r.newConfidence != null ? `${Math.round(r.newConfidence * 100)}%` : DASH}`}
               </span>
             </div>
-            <div className="mt-1 font-medium">{r.challenge}</div>
-            <div className="text-muted">{r.attempt}</div>
+            <div className="mt-1 font-medium">{dash(r.challenge)}</div>
+            {r.attempt && <div className="break-words text-muted">{r.attempt}</div>}
           </motion.li>
         ))}
       </motion.ul>
@@ -251,9 +282,12 @@ export function ReportView({ data }: { data: ReportData }) {
                 <span className={cn('size-2.5 shrink-0 rounded-full', tone.bg)} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">
-                    {t.title} <span className="font-mono text-xs text-muted">{t.requirement}</span>
+                    {t.title && <>{t.title} </>}
+                    <span className="font-mono text-xs text-muted [overflow-wrap:anywhere]">
+                      {t.requirement}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted">{t.note}</div>
+                  <div className="text-xs text-muted">{dash(t.note)}</div>
                 </div>
                 <span className={cn('text-xs font-semibold uppercase', tone.text)}>{t.light}</span>
               </motion.div>
@@ -261,7 +295,34 @@ export function ReportView({ data }: { data: ReportData }) {
           })}
         </motion.div>
       )}
-      <Markdown>{data.markdown}</Markdown>
+      {data.audience === 'management' && data.title && (
+        <p className="mb-4 text-base font-semibold">{data.title}</p>
+      )}
+      {data.markdown ? (
+        <Markdown>{data.markdown}</Markdown>
+      ) : (
+        !data.traffic && <p className="text-sm text-muted">{DASH}</p>
+      )}
+      {data.decisions && data.decisions.length > 0 && (
+        <>
+          <SubHeading>Decisions needed</SubHeading>
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {data.decisions.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {data.nextSteps && data.nextSteps.length > 0 && (
+        <>
+          <SubHeading>Next steps</SubHeading>
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {data.nextSteps.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </>
+      )}
       {data.reproducibility && (
         <>
           <SubHeading>Reproducibility</SubHeading>

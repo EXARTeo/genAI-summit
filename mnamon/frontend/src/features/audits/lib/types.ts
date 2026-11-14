@@ -4,6 +4,7 @@
 export type ArtifactKind =
   | 'context'
   | 'model_profile'
+  | 'public_dataset_candidates'
   | 'scenarios'
   | 'scenario_analysis'
   | 'generation_spec'
@@ -102,59 +103,87 @@ export interface ApprovalResult {
   artifact: Artifact | null;
 }
 
-// ---- typed artifact payloads -------------------------------------------------
+// ---- artifact view models -----------------------------------------------------
+// What the views render. The pipeline writes snake_case shapes (mnamon/agents/pipeline);
+// `adapters.ts` maps every artifact (real or mock) onto these, so a missing field is
+// `undefined` / `null` / `[]` here and the views render "–" instead of crashing.
 
 export interface Citation {
-  provision: string; // e.g. "AI Act Art. 10(2)(f)"
+  provision: string; // e.g. "AI Act Art. 10(2)(f)" or "AIA.10.2.f"
   kbVersion?: string;
   quote?: string;
 }
 
 export interface ContextData {
-  system: { id: string; name: string; annex: string; role: string; intendedPurpose: string };
-  requirements: { id: string; title: string; provision: string; testable: boolean }[];
-  plugins: { name: string; accessType: string; placement: string }[];
-  filesRead: { path: string; version: number }[];
+  system: {
+    id?: string;
+    name?: string;
+    annex?: string;
+    role?: string;
+    intendedPurpose?: string;
+    riskClass?: string;
+  };
+  requirements: { id: string; title?: string; provision?: string; testable: boolean }[];
+  plugins: { name: string; accessType?: string; placement?: string }[];
+  filesRead: { path: string; version?: number }[];
+  kbVersion?: string;
+  target?: string;
 }
 
 export interface ModelProfileData {
-  model: { name: string; version: string; flavor: string; metrics: Record<string, number> };
+  model: { name?: string; version?: string; flavor?: string; metrics: Record<string, number> };
   sensitivity: { feature: string; score: number; protectedProxy?: boolean; note?: string }[];
-  boundary: { feature: string; threshold: string; flipRate: number; note: string }[];
-  probes: number;
+  boundary: { feature: string; threshold?: string; flipRate: number | null; note?: string }[];
+  probes?: number;
   notes: string[];
 }
 
 export interface Scenario {
   id: string;
-  title: string;
-  template: string;
-  requirement: string;
+  title?: string;
+  template?: string;
+  requirement?: string;
   groups: string[];
-  n: number;
-  priority: 'high' | 'medium' | 'low';
-  rationale: string;
+  n?: number;
+  priority?: 'high' | 'medium' | 'low';
+  rationale?: string;
+  metric?: string;
+  /** Memory entry paths this scenario follows ("learned from memory"). */
+  memoryApplied?: string[];
 }
 
 export interface ScenariosData {
   scenarios: Scenario[];
+  notTestable?: string[];
+  assumptions?: string[];
 }
 
 export interface ScenarioAnalysisData {
   coverage: { requirement: string; scenarios: string[]; status: 'covered' | 'partial' | 'not_testable' }[];
   risks: string[];
-  notTestable: { requirement: string; why: string }[];
+  notTestable: { requirement: string; why?: string }[];
   diff?: { added: string[]; removed: string[]; changed: string[] };
-  summary: string;
+  summary?: string;
+  /** Protected attributes, proxies and monotone fields the plan covers. */
+  attributeCoverage?: { name: string; kind: string; covered: boolean }[];
 }
 
-export type Provenance = 'dictionary' | 'training_doc' | 'business_rule' | 'llm_assumption';
+export type Provenance =
+  | 'dictionary'
+  | 'training_doc'
+  | 'business_rule'
+  | 'llm_assumption'
+  | 'memory'
+  | 'public_data';
 
 export interface GenerationSpecData {
-  testSpec: string;
+  testSpec?: string;
   yaml: string;
-  assumptions: { field: string; what: string; provenance: Provenance }[];
+  mode?: string;
+  assumptions: { field: string; what?: string; provenance: Provenance | (string & {}) }[];
   diff?: { field: string; before: string; after: string; provenance: Provenance }[];
+  problems?: string[];
+  rationale?: string;
 }
 
 export type GateStatus = 'pass' | 'warn' | 'fail';
@@ -168,7 +197,7 @@ export interface GateResult {
 
 export interface TwinPair {
   pairId: string;
-  mode: 'a' | 'b' | 'c';
+  mode: string;
   changed: string[];
   base: Record<string, string | number>;
   twin: Record<string, string | number>;
@@ -176,21 +205,25 @@ export interface TwinPair {
   scoreTwin: number;
 }
 
+export interface TwinModeSummary {
+  mode: string;
+  label: string;
+  description?: string;
+  flipRate: number | null;
+  meanDelta: number | null;
+  ci: [number, number] | null;
+  pairs?: number;
+  validShare?: number | null;
+}
+
 export interface DatasetAnalysisData {
-  datasetId: string;
-  name: string;
-  rows: number;
-  pairs: number;
-  gates: Record<GateName, GateResult>;
-  coverage: { rows: string[]; cols: string[]; counts: number[][]; minPerCell: number };
-  twinModes: {
-    mode: 'a' | 'b' | 'c';
-    label: string;
-    description: string;
-    flipRate: number;
-    meanDelta: number;
-    ci: [number, number];
-  }[];
+  datasetId?: string;
+  name?: string;
+  rows?: number;
+  pairs?: number;
+  gates: Partial<Record<GateName, GateResult>>;
+  coverage: { rows: string[]; cols: string[]; counts: number[][]; minPerCell: number; label?: string };
+  twinModes: TwinModeSummary[];
   twins: TwinPair[];
   limitations: string[];
 }
@@ -199,23 +232,26 @@ export type Verdict = 'supports_compliance' | 'indicates_gap' | 'inconclusive' |
 
 export interface Finding {
   id: string;
-  requirement: string;
-  title: string;
-  verdict: Verdict;
-  confidence: number; // 0..1
+  requirement?: string;
+  title?: string;
+  verdict: Verdict | (string & {});
+  confidence: number | null; // 0..1
   metric?: {
     name: string;
-    value: number;
-    ci: [number, number];
+    value: number | null;
+    ci: [number, number] | null;
     threshold?: number;
+    /** The threshold as written, e.g. ">= 0.80". */
+    thresholdText?: string;
     thresholdSource?: string;
   };
   evidence: { text: string; ci?: [number, number]; runId?: string }[];
   counterEvidence: string[];
   wouldChangeIf: string[];
-  reasoning: string;
+  reasoning?: string;
   citations: Citation[];
-  critic?: { originalVerdict: Verdict; adjusted: boolean; note: string };
+  limitations?: string[];
+  critic?: { originalVerdict?: Verdict | (string & {}); adjusted: boolean; note?: string; call?: string };
 }
 
 export interface FindingsData {
@@ -225,21 +261,85 @@ export interface FindingsData {
 export interface CriticData {
   reviews: {
     findingId: string;
-    challenge: string;
-    attempt: string;
-    outcome: 'upheld' | 'weakened' | 'overturned';
-    newVerdict?: Verdict;
-    confidenceDelta: number;
+    challenge?: string;
+    attempt?: string;
+    outcome: 'upheld' | 'weakened' | 'overturned' | (string & {});
+    newVerdict?: Verdict | (string & {});
+    confidenceDelta: number | null;
+    newConfidence?: number | null;
   }[];
-  summary: string;
+  summary?: string;
 }
 
 export type Traffic = 'green' | 'amber' | 'red' | 'grey';
 
 export interface ReportData {
   audience: 'engineer' | 'management';
-  title: string;
+  title?: string;
   markdown: string;
-  traffic?: { requirement: string; title: string; light: Traffic; note: string }[];
+  traffic?: { requirement: string; title?: string; light: Traffic | (string & {}); note?: string }[];
+  decisions?: string[];
+  nextSteps?: string[];
   reproducibility?: { kbVersion: string; cardVersion: number; seeds: number[]; mlflowRuns: string[] };
+}
+
+export interface PublicCandidate {
+  id: string;
+  name: string;
+  url?: string;
+  source?: string;
+  score: number | null;
+  rows?: number;
+  licence?: string;
+  licenceStatus?: string;
+  task?: string;
+  fetchable: boolean;
+  mapped: string[];
+  missingProtected: string[];
+  description?: string;
+}
+
+export interface PublicCandidatesData {
+  plugin?: string;
+  candidates: PublicCandidate[];
+  recommendation: { mode?: string; reason?: string; candidate?: string | null };
+  sources: { name: string; ok: boolean; found?: number; error?: string }[];
+}
+
+export interface TestResultRow {
+  id: string;
+  testId?: string;
+  scenario?: string;
+  requirement?: string;
+  metric?: string;
+  value: number | null;
+  ci: [number, number] | null;
+  n?: number;
+  threshold?: string;
+  status?: string;
+  passed: boolean | null;
+  runId?: string;
+}
+
+export interface TestResultsData {
+  tests: TestResultRow[];
+  error?: string;
+  /** Mock shape: aggregate counts only. */
+  summary?: { runs?: number; passed?: number; failed?: number };
+}
+
+export interface DatasetData {
+  datasetId?: string;
+  name?: string;
+  rows?: number;
+  mode?: string;
+  method?: string;
+  seed?: number;
+  byTest: Record<string, number>;
+  twinsByMode: Record<string, number>;
+  population: { stat: string; stated?: number; observed?: number; ok: boolean | null }[];
+  limitations: string[];
+  sample: { columns: string[]; rows: Record<string, string | number>[] };
+  status?: string;
+  problems: string[];
 }

@@ -1,6 +1,6 @@
 // Mock routes for /v1/audits, registered by src/shared/lib/mocks/handlers/audits.ts.
 import { mockError, type MockRoute } from '@/shared/lib/mocks';
-import { mockDecide, mockGet, mockList } from './mockStore';
+import { mockDecide, mockGet, mockList, mockStart } from './mockStore';
 import type { ApprovalIn } from './types';
 
 export const auditRoutes: MockRoute[] = [
@@ -27,5 +27,11 @@ export const auditRoutes: MockRoute[] = [
     path: '/v1/audits/:id/approvals',
     handler: ({ params, body }) =>
       mockDecide(params.id, body as ApprovalIn) ?? Promise.reject(mockError(404, 'Audit not found')),
+  },
+  {
+    method: 'POST',
+    path: '/v1/systems/:systemId/audits',
+    handler: ({ params, body }) =>
+      mockStart(params.systemId, ((body ?? {}) as { data?: Record<string, unknown> }).data ?? {}),
   },
 ];

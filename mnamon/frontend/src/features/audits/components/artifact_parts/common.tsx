@@ -24,7 +24,14 @@ export function VerdictPill({ verdict, className }: { verdict: string; className
   );
 }
 
-export function ConfidenceBar({ value }: { value: number }) {
+/** "–" for a missing value. */
+export const DASH = '–';
+export function dash(v: string | number | null | undefined): string | number {
+  return v == null || v === '' ? DASH : v;
+}
+
+export function ConfidenceBar({ value }: { value: number | null | undefined }) {
+  if (value == null) return <span className="text-xs text-muted">confidence {DASH}</span>;
   const tone: Tone = value >= 0.8 ? 'success' : value >= 0.55 ? 'warning' : 'danger';
   return (
     <div className="flex items-center gap-2 text-xs text-muted">
@@ -54,6 +61,7 @@ export function CitationChip({ c }: { c: Citation }) {
       <span className="inline-flex">
         <Badge tone="neutral" icon={<Scale />}>
           {c.provision}
+          {c.kbVersion && <span className="font-mono text-muted"> · kb {c.kbVersion}</span>}
         </Badge>
       </span>
     </Tooltip>

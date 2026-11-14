@@ -1,0 +1,2207 @@
+{
+  "id": "36782b10-243b-4257-b62b-b592b8c68473",
+  "systemId": "SYS-001",
+  "status": "waiting_approval",
+  "stage": "approve_datasets",
+  "createdBy": "client:55555555-5555-4555-8555-555555555555",
+  "data": {
+    "title": "Audit check (read-only audit run)",
+    "pipeline": "agents",
+    "plugin_ids": ["SYS-001.cv-parser", "SYS-001.cv-ranker"],
+    "stageTraces": {
+      "draft_spec": "cec44d60889f497b8525ec593fc253d5",
+      "load_context": "ce2d6dcd135c46558ef4552d53e82df2",
+      "generate_data": "cec44d60889f497b8525ec593fc253d5",
+      "profile_model": "ce2d6dcd135c46558ef4552d53e82df2",
+      "plan_scenarios": "ce2d6dcd135c46558ef4552d53e82df2",
+      "analyse_datasets": "cec44d60889f497b8525ec593fc253d5",
+      "approve_datasets": "cec44d60889f497b8525ec593fc253d5",
+      "find_public_data": "ce2d6dcd135c46558ef4552d53e82df2",
+      "analyse_scenarios": "ce2d6dcd135c46558ef4552d53e82df2"
+    },
+    "dossier_version": "141aa9347f388729",
+    "systemName": "CV Screener",
+    "stageDurations": {},
+    "trigger": "manual"
+  },
+  "createdAt": "2026-11-14T21:22:18.992218Z",
+  "updatedAt": "2026-11-14T22:04:45.005292Z",
+  "artifacts": [
+    {
+      "id": "935d878d-ad23-4ea4-abe9-89bfd4c8f606",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "context",
+      "name": "main",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "system": {
+          "id": "SYS-001",
+          "name": "CV Screener",
+          "role": "provider",
+          "risk_class": "high_risk",
+          "annex_basis": "Annex III 4(a)",
+          "card_version": 1,
+          "org_thresholds": {
+            "selection_rate_ratio": ">= 0.80",
+            "equal_opportunity_gap": "<= 0.05",
+            "counterfactual_flip_rate": "<= 0.02"
+          },
+          "intended_purpose": "Rank applicants for software-engineering roles from their CVs and propose a shortlist. A recruiter reviews every shortlist before anyone is contacted or rejected.",
+          "protected_attributes": ["sex", "age_band", "nationality"]
+        },
+        "target": "SYS-001.cv-ranker",
+        "plugins": ["cv-parser", "cv-ranker"],
+        "traceId": "ce2d6dcd135c46558ef4552d53e82df2",
+        "testable": [
+          "REQ.AIA.9.2.a.risk-identification",
+          "REQ.AIA.9.6.testing-for-risk-measures",
+          "REQ.AIA.9.8.predefined-metrics",
+          "REQ.AIA.9.9.vulnerable-groups",
+          "REQ.AIA.10.2.f.bias-examination",
+          "REQ.AIA.10.2.g.bias-mitigation",
+          "REQ.AIA.10.2.h.data-gaps",
+          "REQ.AIA.10.3.representative-data",
+          "REQ.AIA.12.1.automatic-logging",
+          "REQ.AIA.13.3.b.ii.declared-accuracy",
+          "REQ.AIA.13.3.b.v.group-performance",
+          "REQ.AIA.15.1.accuracy-consistency",
+          "REQ.AIA.15.3.declared-accuracy-metrics",
+          "REQ.AIA.15.4.robustness",
+          "REQ.AIA.15.5.cybersecurity"
+        ],
+        "warnings": [],
+        "files_read": [
+          {
+            "path": "plugins/cv-ranker/plugin.yaml",
+            "version": 1
+          },
+          {
+            "path": "plugins/cv-ranker/README.md",
+            "version": 1
+          },
+          {
+            "path": "plugins/cv-ranker/data/data-dictionary.yaml",
+            "version": 1
+          },
+          {
+            "path": "plugins/cv-ranker/data/training-data.md",
+            "version": 1
+          },
+          {
+            "path": "plugins/cv-ranker/data/sample.csv",
+            "version": 1
+          },
+          {
+            "path": "plugins/cv-ranker/data/business-rules.md",
+            "version": 1
+          },
+          {
+            "path": "system-card.yaml",
+            "version": 1
+          }
+        ],
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline",
+        "requirements": [
+          {
+            "id": "REQ.AIA.6.2.annex-iii-high-risk",
+            "source": "AIA.6.2",
+            "related": ["AIA.ANNEX_III", "AIA.6.3"],
+            "in_force": false,
+            "modality": "shall",
+            "obligation": "Treat an AI system listed in Annex III as high-risk and apply Chapter III, Sections 2 and 3, unless the Art. 6(3) derogation (no significant risk of harm, narrow procedural or preparatory task, no profiling) applies and is documented.",
+            "testability": "documentation",
+            "test_templates": [],
+            "effective_valid_from": "2027-12-02"
+          },
+          {
+            "id": "REQ.AIA.9.1.risk-management-system",
+            "source": "AIA.9.1",
+            "related": ["AIA.9.2"],
+            "in_force": false,
+            "modality": "shall",
+            "obligation": "Establish, implement, document and maintain a risk management system for the high-risk AI system, run as a continuous iterative process over the whole lifecycle.",
+            "testability": "process",
+            "test_templates": [],
+            "effective_valid_from": "2027-12-02"
+          },
+          {
+            "id": "REQ.AIA.9.2.a.risk-identification",
+            "source": "AIA.9.2.a",
+            "related": ["AIA.9.2.b"],
+            "in_force": false,
+            "modality": "shall",
+            "obligation": "Identify and analyse the known and reasonably foreseeable risks to health, safety or fundamental rights under intended use, and estimate and evaluate risks under reasonably foreseeable misuse.",
+            "testability": "model_and_data_test",
+            "test_templates": ["TT.robustness.edge_cases", "TT.fairness.group_metrics"],
+            "effective_valid_from": "2027-12-02"
+          },
+          {
+            "id": "REQ.AIA.9.5.residual-risk-acceptable",
+            "source": "AIA.9.5",
+            "related": ["AIA.9.5.a", "AIA.9.5.b", "AIA.9.5.c"],
+            "in_force": false,
+            "modality": "shall",
+            "obligation": "Adopt risk management measures so that the residual risk of each hazard and the overall residual risk are judged acceptable: eliminate or reduce risks by design, mitigate the rest, and inform and train deployers.",
+            "testability": "process",
+            "test_templates": [],
+            "effective_valid_from": "2027-12-02"
+          },
+          {
+            "id": "REQ.AIA.9.6.testing-for-risk-measures",
+            "source": "AIA.9.6",
+            "related": ["AIA.9.8"],
+            "in_force": false,
+            "modality": "shall",
+            "obligation": "Test the high-risk AI system to identify the most appropriate risk management measures and to ensure it performs consistently for its intended purpose and complies with Section 2.",
+            "testability": "model_and_data_test",
+            "test_templates": ["TT.accuracy.subgroup", "TT.robustness.perturbation"],
+            "effective_valid_from": "2027-12-02"
+          },
+          {
+            "id": "REQ.AIA.9.8.predefined-metrics",
+            "source": "AIA.9.8",
+            "related": [],
+            "in_force": false,
+            "modality": "shall",
+            "obligation": "Test during development and in any event before placing on the market, against prior defined metrics and probabilistic thresholds appropriate to the intended purpose.",
+            "testability": "model_and_data_test",
+            "test_templates": [
+              "TT.accuracy.subgroup",
+              "TT.fairness.group_metrics",
+              "TT.robustness.perturbation"
+            ],
+            "effective_valid_from": "2027-12-02"
+          }
+        ],
+        "test_templates": [
+          "TT.fairness.group_metrics",
+          "TT.fairness.counterfactual",
+          "TT.data.representation",
+          "TT.robustness.perturbation",
+          "TT.robustness.edge_cases",
+          "TT.accuracy.subgroup",
+          "TT.transparency.ai_disclosure",
+          "TT.security.prompt_injection"
+        ],
+        "dossier_version": "141aa9347f388729"
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T21:22:19.582304Z",
+      "updatedAt": "2026-11-14T21:22:19.582304Z"
+    },
+    {
+      "id": "49ae67f0-35a8-4f84-98de-fea33d3183ce",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "model_profile",
+      "name": "main",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "profile": {
+          "seed": 0,
+          "calls": {
+            "rows": 4848,
+            "calls": 21,
+            "errors": 0,
+            "latency_ms_per_call": {
+              "max": 24.46,
+              "p50": 6.93,
+              "p95": 9.13
+            }
+          },
+          "notes": [
+            "postcode_region moves the output and stands in for nationality, which the model does not use directly: test with causal and proxy-only twins, not only attribute-only twins.",
+            "career_gap_months moves the output and stands in for sex, which the model does not use directly: test with causal and proxy-only twins, not only attribute-only twins.",
+            "career_gap_months moves the output and stands in for age_band, which the model does not use directly: test with causal and proxy-only twins, not only attribute-only twins.",
+            "years_experience: declared increasing but violated on 48% of probes."
+          ],
+          "rules": [
+            {
+              "id": "R1",
+              "fields": ["age_band", "years_experience"],
+              "severity": "hard",
+              "fields_moving_output": ["years_experience"]
+            },
+            {
+              "id": "R2",
+              "fields": ["career_gap_months", "years_experience"],
+              "severity": "hard",
+              "fields_moving_output": ["career_gap_months", "years_experience"]
+            },
+            {
+              "id": "R3",
+              "fields": ["age_band", "education_level"],
+              "severity": "hard",
+              "fields_moving_output": ["education_level"]
+            },
+            {
+              "id": "R4",
+              "fields": ["age_band", "education_level", "years_experience"],
+              "severity": "soft",
+              "fields_moving_output": ["education_level", "years_experience"]
+            }
+          ],
+          "output": {
+            "max": 0.9374,
+            "min": 0.0075,
+            "mean": 0.3741,
+            "type": "binary_classification",
+            "quantiles": {
+              "0.1": 0.0537,
+              "0.5": 0.3324,
+              "0.9": 0.759
+            },
+            "threshold": 0.5,
+            "binary_scores": false,
+            "positive_rate": 0.3287,
+            "in_unit_interval": true,
+            "positive_rate_realistic": 0.4453
+          },
+          "probes": {
+            "n": 286,
+            "hash": "770548bf64d35b57b96d5cd3243cd089ddba1c2c4d5e8610c93759d6c367c3ce",
+            "by_kind": {
+              "dag": 128,
+              "lhs": 128,
+              "sample": 30
+            }
+          },
+          "target": {
+            "name": "models:/sys-001-cv-ranker@champion",
+            "plugin": "SYS-001.cv-ranker",
+            "access_type": "mlflow_model"
+          },
+          "proxies": {
+            "postcode_region": {
+              "proxy_for": ["nationality"],
+              "model_input": true,
+              "moves_output": true,
+              "association_cramers_v": {
+                "nationality": 0.3293
+              }
+            },
+            "career_gap_months": {
+              "proxy_for": ["sex", "age_band"],
+              "model_input": true,
+              "moves_output": true,
+              "association_cramers_v": {
+                "sex": 0.4585,
+                "age_band": 0.4033
+              }
+            }
+          },
+          "generator": "synthkit 0.1.0",
+          "protected": {
+            "sex": {
+              "model_input": true,
+              "selection_rate_ratio": 0.7911,
+              "moves_output_directly": false,
+              "positive_rate_by_group": {
+                "male": 0.4928,
+                "female": 0.3898
+              }
+            },
+            "age_band": {
+              "model_input": true,
+              "selection_rate_ratio": 0.0,
+              "moves_output_directly": false,
+              "positive_rate_by_group": {
+                "18-24": 0.0,
+                "25-34": 0.4615,
+                "35-44": 0.6111,
+                "45-54": 0.5,
+                "55-67": 0.5714
+              }
+            },
+            "nationality": {
+              "model_input": true,
+              "selection_rate_ratio": 0.7866,
+              "moves_output_directly": false,
+              "positive_rate_by_group": {
+                "GR": 0.4623,
+                "non_EU": 0.3636,
+                "EU_other": 0.3636
+              }
+            }
+          },
+          "signature": {
+            "from": "model",
+            "types": {
+              "sex": "string",
+              "age_band": "string",
+              "languages": "long",
+              "nationality": "string",
+              "candidate_id": "string",
+              "skills_match": "double",
+              "education_level": "string",
+              "postcode_region": "string",
+              "years_experience": "long",
+              "career_gap_months": "long"
+            },
+            "inputs": [
+              "candidate_id",
+              "sex",
+              "age_band",
+              "nationality",
+              "postcode_region",
+              "education_level",
+              "years_experience",
+              "career_gap_months",
+              "skills_match",
+              "languages"
+            ],
+            "not_in_dictionary": [],
+            "dictionary_fields_not_inputs": ["full_name"]
+          },
+          "label_rule": {
+            "name": "qualified",
+            "positive_rate": 0.4688,
+            "agreement_with_decision": 0.7578
+          },
+          "determinism": {
+            "holds": true,
+            "max_abs_diff": 0.0
+          },
+          "sensitivity": {
+            "sex": {
+              "role": "protected",
+              "by_value": {
+                "male": 0.4949,
+                "female": 0.4949
+              },
+              "moves_output": false,
+              "oat_flip_rate": 0.0,
+              "oat_mean_range": 0.0,
+              "perm_flip_rate": 0.0,
+              "oat_max_abs_delta": 0.0,
+              "perm_mean_abs_delta": 0.0
+            },
+            "age_band": {
+              "role": "protected",
+              "by_value": {
+                "18-24": 0.4949,
+                "25-34": 0.4949,
+                "35-44": 0.4949,
+                "45-54": 0.4949,
+                "55-67": 0.4949
+              },
+              "moves_output": false,
+              "oat_flip_rate": 0.0,
+              "oat_mean_range": 0.0,
+              "perm_flip_rate": 0.0,
+              "oat_max_abs_delta": 0.0,
+              "perm_mean_abs_delta": 0.0
+            },
+            "languages": {
+              "role": "feature",
+              "by_value": {
+                "1": 0.4652,
+                "2": 0.5023,
+                "3": 0.5257,
+                "4": 0.5121,
+                "5": 0.5121
+              },
+              "moves_output": true,
+              "oat_flip_rate": 0.2708,
+              "oat_mean_range": 0.1407,
+              "perm_flip_rate": 0.0524,
+              "oat_max_abs_delta": 0.3779,
+              "perm_mean_abs_delta": 0.0425
+            },
+            "nationality": {
+              "role": "protected",
+              "by_value": {
+                "GR": 0.4949,
+                "non_EU": 0.4949,
+                "EU_other": 0.4949
+              },
+              "moves_output": false,
+              "oat_flip_rate": 0.0,
+              "oat_mean_range": 0.0,
+              "perm_flip_rate": 0.0,
+              "oat_max_abs_delta": 0.0,
+              "perm_mean_abs_delta": 0.0
+            },
+            "skills_match": {
+              "role": "feature",
+              "by_value": {
+                "0.0": 0.1073,
+                "0.5": 0.3701,
+                "1.0": 0.5876,
+                "0.25": 0.2123,
+                "0.75": 0.6186
+              },
+              "moves_output": true,
+              "oat_flip_rate": 0.8125,
+              "oat_mean_range": 0.5198,
+              "perm_flip_rate": 0.2657,
+              "oat_max_abs_delta": 0.754,
+              "perm_mean_abs_delta": 0.1732
+            },
+            "education_level": {
+              "role": "feature",
+              "by_value": {
+                "phd": 0.6062,
+                "master": 0.5292,
+                "bachelor": 0.5161,
+                "secondary": 0.2417
+              },
+              "moves_output": true,
+              "oat_flip_rate": 0.6875,
+              "oat_mean_range": 0.4248,
+              "perm_flip_rate": 0.1329,
+              "oat_max_abs_delta": 0.6587,
+              "perm_mean_abs_delta": 0.1124
+            },
+            "postcode_region": {
+              "role": "proxy",
+              "by_value": {
+                "other": 0.5934,
+                "piraeus": 0.3824,
+                "athens_west": 0.3652,
+                "athens_north": 0.5464,
+                "thessaloniki": 0.5467,
+                "athens_centre": 0.5822
+              },
+              "proxy_for": ["nationality"],
+              "moves_output": true,
+              "oat_flip_rate": 0.625,
+              "oat_mean_range": 0.338,
+              "perm_flip_rate": 0.1224,
+              "oat_max_abs_delta": 0.5165,
+              "perm_mean_abs_delta": 0.0906
+            },
+            "years_experience": {
+              "role": "feature",
+              "by_value": {
+                "0": 0.2026,
+                "11": 0.5479,
+                "22": 0.553,
+                "34": 0.44,
+                "45": 0.4866
+              },
+              "moves_output": true,
+              "oat_flip_rate": 0.7292,
+              "oat_mean_range": 0.4116,
+              "perm_flip_rate": 0.2168,
+              "oat_max_abs_delta": 0.6564,
+              "perm_mean_abs_delta": 0.1343
+            },
+            "career_gap_months": {
+              "role": "proxy",
+              "by_value": {
+                "0": 0.4977,
+                "30": 0.322,
+                "60": 0.3163,
+                "90": 0.3163,
+                "120": 0.3163
+              },
+              "proxy_for": ["sex", "age_band"],
+              "moves_output": true,
+              "oat_flip_rate": 0.5,
+              "oat_mean_range": 0.2465,
+              "perm_flip_rate": 0.1399,
+              "oat_max_abs_delta": 0.5961,
+              "perm_mean_abs_delta": 0.1018
+            }
+          },
+          "monotonicity": {
+            "years_experience": {
+              "step": 1,
+              "holds": false,
+              "declared": "increasing",
+              "max_violation": 0.4504,
+              "violation_rate": 0.4792
+            }
+          },
+          "decision_boundary": {
+            "band": 0.1,
+            "region": {
+              "sex": {
+                "male": 0.566,
+                "female": 0.434
+              },
+              "age_band": {
+                "18-24": 0.0755,
+                "25-34": 0.2453,
+                "35-44": 0.3962,
+                "45-54": 0.1698,
+                "55-67": 0.1132
+              },
+              "languages": {
+                "q10": 1.0,
+                "q50": 2.0,
+                "q90": 4.0
+              },
+              "nationality": {
+                "GR": 0.5849,
+                "non_EU": 0.2642,
+                "EU_other": 0.1509
+              },
+              "skills_match": {
+                "q10": 0.3751,
+                "q50": 0.5663,
+                "q90": 0.9137
+              },
+              "education_level": {
+                "phd": 0.1509,
+                "master": 0.283,
+                "bachelor": 0.434,
+                "secondary": 0.1321
+              },
+              "postcode_region": {
+                "other": 0.1509,
+                "piraeus": 0.0943,
+                "athens_west": 0.1509,
+                "athens_north": 0.2264,
+                "thessaloniki": 0.2075,
+                "athens_centre": 0.1698
+              },
+              "years_experience": {
+                "q10": 4.0,
+                "q50": 11.0,
+                "q90": 24.2
+              },
+              "career_gap_months": {
+                "q10": 0.0,
+                "q50": 7.0,
+                "q90": 74.8
+              }
+            },
+            "surrogate": {
+              "r2": 0.706,
+              "kind": "linear_logit",
+              "numeric": {
+                "languages": {
+                  "std": 1.1165622824667751,
+                  "coef": -0.09287849006311594,
+                  "mean": 2.6013986013986012
+                },
+                "skills_match": {
+                  "std": 0.2397400082878956,
+                  "coef": 0.8623327543512921,
+                  "mean": 0.5318564244038599
+                },
+                "years_experience": {
+                  "std": 10.860642484957907,
+                  "coef": 0.21534649069030587,
+                  "mean": 13.877622377622378
+                },
+                "career_gap_months": {
+                  "std": 33.93206602030126,
+                  "coef": -0.15085288043320724,
+                  "mean": 27.3006993006993
+                }
+              },
+              "intercept": -0.9568993372476462,
+              "categorical": {
+                "sex": {
+                  "male": 0.15112833625507216,
+                  "female": -0.15112833625506958
+                },
+                "age_band": {
+                  "18-24": -0.5783061335776564,
+                  "25-34": 0.27148188347099006,
+                  "35-44": 0.26170977078243424,
+                  "45-54": 0.12123233294577326,
+                  "55-67": -0.07611785362149089
+                },
+                "nationality": {
+                  "GR": 0.10506427262751188,
+                  "non_EU": 0.11983465837301115,
+                  "EU_other": -0.22489893100047978
+                },
+                "education_level": {
+                  "phd": 0.47287439472246284,
+                  "master": 0.3636462983192843,
+                  "bachelor": 0.25778437547583544,
+                  "secondary": -1.0943050685174345
+                },
+                "postcode_region": {
+                  "other": 0.5924800705311153,
+                  "piraeus": -0.7476466249385934,
+                  "athens_west": -0.4528270597361866,
+                  "athens_north": 0.32403540809035886,
+                  "thessaloniki": 0.09720900775135584,
+                  "athens_centre": 0.186749198301877
+                }
+              },
+              "threshold_logit": 0.0
+            },
+            "threshold": 0.5,
+            "near_count": 53,
+            "near_share": 0.1853
+          },
+          "sensitivity_ranking": [
+            "skills_match",
+            "education_level",
+            "years_experience",
+            "postcode_region",
+            "career_gap_months",
+            "languages",
+            "sex",
+            "age_band",
+            "nationality"
+          ]
+        },
+        "sandbox": {
+          "files": ["model-profile.json"],
+          "exit_code": 0,
+          "duration_ms": 4631,
+          "killed_reason": null
+        },
+        "traceId": "ce2d6dcd135c46558ef4552d53e82df2",
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline"
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T21:22:24.295167Z",
+      "updatedAt": "2026-11-14T21:22:24.295167Z"
+    },
+    {
+      "id": "af11e779-0a6a-49d1-930a-ed325af67d26",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "public_dataset_candidates",
+      "name": "cv-ranker",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "kind": "public_dataset_candidates",
+        "next": "A human approves one candidate (or none) before fetch_public_dataset runs.",
+        "plugin": "cv-ranker",
+        "rerank": {
+          "used": false
+        },
+        "status": "proposed",
+        "system": "SYS-001",
+        "queries": {
+          "uci": ["employee", "recruitment", "hiring"],
+          "domains": ["employment"],
+          "free_text": [
+            "recruitment",
+            "hiring decisions",
+            "job applicants",
+            "resume screening",
+            "recruitment qualified",
+            "recruitment shortlist"
+          ],
+          "openml_tags": [],
+          "openml_names": []
+        },
+        "sources": {
+          "uci": {
+            "ok": true,
+            "found": 1
+          },
+          "openml": {
+            "ok": true,
+            "found": 0
+          },
+          "firecrawl": {
+            "ok": false,
+            "error": "FIRECRAWL_API_KEY not set: skipped"
+          },
+          "huggingface": {
+            "ok": true,
+            "found": 6
+          }
+        },
+        "protected": ["sex", "age_band", "nationality", "postcode_region", "career_gap_months"],
+        "candidates": [
+          {
+            "id": "huggingface:lang-uk/recruitment-dataset-candidate-profiles-english",
+            "url": "https://huggingface.co/datasets/lang-uk/recruitment-dataset-candidate-profiles-english",
+            "gaps": [
+              "sex",
+              "age_band",
+              "nationality",
+              "postcode_region",
+              "education_level",
+              "career_gap_months",
+              "skills_match",
+              "languages"
+            ],
+            "name": "recruitment-dataset-candidate-profiles-english",
+            "slug": "huggingface-lang-uk-recruitment-dataset-candidate-profiles-english-recruitment-d",
+            "task": "unknown",
+            "flags": [],
+            "label": null,
+            "query": "hf recruitment",
+            "score": 0.38,
+            "n_rows": 210250,
+            "plugin": "cv-ranker",
+            "source": "huggingface",
+            "licence": {
+              "raw": "mit",
+              "status": "allowed",
+              "normalised": "MIT"
+            },
+            "mapping": {
+              "years_experience": {
+                "score": 0.85,
+                "column": "Experience Years"
+              }
+            },
+            "updated": "2024-06-02T10:26:47.000Z",
+            "citation": "",
+            "breakdown": {
+              "size": 1.0,
+              "task": 0.5,
+              "label": 0.0,
+              "schema": 0.111,
+              "licence": 1.0,
+              "recency": 0.933,
+              "protected": 0.0,
+              "relevance": 1.0
+            },
+            "fetchable": true,
+            "n_columns": 11,
+            "description": "\n\t\n\t\t\n\t\n\t\n\t\tDjinni Dataset (English CVs part)\n\t\n\n\n\t\n\t\t\n\t\n\t\n\t\tOverview\n\t\n\n The Djinni Recruitment Dataset (English CVs part)  contains 150,000 job descriptions a",
+            "protected_missing": ["sex", "age_band", "nationality", "postcode_region", "career_gap_months"]
+          },
+          {
+            "id": "huggingface:lang-uk/recruitment-dataset-candidate-profiles-ukrainian",
+            "url": "https://huggingface.co/datasets/lang-uk/recruitment-dataset-candidate-profiles-ukrainian",
+            "gaps": [
+              "sex",
+              "age_band",
+              "nationality",
+              "postcode_region",
+              "education_level",
+              "career_gap_months",
+              "skills_match",
+              "languages"
+            ],
+            "name": "recruitment-dataset-candidate-profiles-ukrainian",
+            "slug": "huggingface-lang-uk-recruitment-dataset-candidate-profiles-ukrainian-recruitment",
+            "task": "unknown",
+            "flags": [],
+            "label": null,
+            "query": "hf recruitment",
+            "score": 0.38,
+            "n_rows": 24230,
+            "plugin": "cv-ranker",
+            "source": "huggingface",
+            "licence": {
+              "raw": "mit",
+              "status": "allowed",
+              "normalised": "MIT"
+            },
+            "mapping": {
+              "years_experience": {
+                "score": 0.85,
+                "column": "Experience Years"
+              }
+            },
+            "updated": "2024-06-02T10:28:44.000Z",
+            "citation": "",
+            "breakdown": {
+              "size": 1.0,
+              "task": 0.5,
+              "label": 0.0,
+              "schema": 0.111,
+              "licence": 1.0,
+              "recency": 0.933,
+              "protected": 0.0,
+              "relevance": 1.0
+            },
+            "fetchable": true,
+            "n_columns": 11,
+            "description": "\n\t\n\t\t\n\t\n\t\n\t\tDjinni Dataset (Ukrainian CVs part)\n\t\n\n\n\t\n\t\t\n\t\n\t\n\t\tOverview\n\t\n\n The Djinni Recruitment Dataset (Ukrainian CVs part)  contains 150,000 job descriptio",
+            "protected_missing": ["sex", "age_band", "nationality", "postcode_region", "career_gap_months"]
+          },
+          {
+            "id": "uci:597",
+            "url": "https://archive.ics.uci.edu/dataset/597/productivity+prediction+of+garment+employees",
+            "gaps": [
+              "sex",
+              "age_band",
+              "nationality",
+              "postcode_region",
+              "education_level",
+              "years_experience",
+              "career_gap_months",
+              "skills_match",
+              "languages"
+            ],
+            "name": "Productivity Prediction of Garment Employees",
+            "slug": "uci-597-productivity-prediction-of-garment-employees",
+            "task": "classification",
+            "flags": [],
+            "label": {
+              "name": "qualified",
+              "column": "actual_productivity"
+            },
+            "query": "uci employee",
+            "score": 0.3567,
+            "n_rows": 1197,
+            "plugin": "cv-ranker",
+            "source": "uci",
+            "licence": {
+              "raw": "CC-BY-4.0",
+              "status": "allowed",
+              "normalised": "CC-BY-4.0"
+            },
+            "mapping": {},
+            "updated": "Mon Feb 26 2024",
+            "citation": "doi:10.24432/C51S6D",
+            "breakdown": {
+              "size": 1.0,
+              "task": 1.0,
+              "label": 0.4,
+              "schema": 0.0,
+              "licence": 1.0,
+              "recency": 0.933,
+              "protected": 0.0,
+              "relevance": 0.0
+            },
+            "fetchable": true,
+            "n_columns": 15,
+            "description": "This dataset includes important attributes of the garment manufacturing process and the productivity of the employees which had been collected manually and also",
+            "protected_missing": ["sex", "age_band", "nationality", "postcode_region", "career_gap_months"]
+          },
+          {
+            "id": "huggingface:AzharAli05/Resume-Screening-Dataset",
+            "url": "https://huggingface.co/datasets/AzharAli05/Resume-Screening-Dataset",
+            "gaps": [
+              "sex",
+              "age_band",
+              "nationality",
+              "postcode_region",
+              "education_level",
+              "years_experience",
+              "career_gap_months",
+              "skills_match",
+              "languages"
+            ],
+            "name": "Resume-Screening-Dataset",
+            "slug": "huggingface-azharali05-resume-screening-dataset-resume-screening-dataset",
+            "task": "unknown",
+            "flags": [],
+            "label": null,
+            "query": "hf resume screening",
+            "score": 0.3484,
+            "n_rows": 10000,
+            "plugin": "cv-ranker",
+            "source": "huggingface",
+            "licence": {
+              "raw": "mit",
+              "status": "allowed",
+              "normalised": "MIT"
+            },
+            "mapping": {},
+            "updated": "2025-03-19T16:31:49.000Z",
+            "citation": "",
+            "breakdown": {
+              "size": 1.0,
+              "task": 0.5,
+              "label": 0.0,
+              "schema": 0.0,
+              "licence": 1.0,
+              "recency": 0.967,
+              "protected": 0.0,
+              "relevance": 1.0
+            },
+            "fetchable": true,
+            "n_columns": 5,
+            "description": "",
+            "protected_missing": ["sex", "age_band", "nationality", "postcode_region", "career_gap_months"]
+          },
+          {
+            "id": "huggingface:Krooz/Campus_Recruitment_CSV",
+            "url": "https://huggingface.co/datasets/Krooz/Campus_Recruitment_CSV",
+            "gaps": [
+              "sex",
+              "age_band",
+              "nationality",
+              "postcode_region",
+              "education_level",
+              "years_experience",
+              "career_gap_months",
+              "skills_match",
+              "languages"
+            ],
+            "name": "Campus_Recruitment_CSV",
+            "slug": "huggingface-krooz-campus_recruitment_csv-campus_recruitment_csv",
+            "task": "unknown",
+            "flags": [],
+            "label": null,
+            "query": "hf recruitment",
+            "score": 0.3467,
+            "n_rows": 10000,
+            "plugin": "cv-ranker",
+            "source": "huggingface",
+            "licence": {
+              "raw": "cc0-1.0",
+              "status": "allowed",
+              "normalised": "CC0-1.0"
+            },
+            "mapping": {},
+            "updated": "2024-02-21T05:20:19.000Z",
+            "citation": "",
+            "breakdown": {
+              "size": 1.0,
+              "task": 0.5,
+              "label": 0.0,
+              "schema": 0.0,
+              "licence": 1.0,
+              "recency": 0.933,
+              "protected": 0.0,
+              "relevance": 1.0
+            },
+            "fetchable": true,
+            "n_columns": 11,
+            "description": "\n\t\n\t\t\n\t\n\t\n\t\tDataset Description\n\t\n\nThis data set consists of Placement data of students in a XYZ campus. Based on the student's performance data we are classify",
+            "protected_missing": ["sex", "age_band", "nationality", "postcode_region", "career_gap_months"]
+          }
+        ],
+        "created_at": "2026-11-14T21:22:28Z",
+        "recommendation": {
+          "mode": "zero_shot",
+          "reason": "no fetchable candidate scores >= 0.5",
+          "candidate": null
+        }
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:public-datasets",
+      "createdAt": "2026-11-14T21:22:28.181523Z",
+      "updatedAt": "2026-11-14T21:22:28.181523Z"
+    },
+    {
+      "id": "f5a42466-00db-48c9-9509-2c45f548b115",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "scenarios",
+      "name": "main",
+      "version": 1,
+      "status": "approved",
+      "data": {
+        "yaml": "target: SYS-001.cv-ranker\nscenarios:\n- id: SC-01\n  requirement: REQ.AIA.10.2.f.bias-examination\n  target: SYS-001.cv-ranker\n  template: counterfactual_twins\n  test_template: TT.fairness.counterfactual\n  data_needs:\n    fields:\n    - sex\n    - career_gap_months\n    attribute: sex\n    twin_modes:\n    - attribute_only\n    - causal\n    - proxy_only\n    n: 400\n  expected_behaviour: Flipping sex (or its proxies) does not change the decision\n  protected:\n  - sex\n  proxies:\n  - career_gap_months\n  metric: flip_rate\n  rationale: The profile shows career_gap_months move the output and stand in for\n    sex; attribute-only twins alone would miss it.\n  memory_applied: []\n- id: SC-02\n  requirement: REQ.AIA.10.2.f.bias-examination\n  target: SYS-001.cv-ranker\n  template: counterfactual_twins\n  test_template: TT.fairness.counterfactual\n  data_needs:\n    fields:\n    - age_band\n    - career_gap_months\n    attribute: age_band\n    twin_modes:\n    - attribute_only\n    - causal\n    - proxy_only\n    n: 400\n  expected_behaviour: Flipping age_band (or its proxies) does not change the decision\n  protected:\n  - age_band\n  proxies:\n  - career_gap_months\n  metric: flip_rate\n  rationale: The profile shows career_gap_months move the output and stand in for\n    age_band; attribute-only twins alone would miss it.\n  memory_applied: []\n- id: SC-03\n  requirement: REQ.AIA.10.2.f.bias-examination\n  target: SYS-001.cv-ranker\n  template: counterfactual_twins\n  test_template: TT.fairness.counterfactual\n  data_needs:\n    fields:\n    - nationality\n    - postcode_region\n    attribute: nationality\n    twin_modes:\n    - attribute_only\n    - causal\n    - proxy_only\n    n: 400\n  expected_behaviour: Flipping nationality (or its proxies) does not change the decision\n  protected:\n  - nationality\n  proxies:\n  - postcode_region\n  metric: flip_rate\n  rationale: The profile shows postcode_region move the output and stand in for nationality;\n    attribute-only twins alone would miss it.\n  memory_applied: []\n- id: SC-04\n  requirement: REQ.AIA.9.2.a.risk-identification\n  target: SYS-001.cv-ranker\n  template: group_fairness\n  test_template: TT.fairness.group_metrics\n  data_needs:\n    fields:\n    - sex\n    attribute: sex\n    twin_modes: []\n    n: 400\n  expected_behaviour: Selection rates across sex groups meet the org ratio\n  protected:\n  - sex\n  proxies: []\n  metric: selection_rate_ratio\n  rationale: Four-fifths rule on the organisation's thresholds.\n  memory_applied: []\n- id: SC-05\n  requirement: REQ.AIA.9.6.testing-for-risk-measures\n  target: SYS-001.cv-ranker\n  template: perturbation\n  test_template: TT.robustness.perturbation\n  data_needs:\n    fields:\n    - years_experience\n    attribute: null\n    twin_modes: []\n    n: 200\n  expected_behaviour: More years_experience, all else equal, never lowers the score\n  protected: []\n  proxies: []\n  metric: monotonicity_violation_rate\n  rationale: Declared monotone field in the data dictionary.\n  memory_applied: []\n- id: SC-06\n  requirement: REQ.AIA.9.2.a.risk-identification\n  target: SYS-001.cv-ranker\n  template: edge_cases\n  test_template: TT.robustness.edge_cases\n  data_needs:\n    fields:\n    - years_experience\n    - career_gap_months\n    - skills_match\n    attribute: null\n    twin_modes: []\n    n: 50\n  expected_behaviour: Out-of-range and missing values are rejected, not scored\n  protected: []\n  proxies: []\n  metric: edge_case_failure_rate\n  rationale: Edge cases declared on the plugin.\n  memory_applied: []\nnot_testable:\n- REQ.AIA.6.2.annex-iii-high-risk\n- REQ.AIA.9.1.risk-management-system\n- REQ.AIA.9.5.residual-risk-acceptable\n- REQ.AIA.10.2.b.data-provenance\n- REQ.AIA.4a.1.special-category-data-safeguards\n- REQ.AIA.11.1.technical-documentation\n- REQ.AIA.13.1.interpretable-output\n- REQ.AIA.14.1.human-oversight-design\n- REQ.AIA.14.4.b.automation-bias\n- REQ.AIA.14.4.d.override\n- REQ.AIA.17.1.quality-management-system\n- REQ.AIA.17.1.d.test-procedures\nassumptions:\n- Synthetic population follows the data dictionary (training-data.md stats).\nlessons_recorded: []\n",
+        "target": "SYS-001.cv-ranker",
+        "traceId": "ce2d6dcd135c46558ef4552d53e82df2",
+        "scenarios": [
+          {
+            "id": "SC-01",
+            "metric": "flip_rate",
+            "target": "SYS-001.cv-ranker",
+            "proxies": ["career_gap_months"],
+            "template": "counterfactual_twins",
+            "protected": ["sex"],
+            "rationale": "The profile shows career_gap_months move the output and stand in for sex; attribute-only twins alone would miss it.",
+            "data_needs": {
+              "n": 400,
+              "fields": ["sex", "career_gap_months"],
+              "attribute": "sex",
+              "twin_modes": ["attribute_only", "causal", "proxy_only"]
+            },
+            "requirement": "REQ.AIA.10.2.f.bias-examination",
+            "test_template": "TT.fairness.counterfactual",
+            "memory_applied": [],
+            "expected_behaviour": "Flipping sex (or its proxies) does not change the decision"
+          },
+          {
+            "id": "SC-02",
+            "metric": "flip_rate",
+            "target": "SYS-001.cv-ranker",
+            "proxies": ["career_gap_months"],
+            "template": "counterfactual_twins",
+            "protected": ["age_band"],
+            "rationale": "The profile shows career_gap_months move the output and stand in for age_band; attribute-only twins alone would miss it.",
+            "data_needs": {
+              "n": 400,
+              "fields": ["age_band", "career_gap_months"],
+              "attribute": "age_band",
+              "twin_modes": ["attribute_only", "causal", "proxy_only"]
+            },
+            "requirement": "REQ.AIA.10.2.f.bias-examination",
+            "test_template": "TT.fairness.counterfactual",
+            "memory_applied": [],
+            "expected_behaviour": "Flipping age_band (or its proxies) does not change the decision"
+          },
+          {
+            "id": "SC-03",
+            "metric": "flip_rate",
+            "target": "SYS-001.cv-ranker",
+            "proxies": ["postcode_region"],
+            "template": "counterfactual_twins",
+            "protected": ["nationality"],
+            "rationale": "The profile shows postcode_region move the output and stand in for nationality; attribute-only twins alone would miss it.",
+            "data_needs": {
+              "n": 400,
+              "fields": ["nationality", "postcode_region"],
+              "attribute": "nationality",
+              "twin_modes": ["attribute_only", "causal", "proxy_only"]
+            },
+            "requirement": "REQ.AIA.10.2.f.bias-examination",
+            "test_template": "TT.fairness.counterfactual",
+            "memory_applied": [],
+            "expected_behaviour": "Flipping nationality (or its proxies) does not change the decision"
+          },
+          {
+            "id": "SC-04",
+            "metric": "selection_rate_ratio",
+            "target": "SYS-001.cv-ranker",
+            "proxies": [],
+            "template": "group_fairness",
+            "protected": ["sex"],
+            "rationale": "Four-fifths rule on the organisation's thresholds.",
+            "data_needs": {
+              "n": 400,
+              "fields": ["sex"],
+              "attribute": "sex",
+              "twin_modes": []
+            },
+            "requirement": "REQ.AIA.9.2.a.risk-identification",
+            "test_template": "TT.fairness.group_metrics",
+            "memory_applied": [],
+            "expected_behaviour": "Selection rates across sex groups meet the org ratio"
+          },
+          {
+            "id": "SC-05",
+            "metric": "monotonicity_violation_rate",
+            "target": "SYS-001.cv-ranker",
+            "proxies": [],
+            "template": "perturbation",
+            "protected": [],
+            "rationale": "Declared monotone field in the data dictionary.",
+            "data_needs": {
+              "n": 200,
+              "fields": ["years_experience"],
+              "attribute": null,
+              "twin_modes": []
+            },
+            "requirement": "REQ.AIA.9.6.testing-for-risk-measures",
+            "test_template": "TT.robustness.perturbation",
+            "memory_applied": [],
+            "expected_behaviour": "More years_experience, all else equal, never lowers the score"
+          },
+          {
+            "id": "SC-06",
+            "metric": "edge_case_failure_rate",
+            "target": "SYS-001.cv-ranker",
+            "proxies": [],
+            "template": "edge_cases",
+            "protected": [],
+            "rationale": "Edge cases declared on the plugin.",
+            "data_needs": {
+              "n": 50,
+              "fields": ["years_experience", "career_gap_months", "skills_match"],
+              "attribute": null,
+              "twin_modes": []
+            },
+            "requirement": "REQ.AIA.9.2.a.risk-identification",
+            "test_template": "TT.robustness.edge_cases",
+            "memory_applied": [],
+            "expected_behaviour": "Out-of-range and missing values are rejected, not scored"
+          }
+        ],
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline",
+        "assumptions": ["Synthetic population follows the data dictionary (training-data.md stats)."],
+        "not_testable": [
+          "REQ.AIA.6.2.annex-iii-high-risk",
+          "REQ.AIA.9.1.risk-management-system",
+          "REQ.AIA.9.5.residual-risk-acceptable",
+          "REQ.AIA.10.2.b.data-provenance",
+          "REQ.AIA.4a.1.special-category-data-safeguards",
+          "REQ.AIA.11.1.technical-documentation",
+          "REQ.AIA.13.1.interpretable-output",
+          "REQ.AIA.14.1.human-oversight-design",
+          "REQ.AIA.14.4.b.automation-bias",
+          "REQ.AIA.14.4.d.override",
+          "REQ.AIA.17.1.quality-management-system",
+          "REQ.AIA.17.1.d.test-procedures"
+        ],
+        "lessons_recorded": []
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T21:22:28.726626Z",
+      "updatedAt": "2026-11-14T22:04:36.849535Z"
+    },
+    {
+      "id": "f378248b-9380-4416-adb4-4e0e940af749",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "scenario_analysis",
+      "name": "main",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "traceId": "ce2d6dcd135c46558ef4552d53e82df2",
+        "analysis": {
+          "status": "gaps",
+          "target": "SYS-001.cv-ranker",
+          "missing": [
+            {
+              "why": "a label_rule exists, so accuracy per group is testable",
+              "what": "accuracy per subgroup",
+              "priority": "low"
+            }
+          ],
+          "coverage": {
+            "proxies": {
+              "postcode_region": true,
+              "career_gap_months": true
+            },
+            "monotone": {
+              "years_experience": true
+            },
+            "protected": {
+              "sex": true,
+              "age_band": true,
+              "nationality": true
+            },
+            "templates": ["counterfactual_twins", "edge_cases", "group_fairness", "perturbation"]
+          },
+          "scenarios": [
+            {
+              "id": "SC-01",
+              "fields": ["career_gap_months", "sex"],
+              "issues": [],
+              "status": "ok",
+              "target": "SYS-001.cv-ranker",
+              "template": "counterfactual_twins",
+              "requirement": "REQ.AIA.10.2.f.bias-examination",
+              "expected_behaviour": "Flipping sex (or its proxies) does not change the decision"
+            },
+            {
+              "id": "SC-02",
+              "fields": ["age_band", "career_gap_months"],
+              "issues": [],
+              "status": "ok",
+              "target": "SYS-001.cv-ranker",
+              "template": "counterfactual_twins",
+              "requirement": "REQ.AIA.10.2.f.bias-examination",
+              "expected_behaviour": "Flipping age_band (or its proxies) does not change the decision"
+            },
+            {
+              "id": "SC-03",
+              "fields": ["nationality", "postcode_region"],
+              "issues": [],
+              "status": "ok",
+              "target": "SYS-001.cv-ranker",
+              "template": "counterfactual_twins",
+              "requirement": "REQ.AIA.10.2.f.bias-examination",
+              "expected_behaviour": "Flipping nationality (or its proxies) does not change the decision"
+            },
+            {
+              "id": "SC-04",
+              "fields": ["sex"],
+              "issues": [],
+              "status": "ok",
+              "target": "SYS-001.cv-ranker",
+              "template": "group_fairness",
+              "requirement": "REQ.AIA.9.2.a.risk-identification",
+              "expected_behaviour": "Selection rates across sex groups meet the org ratio"
+            },
+            {
+              "id": "SC-05",
+              "fields": ["years_experience"],
+              "issues": [],
+              "status": "ok",
+              "target": "SYS-001.cv-ranker",
+              "template": "perturbation",
+              "requirement": "REQ.AIA.9.6.testing-for-risk-measures",
+              "expected_behaviour": "More years_experience, all else equal, never lowers the score"
+            },
+            {
+              "id": "SC-06",
+              "fields": ["career_gap_months", "skills_match", "years_experience"],
+              "issues": [],
+              "status": "ok",
+              "target": "SYS-001.cv-ranker",
+              "template": "edge_cases",
+              "requirement": "REQ.AIA.9.2.a.risk-identification",
+              "expected_behaviour": "Out-of-range and missing values are rejected, not scored"
+            }
+          ],
+          "n_scenarios": 6,
+          "profile_used": true
+        },
+        "markdown": "# Scenario check: SYS-001.cv-ranker\n\n6 scenarios, status **gaps**.\n\n| Scenario | Requirement | Template | Issues |\n| --- | --- | --- | --- |\n| SC-01 | REQ.AIA.10.2.f.bias-examination | counterfactual_twins | ok |\n| SC-02 | REQ.AIA.10.2.f.bias-examination | counterfactual_twins | ok |\n| SC-03 | REQ.AIA.10.2.f.bias-examination | counterfactual_twins | ok |\n| SC-04 | REQ.AIA.9.2.a.risk-identification | group_fairness | ok |\n| SC-05 | REQ.AIA.9.6.testing-for-risk-measures | perturbation | ok |\n| SC-06 | REQ.AIA.9.2.a.risk-identification | edge_cases | ok |\n\n## Missing\n\n- **low** accuracy per subgroup: a label_rule exists, so accuracy per group is testable\n",
+        "verifier": {
+          "action": "next",
+          "problems": []
+        },
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline"
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T21:22:30.310767Z",
+      "updatedAt": "2026-11-14T21:22:30.310767Z"
+    },
+    {
+      "id": "ed570915-2019-4df2-b5e7-ee04bc5eac86",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "generation_spec",
+      "name": "main",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "mode": "zero_shot",
+        "seed": 42,
+        "yaml": "version: 1\nname: SYS-001.cv-ranker.audit\ndictionary: data/data-dictionary.yaml\nplugin: plugin.yaml\nn: 400\nmodel_profile: model-profile.json\nboundary:\n  share: 0.3\n  band: 0.15\n  pool: 5\nstrata:\n  by:\n  - sex\n  balance: true\ncoverage:\n  cells:\n  - sex\n  - age_band\n  min_per_cell: 20\ntransforms:\n- kind: twins\n  attribute: sex\n  modes:\n  - attribute_only\n  - causal\n  - proxy_only\n  max_base: 150\n  proxies:\n  - career_gap_months\n- kind: twins\n  attribute: age_band\n  modes:\n  - attribute_only\n  - causal\n  - proxy_only\n  max_base: 150\n  proxies:\n  - career_gap_months\n- kind: twins\n  attribute: nationality\n  modes:\n  - attribute_only\n  - causal\n  - proxy_only\n  max_base: 150\n  proxies:\n  - postcode_region\n- kind: perturbation\n  fields:\n  - years_experience\n  delta: 1\n  max_base: 100\n- kind: edge_cases\n  fields:\n  - years_experience\n  - career_gap_months\n  - skills_match\n",
+        "parsed": {
+          "n": 400,
+          "name": "SYS-001.cv-ranker.audit",
+          "plugin": "plugin.yaml",
+          "strata": {
+            "by": ["sex"],
+            "balance": true
+          },
+          "version": 1,
+          "boundary": {
+            "band": 0.15,
+            "pool": 5,
+            "share": 0.3
+          },
+          "coverage": {
+            "cells": ["sex", "age_band"],
+            "min_per_cell": 20
+          },
+          "dictionary": "data/data-dictionary.yaml",
+          "transforms": [
+            {
+              "kind": "twins",
+              "modes": ["attribute_only", "causal", "proxy_only"],
+              "proxies": ["career_gap_months"],
+              "max_base": 150,
+              "attribute": "sex"
+            },
+            {
+              "kind": "twins",
+              "modes": ["attribute_only", "causal", "proxy_only"],
+              "proxies": ["career_gap_months"],
+              "max_base": 150,
+              "attribute": "age_band"
+            },
+            {
+              "kind": "twins",
+              "modes": ["attribute_only", "causal", "proxy_only"],
+              "proxies": ["postcode_region"],
+              "max_base": 150,
+              "attribute": "nationality"
+            },
+            {
+              "kind": "perturbation",
+              "delta": 1,
+              "fields": ["years_experience"],
+              "max_base": 100
+            },
+            {
+              "kind": "edge_cases",
+              "fields": ["years_experience", "career_gap_months", "skills_match"]
+            }
+          ],
+          "model_profile": "model-profile.json"
+        },
+        "traceId": "cec44d60889f497b8525ec593fc253d5",
+        "problems": [],
+        "rationale": "Twins per protected attribute with its proxies, perturbation on monotone fields, edge cases on numeric fields.",
+        "spec_yaml": "version: 1\nname: SYS-001.cv-ranker.audit\ndictionary: data/data-dictionary.yaml\nplugin: plugin.yaml\nn: 400\nmodel_profile: model-profile.json\nboundary:\n  share: 0.3\n  band: 0.15\n  pool: 5\nstrata:\n  by:\n  - sex\n  balance: true\ncoverage:\n  cells:\n  - sex\n  - age_band\n  min_per_cell: 20\ntransforms:\n- kind: twins\n  attribute: sex\n  modes:\n  - attribute_only\n  - causal\n  - proxy_only\n  max_base: 150\n  proxies:\n  - career_gap_months\n- kind: twins\n  attribute: age_band\n  modes:\n  - attribute_only\n  - causal\n  - proxy_only\n  max_base: 150\n  proxies:\n  - career_gap_months\n- kind: twins\n  attribute: nationality\n  modes:\n  - attribute_only\n  - causal\n  - proxy_only\n  max_base: 150\n  proxies:\n  - postcode_region\n- kind: perturbation\n  fields:\n  - years_experience\n  delta: 1\n  max_base: 100\n- kind: edge_cases\n  fields:\n  - years_experience\n  - career_gap_months\n  - skills_match\n",
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline",
+        "assumptions": [
+          {
+            "item": "strata",
+            "note": "Balanced strata give every group rows for a CI; realism warns by design.",
+            "provenance": "llm_assumption"
+          }
+        ],
+        "lessons_recorded": []
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T22:04:37.204449Z",
+      "updatedAt": "2026-11-14T22:04:37.204449Z"
+    },
+    {
+      "id": "d9c8909c-403a-4c2e-b50c-62f4afbdcd74",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "dataset",
+      "name": "main",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "seed": 42,
+        "sandbox": {
+          "files": ["DataCard.yaml", "sample-rows.csv"],
+          "exit_code": 0,
+          "duration_ms": 3377,
+          "killed_reason": null
+        },
+        "traceId": "cec44d60889f497b8525ec593fc253d5",
+        "data_card": {
+          "name": "SYS-001.cv-ranker.audit",
+          "files": {
+            "csv": "dataset.csv",
+            "parquet": "dataset.parquet"
+          },
+          "rules": {
+            "repairs": 30,
+            "rejected_rows": 0,
+            "pass_rate_base": {
+              "R1": 1.0,
+              "R2": 1.0,
+              "R3": 1.0,
+              "R4": 1.0
+            }
+          },
+          "review": {
+            "status": "proposed"
+          },
+          "target": {
+            "plugin": "SYS-001.cv-ranker",
+            "access_type": "mlflow_model"
+          },
+          "purpose": {},
+          "coverage": {
+            "cells": ["sex", "age_band"],
+            "counts": {
+              "sex=male|age_band=18-24": 20,
+              "sex=male|age_band=25-34": 86,
+              "sex=male|age_band=35-44": 60,
+              "sex=male|age_band=45-54": 21,
+              "sex=male|age_band=55-67": 20,
+              "sex=female|age_band=18-24": 21,
+              "sex=female|age_band=25-34": 88,
+              "sex=female|age_band=35-44": 59,
+              "sex=female|age_band=45-54": 21,
+              "sex=female|age_band=55-67": 20
+            },
+            "topped_up": 16,
+            "min_per_cell": 20
+          },
+          "reference": null,
+          "created_at": "2026-11-14T22:04:40Z",
+          "dataset_id": "ds-sha256:5877c86b67a695defcdc29b57aa99a500260126bc73ccbd6a0bda7c7fbe62cdf",
+          "generation": {
+            "mode": "zero_shot",
+            "seed": 42,
+            "custom": null,
+            "method": "dag_sampler",
+            "assumptions": [
+              {
+                "what": "distribution/conditional P(postcode_region | nationality)",
+                "field": "postcode_region",
+                "provenance": "llm_assumption"
+              }
+            ],
+            "spec_sha256": "eb6045e39a9a18e7f180147d60b7da881a6a1f2f6b8f6ed5189db589e85bc2a7",
+            "boundary_aware": true,
+            "generator_version": "synthkit 0.1.0"
+          },
+          "population": {
+            "sex.female": {
+              "diff": 0.1224,
+              "stated": 0.38,
+              "observed": 0.5024,
+              "within_tolerance": false
+            },
+            "nationality.non_EU": {
+              "diff": 0.0287,
+              "stated": 0.12,
+              "observed": 0.0913,
+              "within_tolerance": true
+            },
+            "years_experience.median": {
+              "diff": 0.1429,
+              "stated": 7,
+              "observed": 8.0,
+              "within_tolerance": true
+            }
+          },
+          "provenance": {
+            "rules": {
+              "R1": "dictionary",
+              "R2": "dictionary",
+              "R3": "dictionary",
+              "R4": "dictionary"
+            },
+            "fields": {
+              "sex": "training_doc",
+              "age_band": "training_doc",
+              "full_name": "dictionary",
+              "languages": "dictionary",
+              "nationality": "training_doc",
+              "candidate_id": "dictionary",
+              "skills_match": "dictionary",
+              "education_level": "dictionary",
+              "postcode_region": "llm_assumption",
+              "years_experience": "dictionary",
+              "career_gap_months": "dictionary"
+            },
+            "label_rule": "declared_by_human"
+          },
+          "twin_pairs": [
+            {
+              "base": "r000000",
+              "mode": "attribute_only",
+              "twin": "r000416",
+              "changed": {
+                "sex": ["female", "male"]
+              }
+            },
+            {
+              "base": "r000001",
+              "mode": "attribute_only",
+              "twin": "r000419",
+              "changed": {
+                "sex": ["male", "female"]
+              }
+            }
+          ],
+          "composition": {
+            "rows": 3654,
+            "label": {
+              "name": "qualified",
+              "rule": "years_experience >= 3 and education_level in ['bachelor', 'master', 'phd'] and skills_match >= 0.5",
+              "positive_rate": 0.5216
+            },
+            "strata": {
+              "sex": {
+                "male": 207,
+                "female": 209
+              },
+              "age_band": {
+                "18-24": 41,
+                "25-34": 174,
+                "35-44": 119,
+                "45-54": 42,
+                "55-67": 40
+              },
+              "nationality": {
+                "GR": 350,
+                "non_EU": 38,
+                "EU_other": 28
+              }
+            },
+            "by_test": {
+              "base": 416,
+              "edge": 15,
+              "twin": 3123,
+              "perturbation": 100
+            },
+            "transforms": ["twins", "twins", "twins", "perturbation", "edge_cases"],
+            "boundary_rows": 120,
+            "twins_by_mode": {
+              "causal": 1050,
+              "proxy_only": 1023,
+              "attribute_only": 1050
+            }
+          },
+          "data_policy": "synthetic_only",
+          "inputs_used": [
+            {
+              "path": "../input/data/data-dictionary.yaml"
+            },
+            {
+              "path": "model-profile.json"
+            }
+          ],
+          "limitations": [
+            "Synthetic only: realism is checked against the dictionary and stated population stats, not against real applicants.",
+            "Strata are balanced by design: group rates are not population rates.",
+            "Boundary-aware rows are chosen with a linear surrogate of the model; they over-represent near-threshold cases by design."
+          ],
+          "sample_rows": [
+            {
+              "sex": "female",
+              "_row_id": "r000000",
+              "age_band": "25-34",
+              "full_name": "Sofia Alexiou",
+              "languages": 3,
+              "qualified": 1,
+              "nationality": "GR",
+              "candidate_id": "CAND-000000",
+              "skills_match": 0.587299,
+              "education_level": "bachelor",
+              "postcode_region": "athens_centre",
+              "years_experience": 8,
+              "career_gap_months": 0
+            },
+            {
+              "sex": "male",
+              "_row_id": "r000001",
+              "age_band": "35-44",
+              "full_name": "Giorgos Dimitriou",
+              "languages": 2,
+              "qualified": 0,
+              "nationality": "GR",
+              "candidate_id": "CAND-000001",
+              "skills_match": 0.515815,
+              "education_level": "secondary",
+              "postcode_region": "athens_centre",
+              "years_experience": 15,
+              "career_gap_months": 0
+            },
+            {
+              "sex": "female",
+              "_row_id": "r000002",
+              "age_band": "25-34",
+              "full_name": "Sofia Alexiou",
+              "languages": 2,
+              "qualified": 0,
+              "nationality": "GR",
+              "candidate_id": "CAND-000002",
+              "skills_match": 0.332079,
+              "education_level": "secondary",
+              "postcode_region": "athens_north",
+              "years_experience": 8,
+              "career_gap_months": 0
+            }
+          ],
+          "ai_generated": false,
+          "distributions": {
+            "sex": {
+              "declared": {
+                "male": 0.62,
+                "female": 0.38
+              },
+              "observed": {
+                "male": 0.4976,
+                "female": 0.5024
+              }
+            },
+            "age_band": {
+              "declared": {
+                "18-24": 0.14,
+                "25-34": 0.41,
+                "35-44": 0.27,
+                "45-54": 0.13,
+                "55-67": 0.05
+              },
+              "observed": {
+                "18-24": 0.0986,
+                "25-34": 0.4183,
+                "35-44": 0.2861,
+                "45-54": 0.101,
+                "55-67": 0.0962
+              }
+            },
+            "languages": {
+              "max": 4.0,
+              "min": 1.0,
+              "mean": 2.2452,
+              "median": 2.0,
+              "null_share": 0.0
+            },
+            "nationality": {
+              "declared": {
+                "GR": 0.8,
+                "non_EU": 0.12,
+                "EU_other": 0.08
+              },
+              "observed": {
+                "GR": 0.8413,
+                "non_EU": 0.0913,
+                "EU_other": 0.0673
+              }
+            },
+            "skills_match": {
+              "max": 0.932364,
+              "min": 0.074462,
+              "mean": 0.5788,
+              "median": 0.5877,
+              "null_share": 0.0
+            },
+            "education_level": {
+              "observed": {
+                "phd": 0.0913,
+                "master": 0.2909,
+                "bachelor": 0.4832,
+                "secondary": 0.1346
+              }
+            },
+            "postcode_region": {
+              "observed": {
+                "other": 0.0769,
+                "piraeus": 0.0793,
+                "athens_west": 0.1394,
+                "athens_north": 0.2692,
+                "thessaloniki": 0.2043,
+                "athens_centre": 0.2308
+              }
+            },
+            "years_experience": {
+              "max": 37.0,
+              "min": 0.0,
+              "mean": 10.4014,
+              "median": 8.0,
+              "null_share": 0.0
+            },
+            "career_gap_months": {
+              "max": 56.0,
+              "min": 0.0,
+              "mean": 5.3149,
+              "median": 0.0,
+              "null_share": 0.0
+            }
+          },
+          "group_balance": {
+            "sex": {
+              "male": 207,
+              "female": 209
+            },
+            "age_band": {
+              "18-24": 41,
+              "25-34": 174,
+              "35-44": 119,
+              "45-54": 42,
+              "55-67": 40
+            },
+            "nationality": {
+              "GR": 350,
+              "non_EU": 38,
+              "EU_other": 28
+            }
+          },
+          "content_sha256": "a47ac0c9fe77d1b3970f7e48dd457edfbebc20cc10870165ff5bddd21089c824",
+          "reference_data": null
+        },
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline",
+        "sample_rows": "candidate_id,sex,age_band,nationality,postcode_region,education_level,years_experience,career_gap_months,skills_match,languages,full_name,qualified,_row_id,_test,_twin_of,_twin_mode,_flip,_edge,_expect_valid,_boundary\nCAND-000000,female,25-34,GR,athens_centre,bachelor,8,0,0.587299,3,Sofia Alexiou,1,"
+      },
+      "fileRefs": [
+        {
+          "dataset_id": "ds-sha256:5877c86b67a695defcdc29b57aa99a500260126bc73ccbd6a0bda7c7fbe62cdf",
+          "content_sha256": "a47ac0c9fe77d1b3970f7e48dd457edfbebc20cc10870165ff5bddd21089c824"
+        }
+      ],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T22:04:40.669001Z",
+      "updatedAt": "2026-11-14T22:04:40.669001Z"
+    },
+    {
+      "id": "0e5354bb-a20b-4764-abbc-ed57d2125211",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "kind": "dataset_analysis",
+      "name": "main",
+      "version": 1,
+      "status": "proposed",
+      "data": {
+        "traceId": "cec44d60889f497b8525ec593fc253d5",
+        "analysis": {
+          "gates": {
+            "schema": {
+              "status": "pass",
+              "problems": [],
+              "rows_checked": 3645
+            },
+            "privacy": {
+              "note": "Surface fields come from Faker or curated synthetic lists only.",
+              "status": "pass",
+              "surface_sources": {
+                "full_name": "list"
+              },
+              "pii_pattern_hits": {},
+              "duplicate_base_rows": 0.0,
+              "copies_of_reference_sample": 0
+            },
+            "realism": {
+              "note": "Strata ['sex'] are balanced by design, so their marginals differ from the population.",
+              "status": "warn",
+              "metrics": {
+                "TVComplement.sex": 0.8856,
+                "TVComplement.age_band": 0.9205,
+                "KSComplement.languages": 0.9563,
+                "TVComplement.nationality": 0.9627,
+                "KSComplement.skills_match": 0.9352,
+                "TVComplement.education_level": 0.9336,
+                "TVComplement.postcode_region": 0.8849,
+                "KSComplement.years_experience": 0.9614,
+                "KSComplement.career_gap_months": 0.9538
+              },
+              "below_0_8": {},
+              "reference": "1000 rows sampled from the (fitted) dictionary alone (no strata, no transforms)",
+              "population_stats": {
+                "sex.female": {
+                  "diff": 0.1224,
+                  "stated": 0.38,
+                  "observed": 0.5024,
+                  "within_tolerance": false
+                },
+                "nationality.non_EU": {
+                  "diff": 0.0287,
+                  "stated": 0.12,
+                  "observed": 0.0913,
+                  "within_tolerance": true
+                },
+                "years_experience.median": {
+                  "diff": 0.1429,
+                  "stated": 7,
+                  "observed": 8.0,
+                  "within_tolerance": true
+                }
+              },
+              "vs_reference_sample": {}
+            },
+            "coverage": {
+              "cells": ["sex", "age_band"],
+              "counts": {
+                "male|18-24": 20,
+                "male|25-34": 86,
+                "male|35-44": 60,
+                "male|45-54": 21,
+                "male|55-67": 20,
+                "female|18-24": 21,
+                "female|25-34": 88,
+                "female|35-44": 59,
+                "female|45-54": 21,
+                "female|55-67": 20
+              },
+              "status": "pass",
+              "below_min": {},
+              "by_scenario": {
+                "base": 416,
+                "edge": 15,
+                "twin:causal": 1050,
+                "perturbation": 100,
+                "twin:proxy_only": 1023,
+                "twin:attribute_only": 1050
+              },
+              "min_per_cell": 20
+            },
+            "business_rules": {
+              "hard": {
+                "R1": {
+                  "pass_rate_base": 1.0,
+                  "pass_rate_realistic": 1.0
+                },
+                "R2": {
+                  "pass_rate_base": 1.0,
+                  "pass_rate_realistic": 1.0
+                },
+                "R3": {
+                  "pass_rate_base": 1.0,
+                  "pass_rate_realistic": 1.0
+                }
+              },
+              "note": "Attribute-only and proxy-only twins may break rules on purpose (they change one field and keep the rest); they are not gated.",
+              "soft": {
+                "R4": {
+                  "tolerance": 0.05,
+                  "pass_rate_base": 1.0,
+                  "pass_rate_realistic": 1.0
+                }
+              },
+              "status": "pass"
+            }
+          },
+          "dataset": {
+            "rows": 3654,
+            "by_test": {
+              "base": 416,
+              "edge": 15,
+              "twin": 3123,
+              "perturbation": 100
+            }
+          },
+          "overall": "warn",
+          "diversity": {
+            "entropy": {
+              "sex": 1.0,
+              "age_band": 0.8746,
+              "languages": 0.7696,
+              "nationality": 0.4966,
+              "skills_match": 1.0,
+              "education_level": 0.865,
+              "postcode_region": 0.9427,
+              "years_experience": 0.9088,
+              "career_gap_months": 0.4841
+            },
+            "unique_feature_rows_share": 1.0
+          },
+          "generator": "synthkit 0.1.0",
+          "twin_validity": {
+            "causal": {
+              "pairs": 1050,
+              "valid_share": 1.0
+            },
+            "proxy_only": {
+              "pairs": 1023,
+              "valid_share": 1.0
+            },
+            "attribute_only": {
+              "pairs": 1050,
+              "valid_share": 1.0
+            }
+          },
+          "informativeness": {
+            "note": "Surrogate estimate; the real scores come from the execute step.",
+            "available": true,
+            "probe_near_share": 0.1853,
+            "near_boundary_share": 0.4639,
+            "predicted_positive_rate": 0.4014
+          }
+        },
+        "markdown": "# Dataset analysis: SYS-001.cv-ranker.audit\n\nOverall: **WARN** (3654 rows: {'twin': 3123, 'base': 416, 'perturbation': 100, 'edge': 15})\n\n| Gate | Status | Detail |\n| --- | --- | --- |\n| Schema | PASS | types, enums, ranges, nulls OK |\n| Business rules | PASS | hard: R1 100%, R2 100%, R3 100%; soft: R4 100% |\n| Realism | WARN | all ≥ 0.8. Strata ['sex'] are balanced by design, so their marginals d",
+        "verifier": {
+          "action": "next",
+          "problems": []
+        },
+        "data_card": {
+          "name": "SYS-001.cv-ranker.audit",
+          "files": {
+            "csv": "dataset.csv",
+            "parquet": "dataset.parquet"
+          },
+          "rules": {
+            "repairs": 30,
+            "rejected_rows": 0,
+            "pass_rate_base": {
+              "R1": 1.0,
+              "R2": 1.0,
+              "R3": 1.0,
+              "R4": 1.0
+            }
+          },
+          "review": {
+            "status": "proposed"
+          },
+          "target": {
+            "plugin": "SYS-001.cv-ranker",
+            "access_type": "mlflow_model"
+          },
+          "purpose": {},
+          "coverage": {
+            "cells": ["sex", "age_band"],
+            "counts": {
+              "sex=male|age_band=18-24": 20,
+              "sex=male|age_band=25-34": 86,
+              "sex=male|age_band=35-44": 60,
+              "sex=male|age_band=45-54": 21,
+              "sex=male|age_band=55-67": 20,
+              "sex=female|age_band=18-24": 21,
+              "sex=female|age_band=25-34": 88,
+              "sex=female|age_band=35-44": 59,
+              "sex=female|age_band=45-54": 21,
+              "sex=female|age_band=55-67": 20
+            },
+            "topped_up": 16,
+            "min_per_cell": 20
+          },
+          "reference": null,
+          "created_at": "2026-11-14T22:04:40Z",
+          "dataset_id": "ds-sha256:5877c86b67a695defcdc29b57aa99a500260126bc73ccbd6a0bda7c7fbe62cdf",
+          "generation": {
+            "mode": "zero_shot",
+            "seed": 42,
+            "custom": null,
+            "method": "dag_sampler",
+            "assumptions": [
+              {
+                "what": "distribution/conditional P(postcode_region | nationality)",
+                "field": "postcode_region",
+                "provenance": "llm_assumption"
+              }
+            ],
+            "spec_sha256": "eb6045e39a9a18e7f180147d60b7da881a6a1f2f6b8f6ed5189db589e85bc2a7",
+            "boundary_aware": true,
+            "generator_version": "synthkit 0.1.0"
+          },
+          "population": {
+            "sex.female": {
+              "diff": 0.1224,
+              "stated": 0.38,
+              "observed": 0.5024,
+              "within_tolerance": false
+            },
+            "nationality.non_EU": {
+              "diff": 0.0287,
+              "stated": 0.12,
+              "observed": 0.0913,
+              "within_tolerance": true
+            },
+            "years_experience.median": {
+              "diff": 0.1429,
+              "stated": 7,
+              "observed": 8.0,
+              "within_tolerance": true
+            }
+          },
+          "provenance": {
+            "rules": {
+              "R1": "dictionary",
+              "R2": "dictionary",
+              "R3": "dictionary",
+              "R4": "dictionary"
+            },
+            "fields": {
+              "sex": "training_doc",
+              "age_band": "training_doc",
+              "full_name": "dictionary",
+              "languages": "dictionary",
+              "nationality": "training_doc",
+              "candidate_id": "dictionary",
+              "skills_match": "dictionary",
+              "education_level": "dictionary",
+              "postcode_region": "llm_assumption",
+              "years_experience": "dictionary",
+              "career_gap_months": "dictionary"
+            },
+            "label_rule": "declared_by_human"
+          },
+          "twin_pairs": [
+            {
+              "base": "r000000",
+              "mode": "attribute_only",
+              "twin": "r000416",
+              "changed": {
+                "sex": ["female", "male"]
+              }
+            },
+            {
+              "base": "r000001",
+              "mode": "attribute_only",
+              "twin": "r000419",
+              "changed": {
+                "sex": ["male", "female"]
+              }
+            }
+          ],
+          "composition": {
+            "rows": 3654,
+            "label": {
+              "name": "qualified",
+              "rule": "years_experience >= 3 and education_level in ['bachelor', 'master', 'phd'] and skills_match >= 0.5",
+              "positive_rate": 0.5216
+            },
+            "strata": {
+              "sex": {
+                "male": 207,
+                "female": 209
+              },
+              "age_band": {
+                "18-24": 41,
+                "25-34": 174,
+                "35-44": 119,
+                "45-54": 42,
+                "55-67": 40
+              },
+              "nationality": {
+                "GR": 350,
+                "non_EU": 38,
+                "EU_other": 28
+              }
+            },
+            "by_test": {
+              "base": 416,
+              "edge": 15,
+              "twin": 3123,
+              "perturbation": 100
+            },
+            "transforms": ["twins", "twins", "twins", "perturbation", "edge_cases"],
+            "boundary_rows": 120,
+            "twins_by_mode": {
+              "causal": 1050,
+              "proxy_only": 1023,
+              "attribute_only": 1050
+            }
+          },
+          "data_policy": "synthetic_only",
+          "inputs_used": [
+            {
+              "path": "../input/data/data-dictionary.yaml"
+            },
+            {
+              "path": "model-profile.json"
+            }
+          ],
+          "limitations": [
+            "Synthetic only: realism is checked against the dictionary and stated population stats, not against real applicants.",
+            "Strata are balanced by design: group rates are not population rates.",
+            "Boundary-aware rows are chosen with a linear surrogate of the model; they over-represent near-threshold cases by design."
+          ],
+          "sample_rows": [
+            {
+              "sex": "female",
+              "_row_id": "r000000",
+              "age_band": "25-34",
+              "full_name": "Sofia Alexiou",
+              "languages": 3,
+              "qualified": 1,
+              "nationality": "GR",
+              "candidate_id": "CAND-000000",
+              "skills_match": 0.587299,
+              "education_level": "bachelor",
+              "postcode_region": "athens_centre",
+              "years_experience": 8,
+              "career_gap_months": 0
+            },
+            {
+              "sex": "male",
+              "_row_id": "r000001",
+              "age_band": "35-44",
+              "full_name": "Giorgos Dimitriou",
+              "languages": 2,
+              "qualified": 0,
+              "nationality": "GR",
+              "candidate_id": "CAND-000001",
+              "skills_match": 0.515815,
+              "education_level": "secondary",
+              "postcode_region": "athens_centre",
+              "years_experience": 15,
+              "career_gap_months": 0
+            },
+            {
+              "sex": "female",
+              "_row_id": "r000002",
+              "age_band": "25-34",
+              "full_name": "Sofia Alexiou",
+              "languages": 2,
+              "qualified": 0,
+              "nationality": "GR",
+              "candidate_id": "CAND-000002",
+              "skills_match": 0.332079,
+              "education_level": "secondary",
+              "postcode_region": "athens_north",
+              "years_experience": 8,
+              "career_gap_months": 0
+            }
+          ],
+          "ai_generated": false,
+          "distributions": {
+            "sex": {
+              "declared": {
+                "male": 0.62,
+                "female": 0.38
+              },
+              "observed": {
+                "male": 0.4976,
+                "female": 0.5024
+              }
+            },
+            "age_band": {
+              "declared": {
+                "18-24": 0.14,
+                "25-34": 0.41,
+                "35-44": 0.27,
+                "45-54": 0.13,
+                "55-67": 0.05
+              },
+              "observed": {
+                "18-24": 0.0986,
+                "25-34": 0.4183,
+                "35-44": 0.2861,
+                "45-54": 0.101,
+                "55-67": 0.0962
+              }
+            },
+            "languages": {
+              "max": 4.0,
+              "min": 1.0,
+              "mean": 2.2452,
+              "median": 2.0,
+              "null_share": 0.0
+            },
+            "nationality": {
+              "declared": {
+                "GR": 0.8,
+                "non_EU": 0.12,
+                "EU_other": 0.08
+              },
+              "observed": {
+                "GR": 0.8413,
+                "non_EU": 0.0913,
+                "EU_other": 0.0673
+              }
+            },
+            "skills_match": {
+              "max": 0.932364,
+              "min": 0.074462,
+              "mean": 0.5788,
+              "median": 0.5877,
+              "null_share": 0.0
+            },
+            "education_level": {
+              "observed": {
+                "phd": 0.0913,
+                "master": 0.2909,
+                "bachelor": 0.4832,
+                "secondary": 0.1346
+              }
+            },
+            "postcode_region": {
+              "observed": {
+                "other": 0.0769,
+                "piraeus": 0.0793,
+                "athens_west": 0.1394,
+                "athens_north": 0.2692,
+                "thessaloniki": 0.2043,
+                "athens_centre": 0.2308
+              }
+            },
+            "years_experience": {
+              "max": 37.0,
+              "min": 0.0,
+              "mean": 10.4014,
+              "median": 8.0,
+              "null_share": 0.0
+            },
+            "career_gap_months": {
+              "max": 56.0,
+              "min": 0.0,
+              "mean": 5.3149,
+              "median": 0.0,
+              "null_share": 0.0
+            }
+          },
+          "group_balance": {
+            "sex": {
+              "male": 207,
+              "female": 209
+            },
+            "age_band": {
+              "18-24": 41,
+              "25-34": 174,
+              "35-44": 119,
+              "45-54": 42,
+              "55-67": 40
+            },
+            "nationality": {
+              "GR": 350,
+              "non_EU": 38,
+              "EU_other": 28
+            }
+          },
+          "content_sha256": "a47ac0c9fe77d1b3970f7e48dd457edfbebc20cc10870165ff5bddd21089c824",
+          "reference_data": null
+        },
+        "kb_version": "2026.11.14-1",
+        "producedBy": "audit-pipeline"
+      },
+      "fileRefs": [],
+      "parentId": null,
+      "createdBy": "agent:audit-pipeline",
+      "createdAt": "2026-11-14T22:04:44.956454Z",
+      "updatedAt": "2026-11-14T22:04:44.956454Z"
+    }
+  ],
+  "approvals": [
+    {
+      "id": "a2d5555d-c391-4230-8549-84367989524f",
+      "auditId": "36782b10-243b-4257-b62b-b592b8c68473",
+      "artifactId": "f5a42466-00db-48c9-9509-2c45f548b115",
+      "gate": "scenarios",
+      "decision": "approved",
+      "reasonCategory": "org_policy",
+      "comment": null,
+      "edits": {},
+      "decidedBy": "client:ba110c49-f90e-439d-9b51-777458f97a87",
+      "at": "2026-11-14T22:04:36.849535Z"
+    }
+  ]
+}

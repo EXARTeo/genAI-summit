@@ -156,7 +156,14 @@ export const PROVENANCE: Record<Provenance, { label: string; tone: Tone }> = {
   training_doc: { label: 'training doc', tone: 'info' },
   business_rule: { label: 'business rule', tone: 'info' },
   llm_assumption: { label: 'LLM assumption', tone: 'warning' },
+  memory: { label: 'memory', tone: 'info' },
+  public_data: { label: 'public data', tone: 'success' },
 };
+
+/** Provenance style; unknown sources render neutral. */
+export function provenanceStyle(p: string): { label: string; tone: Tone } {
+  return PROVENANCE[p as Provenance] ?? { label: p.replace(/_/g, ' '), tone: 'neutral' };
+}
 
 /** Split a YAML line into the part before a `provenance:` tag and the tag value (if any). */
 export function provenanceOfLine(line: string): Provenance | null {
@@ -171,7 +178,7 @@ export function confidenceLabel(c: number): string {
   return 'low';
 }
 
-export function formatCI(ci?: [number, number], digits = 2): string {
+export function formatCI(ci?: [number, number] | null, digits = 2): string {
   if (!ci) return '';
   return `95% CI [${ci[0].toFixed(digits)}, ${ci[1].toFixed(digits)}]`;
 }

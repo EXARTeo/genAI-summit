@@ -9,7 +9,8 @@ import { VerdictPill } from '@/features/audits/components/artifact_parts/common'
 import { useAudit, useAudits } from '@/features/audits/hooks/useAudits';
 import { STAGES, progress, stageIndex } from '@/features/audits/lib/pipeline';
 import { TONE_CLASSES, verdictStyle } from '@/features/audits/lib/styling';
-import type { Audit, FindingsData } from '@/features/audits/lib/types';
+import { findingsFromArtifacts } from '@/features/audits/lib/adapters';
+import type { Audit } from '@/features/audits/lib/types';
 import { useRegChanges } from '@/features/regulation/hooks/useRegulation';
 import { useSystems } from '@/features/systems/hooks/useSystems';
 import { systemRoutes } from '@/features/systems/lib/routes';
@@ -243,12 +244,7 @@ export function HomePage() {
 
 function RecentFindings({ auditId }: { auditId?: string }) {
   const { data, isLoading } = useAudit(auditId);
-  const findings =
-    (
-      data?.artifacts.find((a) => a.kind === 'finding' && a.status !== 'superseded')?.data as
-        | FindingsData
-        | undefined
-    )?.findings ?? [];
+  const findings = findingsFromArtifacts(data?.artifacts ?? []);
   return (
     <Panel
       title="Recent findings"
@@ -282,7 +278,7 @@ function RecentFindings({ auditId }: { auditId?: string }) {
                     <div className="truncate text-sm font-medium">{f.title}</div>
                     <div className="num flex min-w-0 items-center gap-1.5 text-2xs text-muted">
                       <span className="truncate font-mono">{f.requirement}</span>
-                      {f.metric && (
+                      {f.metric && f.metric.value != null && (
                         <span className="hidden shrink-0 sm:inline">
                           · {f.metric.name}{' '}
                           <span className="font-medium text-text">{f.metric.value.toFixed(2)}</span>

@@ -10,7 +10,7 @@ export interface StageDef {
   description: string;
   /** Artifact kinds this stage produces (shown in the right panel). */
   kinds: ArtifactKind[];
-  /** HITL gate: the stage waits for a human decision. */
+  /** HITL gate: the stage waits for a human decision (after its own work, if it has kinds). */
   gate?: { id: string; reviews: ArtifactKind[] };
 }
 
@@ -26,6 +26,13 @@ export const STAGES: StageDef[] = [
     label: 'Profile model',
     description: 'Probe the model: feature sensitivity and decision boundaries',
     kinds: ['model_profile'],
+  },
+  {
+    id: 'find_public_data',
+    label: 'Find public data',
+    description: 'Search public datasets as a reference sample; a person picks one or none',
+    kinds: ['public_dataset_candidates'],
+    gate: { id: 'public_data', reviews: ['public_dataset_candidates'] },
   },
   {
     id: 'plan_scenarios',
@@ -100,6 +107,9 @@ export const STAGES: StageDef[] = [
 const ALIASES: Record<string, string> = {
   context: 'load_context',
   model_profile: 'profile_model',
+  public_dataset_candidates: 'find_public_data',
+  gate_public_data: 'find_public_data',
+  public_data: 'find_public_data',
   scenarios: 'plan_scenarios',
   scenario_analysis: 'analyse_scenarios',
   generation_spec: 'draft_spec',
@@ -136,7 +146,9 @@ export function stepState(stageId: string, audit: Pick<Audit, 'stage' | 'status'
   if (i < cur) return 'done';
   if (i > cur) return 'pending';
   if (status === 'failed') return 'blocked';
-  if (STAGES[i].gate)
+  // A pure gate stage (no work of its own) waits; a working stage with a gate
+  // (find_public_data) runs first, then waits for the pick.
+  if (STAGES[i].gate && STAGES[i].kinds.length === 0)
     return status === 'waiting_approval' || status === 'running' ? 'needs-approval' : 'pending';
   if (status === 'waiting_approval') return 'needs-approval';
   return status === 'running' || status === 'open' ? 'active' : 'pending';
