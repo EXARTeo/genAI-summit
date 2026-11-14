@@ -178,7 +178,8 @@ services:
       LOG_FORMAT: ${LOG_FORMAT:-console}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:-genai-summit-dev-log-redaction}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       # Public dataset discovery (harness/tools/public_datasets): optional web
       # search, and the backend's internal API that stores an approved dataset.
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
@@ -240,7 +241,19 @@ services:
       # Callers send it as X-Internal-Secret. Required outside development.
       REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:-genai-summit-dev-reg-memory}
       REG_MEMORY_BOOTSTRAP_ON_START: ${REG_MEMORY_BOOTSTRAP_ON_START:-true}
+      REG_MEMORY_WATCH_INTERVAL_MINUTES: ${REG_MEMORY_WATCH_INTERVAL_MINUTES:-60}
+      REG_MEMORY_DISCOVERY_ENABLED: ${REG_MEMORY_DISCOVERY_ENABLED:-true}
+      REG_MEMORY_DEMO_MIRROR_URL: ${REG_MEMORY_DEMO_MIRROR_URL:-http://localhost:8010/demo/mirror/art6-guidelines.html}
+      # Optional integrations: every one has a no-key fallback (GET /v1/integrations).
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_WEBHOOK_SECRET: ${FIRECRAWL_WEBHOOK_SECRET:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # RegChange -> backend (best effort); the backend checks it against AGENTS_SERVICE_SECRET.
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-}
+      BACKEND_INTERNAL_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
     volumes:
       - reg-memory-data:/data
     healthcheck:
