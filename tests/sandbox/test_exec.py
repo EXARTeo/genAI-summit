@@ -5,6 +5,8 @@ from __future__ import annotations
 import base64
 import sys
 
+from test_synthkit_generate import write_spec
+
 HEADERS = {"X-Internal-Proxy-Secret": "test-secret"}
 PY = f'"{sys.executable}"'
 
@@ -141,3 +143,29 @@ async def test_env_is_minimal(client, monkeypatch):
     r = await client.post("/v1/exec", json=body(f'{PY} -c "{script}"'), headers=HEADERS)
     out = r.json()["stdout"].split()
     assert out == ["None", "http://mlflow:5000"]
+
+
+async def test_synthkit_runs_through_exec(client, case_dir):
+    """The agent's real flow: dictionary + spec in input/, synthkit writes output/."""
+    spec = write_spec(case_dir)
+    files = [
+        {"path": f"input/{p.name}", "content_b64": b64(p.read_bytes())}
+        for p in (spec, case_dir / "data-dictionary.yaml", case_dir / "plugin.yaml")
+    ]
+    cmd = (
+        f"{PY} -m synthkit generate --spec ../input/generation-spec.yaml --seed 3 "
+        f"--out-dir . --format csv && {PY} -m synthkit analyze --dataset dataset.csv "
+        f"--spec ../input/generation-spec.yaml --out-dir ."
+    )
+    r = await client.post(
+        "/v1/exec", json=body(cmd, files=files, timeout_seconds=120), headers=HEADERS
+    )
+    data = r.json()
+    assert data["exit_code"] == 0, data["stderr"][-2000:]
+    names = {f["path"] for f in data["files"]}
+    assert {
+        "output/dataset.csv",
+        "output/DataCard.yaml",
+        "output/dataset-analysis.json",
+        "output/dataset-analysis.md",
+    } <= names
