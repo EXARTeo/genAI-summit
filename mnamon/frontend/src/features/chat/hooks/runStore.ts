@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import type { QueryClient } from '@tanstack/react-query';
 import { queryClient as defaultClient } from '@/shared/lib/query-client';
 import { mergeRunUpdate, isActiveRun, type LiveRun, type RunUpdate } from '../lib/runState';
+import { listRuns } from '../handlers/chat';
 import { subscribeRun, type Unsubscribe } from '../lib/transport';
 import type { ConversationDetail, InferenceRunOut, MessageOut, RunFrame } from '../lib/types';
 import { chatKeys } from './keys';
@@ -82,10 +83,42 @@ export function attachRun(runId: string) {
     onFrame: (frame) => onFrame(runId, frame),
     onGiveUp: () => {
       detachRun(runId);
-      void queryClient.invalidateQueries({ queryKey: chatKeys.all });
+      pollRun(runId);
     },
   });
   sockets.set(runId, off);
+}
+
+const POLL_MS = 3000;
+const POLL_LIMIT = 200;
+
+/**
+ * The socket gave up (blocked origin, proxy without WebSocket upgrade, lost network): read the
+ * run's status over REST until it settles, so the answer never stays "Starting" forever.
+ */
+function pollRun(runId: string, attempt = 0) {
+  void listRuns()
+    .then((runs) => {
+      const run = runs.find((r) => r.id === runId);
+      // A listed run carries its event log: re-fold it, so a socket-less run still shows progress.
+      if (run) useRunStore.getState().apply({ type: 'snapshot', run });
+      if (run && isActiveRun(run) && attempt < POLL_LIMIT) {
+        setTimeout(() => pollRun(runId, attempt + 1), POLL_MS);
+        return;
+      }
+      if (!run) {
+        const live = useRunStore.getState().runs[runId];
+        if (live && isActiveRun(live)) {
+          useRunStore
+            .getState()
+            .apply({ type: 'update', run: { ...live, status: 'failed' } as InferenceRunOut });
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: chatKeys.all });
+    })
+    .catch(() => {
+      if (attempt < POLL_LIMIT) setTimeout(() => pollRun(runId, attempt + 1), POLL_MS);
+    });
 }
 
 export function detachRun(runId: string) {

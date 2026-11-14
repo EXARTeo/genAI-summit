@@ -26,6 +26,9 @@ export const DEFAULT_AGENTS: AgentManifest[] = [
 
 export const listConversations = (size = 100) =>
   api.get<Page<ConversationSummary>>(chatApi.conversations, { query: { page: 1, size } });
+/** One page of the sidebar's Chats list (pinned and archived chats are not in it). */
+export const listConversationsPage = (page: number, size: number) =>
+  api.get<Page<ConversationSummary>>(chatApi.conversations, { query: { page, size } });
 export const listPinned = () =>
   api.get<Page<ConversationSummary>>(chatApi.pinned, { query: { page: 1, size: 50 } });
 export const listArchived = () =>
@@ -49,6 +52,8 @@ export const rateMessage = (conversationId: string, messageId: string, liked: bo
 export const startRun = (payload: InferenceStartPayload) =>
   api.post<InferenceStartResponse | QueuedStartResponse>(chatApi.start, payload);
 export const listActiveRuns = () => api.get<InferenceRunOut[]>(chatApi.runs, { query: { status: 'active' } });
+/** All of the caller's runs (the socket fallback reads a run's status from here). */
+export const listRuns = () => api.get<InferenceRunOut[]>(chatApi.runs);
 export const cancelRun = (runId: string) => api.post<InferenceRunOut>(chatApi.cancel(runId));
 export const resumeRun = (runId: string, payload: ResumePayload) =>
   api.post<InferenceRunOut>(chatApi.resume(runId), payload);
