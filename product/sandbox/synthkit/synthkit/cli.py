@@ -10,9 +10,14 @@
                        [--format csv|parquet|both]
     synthkit analyze   --dataset DIR/dataset.parquet --spec generation-spec.yaml
                        [--profile model-profile.json] [--sample sample.csv] --out-dir DIR
+    synthkit run-tests --plan test-plan.yaml --target plugin.yaml [--data DIR]
+                       [--card system-card.yaml] [--dictionary data-dictionary.yaml]
+                       [--model-uri URI | --url URL | --model-pickle F] [--no-mlflow]
+                       [--seed 0] --out DIR
 
-Each command prints a short JSON summary on stdout; exit code 2 = bad input,
-3 = the model could not be reached, 1 = a gate failed (analyze only).
+Each command prints a short summary on stdout; exit code 2 = bad input,
+3 = the model could not be reached, 1 = a gate failed (analyze) or a test
+failed (run-tests).
 """
 
 from __future__ import annotations
@@ -23,10 +28,12 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from modelaccess.runlog import RunLogger
 
 from synthkit.analyze import load_dataset, run_analysis, write_analysis
 from synthkit.generate import generate
 from synthkit.profile import run_profile, write_profile
+from synthkit.runtests import CHAT_TEMPLATES, chat_client, load_plan, run_tests, summary
 from synthkit.scenarios import check_scenarios, write_report
 from synthkit.spec import Dictionary, SpecError, load_spec, load_yaml
 from synthkit.target import TargetError, load_target
@@ -115,6 +122,40 @@ def _analyze(args: argparse.Namespace) -> int:
     return 1 if analysis["overall"] == "fail" else 0
 
 
+def _run_tests(args: argparse.Namespace) -> int:
+    plugin = load_yaml(args.target) or {}
+    plan = load_plan(args.plan)
+    chat_only = all(t["template"] in CHAT_TEMPLATES for t in plan["tests"])
+    is_chat = (plugin.get("access") or {}).get("type") == "llm_chat"
+
+    def target_factory():
+        return load_target(
+            plugin, model_uri=args.model_uri, model_pickle=args.model_pickle, url=args.url
+        )
+
+    system = plan.get("system") or plugin.get("system") or "unknown"
+    logger = RunLogger(f"compliance/{system}", enabled=False if args.no_mlflow else None)
+    dictionary = args.dictionary
+    if dictionary is None and not chat_only:
+        schema = (plugin.get("io") or {}).get("input_schema")
+        candidate = Path(args.target).parent / schema if isinstance(schema, str) else None
+        dictionary = candidate if candidate and candidate.exists() else None
+    report = run_tests(
+        args.plan,
+        args.target,
+        args.data,
+        args.out,
+        card_path=args.card,
+        dictionary_path=dictionary,
+        target_factory=None if is_chat else target_factory,
+        chat_factory=(lambda: chat_client(plugin)) if is_chat else None,
+        run_logger=logger,
+        seed=args.seed,
+    )
+    print(summary(report))
+    return 1 if report["summary"]["fail"] or report["summary"]["error"] else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="synthkit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -157,6 +198,20 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--seed", type=int, default=0)
     a.add_argument("--out-dir", type=Path, default=Path("."))
     a.set_defaults(fn=_analyze)
+
+    r = sub.add_parser("run-tests", help="test plan → test-results.json/.md (+ MLflow runs)")
+    r.add_argument("--plan", type=Path, required=True)
+    r.add_argument("--target", type=Path, required=True, help="the plugin.yaml under test")
+    r.add_argument("--data", type=Path, help="a synthkit generate output dir")
+    r.add_argument("--card", type=Path, help="system-card.yaml (thresholds)")
+    r.add_argument("--dictionary", type=Path)
+    r.add_argument("--model-uri")
+    r.add_argument("--model-pickle", type=Path)
+    r.add_argument("--url")
+    r.add_argument("--seed", type=int, default=0)
+    r.add_argument("--no-mlflow", action="store_true", help="do not log MLflow runs")
+    r.add_argument("--out", type=Path, default=Path("results"))
+    r.set_defaults(fn=_run_tests)
     return parser
 
 

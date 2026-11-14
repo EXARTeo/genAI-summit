@@ -119,6 +119,9 @@ class Sampler:
             low = float(self._param(spec, "low", row, lo if lo is not None else 0.0))
             high = float(self._param(spec, "high", row, hi if hi is not None else 1.0))
             return float(rng.uniform(low, high))
+        if dist == "bernoulli":
+            hit = bool(rng.random() < float(self._param(spec, "p", row, 0.5)))
+            return hit if fdef["type"] == "boolean" else float(hit)
         if dist == "beta":
             x = float(rng.beta(float(spec.get("a", 2)), float(spec.get("b", 2))))
             if lo is not None and hi is not None:
@@ -182,7 +185,7 @@ class Sampler:
             return self._surface(fdef, row, rng, index)
         if ftype in ("string", "id"):
             return f"{name}-{index:06d}"
-        if ftype == "boolean":
+        if ftype == "boolean" and not (fdef.get("distribution") or fdef.get("conditional")):
             return bool(rng.random() < float(fdef.get("p_true", 0.5)))
         spec: Any
         if fdef.get("conditional"):

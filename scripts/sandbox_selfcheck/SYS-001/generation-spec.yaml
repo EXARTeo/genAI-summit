@@ -1,0 +1,12 @@
+# Self-check spec (what the agent would draft for SYS-001.cv-ranker).
+version: 1
+name: SYS-001.cv-ranker.selfcheck
+dictionary: data-dictionary.yaml
+plugin: plugin.yaml
+model_profile: model-profile.json
+n: 4000
+coverage: {cells: [sex, nationality], min_per_cell: 60}
+transforms:
+  - {kind: twins, attribute: nationality, modes: [attribute_only, causal, proxy_only], proxies: [postcode_region], max_base: 400}
+  - {kind: twins, attribute: sex, modes: [attribute_only, causal, proxy_only], proxies: [career_gap_months], max_base: 400}
+  - {kind: edge_cases, fields: [years_experience, career_gap_months, skills_match, education_level]}

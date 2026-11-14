@@ -55,6 +55,15 @@ def rows_for_json(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return [{k: _jsonable(v) for k, v in row.items()} for row in frame.to_dict(orient="records")]
 
 
+def decisions_from_labels(labels: pd.Series, output: dict) -> np.ndarray:
+    """0/1 decisions from a label column: numeric as is, text against ``positive_label``
+    (e.g. ``decision: approve|decline`` with ``positive_label: approve``)."""
+    if pd.api.types.is_numeric_dtype(labels) or pd.api.types.is_bool_dtype(labels):
+        return labels.to_numpy(dtype=float).astype(int)
+    positive = str(output.get("positive_label", "1"))
+    return (labels.astype(str) == positive).to_numpy().astype(int)
+
+
 class Target:
     def __init__(
         self,
@@ -96,7 +105,7 @@ class Target:
                     raise TargetError("model output has no numeric column")
                 scores = numeric.iloc[:, -1].to_numpy(dtype=float)
             if label_field and label_field in out.columns:
-                return scores, out[label_field].to_numpy(dtype=float).astype(int)
+                return scores, decisions_from_labels(out[label_field], self.output)
             return scores, (scores >= self.threshold).astype(int)
         if isinstance(out, pd.Series):
             out = out.to_numpy()

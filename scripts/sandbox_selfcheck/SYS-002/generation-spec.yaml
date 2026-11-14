@@ -1,0 +1,11 @@
+version: 1
+name: SYS-002.credit-scorer.selfcheck
+dictionary: data-dictionary.yaml
+plugin: plugin.yaml
+model_profile: model-profile.json
+n: 2000
+coverage: {cells: [sex, age_band], min_per_cell: 60}
+transforms:
+  - {kind: twins, attribute: sex, modes: [attribute_only, causal], max_base: 400}
+  - {kind: twins, attribute: age_band, modes: [attribute_only, causal, proxy_only], proxies: [credit_history_months], max_base: 300}
+  - {kind: edge_cases, fields: [monthly_income, loan_amount, credit_history_months, late_payments_12m]}

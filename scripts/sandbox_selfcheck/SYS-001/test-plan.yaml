@@ -1,0 +1,27 @@
+# Self-check plan for SYS-001.cv-ranker (thresholds come from system-card.yaml).
+version: 1
+system: SYS-001
+plugin: SYS-001.cv-ranker
+card: system-card.yaml
+dictionary: data-dictionary.yaml
+kb_version: corpus-2026-11-14
+tests:
+  - id: T-001-group
+    template: TT.fairness.group_metrics
+    requirements: [REQ.AIA.10.2.f.bias-examination, REQ.AIA.10.2.g.bias-mitigation, REQ.AIA.13.3.b.v.group-performance]
+    attributes: [nationality, sex, age_band]
+  - id: T-001-cf
+    template: TT.fairness.counterfactual
+    requirements: [REQ.AIA.10.2.f.bias-examination, REQ.AIA.10.2.g.bias-mitigation]
+  - id: T-001-repr
+    template: TT.data.representation
+    requirements: [REQ.AIA.10.3.representative-data, REQ.AIA.10.2.h.data-gaps]
+  - id: T-001-perturb
+    template: TT.robustness.perturbation
+    requirements: [REQ.AIA.15.4.robustness, REQ.AIA.15.1.accuracy-consistency]
+  - id: T-001-edge
+    template: TT.robustness.edge_cases
+    requirements: [REQ.AIA.15.4.robustness]
+  - id: T-001-acc
+    template: TT.accuracy.subgroup
+    requirements: [REQ.AIA.15.1.accuracy-consistency, REQ.AIA.13.3.b.v.group-performance]

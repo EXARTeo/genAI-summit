@@ -1,0 +1,25 @@
+# Accuracy needs real outcomes: eval.csv is the provider's labelled holdout (repaid).
+version: 1
+system: SYS-002
+plugin: SYS-002.credit-scorer
+card: system-card.yaml
+dictionary: data-dictionary.yaml
+kb_version: corpus-2026-11-14
+tests:
+  - id: T-002-group
+    template: TT.fairness.group_metrics
+    requirements: [REQ.AIA.10.2.f.bias-examination, REQ.AIA.13.3.b.v.group-performance]
+  - id: T-002-cf
+    template: TT.fairness.counterfactual
+    requirements: [REQ.AIA.10.2.f.bias-examination]
+  - id: T-002-acc
+    template: TT.accuracy.subgroup
+    requirements: [REQ.AIA.15.1.accuracy-consistency, REQ.AIA.13.3.b.v.group-performance, REQ.AIA.13.3.b.ii.declared-accuracy]
+    eval_set: eval.csv
+    label: repaid
+  - id: T-002-perturb
+    template: TT.robustness.perturbation
+    requirements: [REQ.AIA.15.4.robustness]
+  - id: T-002-edge
+    template: TT.robustness.edge_cases
+    requirements: [REQ.AIA.15.4.robustness]

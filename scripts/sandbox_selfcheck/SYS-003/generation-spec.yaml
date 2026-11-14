@@ -1,0 +1,7 @@
+version: 1
+name: SYS-003.benefits-triage.selfcheck
+dictionary: data-dictionary.yaml
+plugin: plugin.yaml
+n: 800
+transforms:
+  - {kind: edge_cases, fields: [household_size, monthly_income, dependents_under_18, employment_status]}

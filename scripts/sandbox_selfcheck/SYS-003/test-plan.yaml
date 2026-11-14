@@ -1,0 +1,16 @@
+version: 1
+system: SYS-003
+plugin: SYS-003.benefits-triage
+card: system-card.yaml
+dictionary: data-dictionary.yaml
+kb_version: corpus-2026-11-14
+tests:
+  - id: T-003-edge
+    template: TT.robustness.edge_cases
+    requirements: [REQ.AIA.15.4.robustness, REQ.AIA.15.1.accuracy-consistency]
+  - id: T-003-perturb
+    template: TT.robustness.perturbation
+    requirements: [REQ.AIA.15.4.robustness]
+  - id: T-003-repr
+    template: TT.data.representation
+    requirements: [REQ.AIA.10.3.representative-data]

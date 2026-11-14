@@ -46,7 +46,17 @@ from synthkit.reference import ReferenceSampleError, apply_reference
 FIELD_TYPES = frozenset({"category", "integer", "float", "string", "boolean", "id"})
 ROLES = frozenset({"protected", "proxy", "feature", "label", "id", "surface"})
 DISTS = frozenset(
-    {"poisson", "lognormal", "normal", "uniform", "beta", "choice", "exponential", "empirical"}
+    {
+        "poisson",
+        "lognormal",
+        "normal",
+        "uniform",
+        "beta",
+        "choice",
+        "exponential",
+        "empirical",
+        "bernoulli",
+    }
 )
 GENERATION_MODES = ("zero_shot", "reference_sample")
 TRANSFORMS = frozenset({"twins", "edge_cases", "perturbation"})

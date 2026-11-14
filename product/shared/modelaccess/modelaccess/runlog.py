@@ -49,6 +49,10 @@ class RunLogger:
             self._mlflow.set_tags({k: str(v) for k, v in tags.items() if v is not None})
         return run.info.run_id
 
+    def set_tags(self, tags: dict[str, Any]) -> None:
+        if self._mlflow and tags:
+            self._mlflow.set_tags({k: str(v) for k, v in tags.items() if v is not None})
+
     def log_params(self, params: dict[str, Any]) -> None:
         if self._mlflow and params:
             self._mlflow.log_params({k: str(v)[:500] for k, v in params.items()})
