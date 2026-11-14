@@ -71,8 +71,9 @@ The sandbox is separate from the agent so LLM-written test code never runs next 
 
 The agent reads four sources before an audit: `reg-memory` (the rules), the **system dossier** (the folder of
 the audited system), **plugins** (one per model or endpoint: a target card with access, pipeline place and expected behaviour, plus
-docs and training-data descriptions added at configuration) and **agent memory** (human corrections, per system and
-org-wide, fully audited). All four are files in a virtual filesystem stored in Postgres. Design, paths, tables,
+docs and training-data descriptions added at configuration) and **agent memory** (lessons from human corrections,
+one shared memory per audited system, used by every step and agent of every audit of it, not shown to users). All
+four are files in a virtual filesystem stored in Postgres. Design, paths, tables,
 schemas and audit rules: [agent-context.md](agent-context.md).
 
 ![Agent context and memory](diagrams/agent-context.png)
@@ -145,3 +146,4 @@ MVP scope: Art. 6, 9–15, 17, Annex III, Annex IV.
 | 2026-11-13 | Self-hosted Langfuse v4 in the product compose, with its own Postgres and Valkey | Full traceability without a SaaS; v3 is deprecated; Langfuse's queues need `noeviction` and its migrations stay off the product database |
 | 2026-11-14 | Product: AI Act Governance Copilot, MVP = AI Engineer (provider) pillar only | Classification and system card are seeded; the testing + regulation-change loop is the demoable, differentiated part |
 | 2026-11-14 | Agent context and memory are files in a Postgres-backed virtual filesystem (`/regulation/`, `/systems/<id>/` with plugins, `/memory/`), append-only and audited | Reuses the agents service's existing file layer; agents read with normal file tools; every write and read is versioned and logged |
+| 2026-11-14 | Agent memory is **per system**, owned by the agents service (`system_memories` in `agent_runtime`, `/memory/MEMORY.md` + `audits/<id>/<name>.md`, `remember` / `forget`), not user-visible; org memory, proposals and promotion dropped | One namespace every step and agent shares; the reviewer's reason at a gate becomes a lesson the next run applies, with no extra UI to build |

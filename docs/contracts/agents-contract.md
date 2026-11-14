@@ -44,7 +44,10 @@ has no agent catalog: the agents service decides whether a slug exists.
   "context": {
     "client_id": "<anonymous browser id>",
     "conversation_id": "<conversation id>",
-    "run_id": "<run id = assistant message id>"
+    "run_id": "<run id = assistant message id>",
+    "system_id": "SYS-001",
+    "audit_id": "<audit id>",
+    "step": "plan_tests"
   },
   "fork_from": {"thread_id": "...", "checkpoint_id": "..."},
   "trace": {
@@ -63,6 +66,9 @@ has no agent catalog: the agents service decides whether a slug exists.
 | `messages` | Only the new user message when the thread already has committed state (**delta resume**), or when `fork_from` is present (**delta fork**). Otherwise the whole branch history (**full seed**), oldest first. |
 | `fork_from` | Optional. Copy checkpoint `checkpoint_id` of thread `thread_id` into the new `thread_id`, then run. Ignored by `/resume`. |
 | `context.client_id` | The anonymous browser id (`X-Client-Id`). It scopes a browser's data and is **not** authentication. Treat it as sensitive: do not log or trace it raw. |
+| `context.system_id` | Optional. The audited system the run works on (`[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`). Turns on the system's agent memory: the `/memory/` mount, the `MEMORY.md` index in every prompt, and `remember` / `forget` ([agents service § Memory](../services/agents-service.md#memory)). Absent = a plain chat run, unchanged. A malformed value is `400`. |
+| `context.audit_id` | Optional, needs `system_id` (same id format). The audit `remember` records into (`/memory/audits/<audit_id>/`). Without it the memory is read-only and the memory tools are absent. |
+| `context.step` | Optional, ≤ 64 chars: the pipeline step (`plan_tests`, `critic`, ...), stored as provenance on each entry and shown in `MEMORY.md`. When a human rejected the previous attempt at a gate, start the redo with the same `step` and put the reviewer's reason in the user message; the agent records the lesson with `remember`. |
 | `trace` | Present only when Langfuse is on in the backend. Create the run's spans as children of `parent_observation_id` in trace `trace_id` (Langfuse SDK: `trace_context={"trace_id": ..., "parent_span_id": ...}`), or use `traceparent` with any W3C propagator. Set `user_id` / `session_id` as the trace attributes. |
 
 ### `Message`

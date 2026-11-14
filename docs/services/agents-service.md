@@ -21,6 +21,7 @@ Postgres database.
 | `POST` | `/agents/{slug}/resume` | secret | Resume a run paused on HITL interrupt(s) (contract § `/resume`) |
 | `*` | `/ap/...` | secret + launch token | The Agent Protocol the async sub-agents call, in process |
 | `*` | `/tasks/...` | secret | The backend's internal task API (async sub-agents) |
+| `GET` | `/internal/systems/{id}/memory` | secret | Read-only view of a system's agent memory: `MEMORY.md` + every entry with provenance (debugging, judges; [Memory](#memory)) |
 
 "Secret" is `X-Internal-Service-Secret` equal to `INTERNAL_SERVICE_SECRET`
 (the backend sends its `AGENTS_SERVICE_SECRET`, the same value). Missing or
@@ -48,11 +49,13 @@ product/agents/
     checkpointer/      agent_runtime pool + AsyncPostgresSaver, fork seeding
     conversation_files/ a conversation's files as encrypted rows, uploads ingest
     filesystem/        the run's mount table, branch scratch, sandbox backend
+    memory/            per-system agent memory: system_memories table, /memory/ mount, binding
     middlewares/       tool errors, summarization (compaction), rate-limit retry
     models/            reasoning summaries for OpenAI reasoning models
     observability/     Langfuse (opt-in, fail-open), nested under the backend's trace
     prompt_engineering/ the composed system prompt, one module per section
-    tools/             ask_user, present_artifact, view_image, render_chart; gates, registry
+    tools/             ask_user, present_artifact, view_image, render_chart, remember, forget;
+                       gates, registry
 ```
 
 ## A run, end to end
@@ -100,6 +103,8 @@ Every path the agent sees is a virtual route of one `CompositeBackend`
 | `/large_tool_results/` | `conversation_files` rows (offloaded tool results) | no | the conversation |
 | `/conversation_history/` | `conversation_files` rows (history the summarizer offloaded) | no | the conversation |
 | `/reference/` | the agent's definition folder in the image | no | only that agent |
+| `/memory/MEMORY.md` | derived from `system_memories` rows on every read (only with `system_id`) | no (writes ignored) | every agent and step of every audit of the system |
+| `/memory/audits/<audit_id>/<name>.md` | one `system_memories` row | own audit only (`remember`, `write_file`) | same |
 | any other path (`/notes.md`) | `branch_scratch_files` rows, keyed by (conversation, branch thread) | yes | the orchestrator and every async task of that branch, live |
 
 - **Conversation files** (`harness/conversation_files/store.py`): two tables.
@@ -148,6 +153,38 @@ ride the event up to `OUTPUT_MAX_FILE_BYTES` (25 MB) per file and
 them. Only the orchestrator's calls produce a card: a sub-agent writes the
 file and the orchestrator presents it.
 
+## Memory
+
+Agent memory is **per audited system** (`harness/memory/`): every step, agent and sub-agent working on any
+audit of `SYS-00X` shares one memory. It is **not user-visible** (no public API, no UI); the backend keeps no
+memory of its own. Design background: [agent context § 4](../architecture/agent-context.md#4-agent-memory-per-system).
+
+- **When.** Only when `config.context.system_id` is set ([contract § Config](../contracts/agents-contract.md)).
+  `audit_id` makes it writable (`remember` / `forget` attach); `step` is recorded as provenance. Without a
+  `system_id` nothing changes: no `/memory/` route, no tools, no prompt section. A background task inherits
+  the three keys from the run that started it (`InheritedContext`).
+- **Table** `system_memories` in `agent_runtime`, created on boot (`CREATE TABLE IF NOT EXISTS`, no Alembic):
+  PK `(system_id, audit_id, name)`, `summary`, `content_md` (the body the agent reads, verbatim), and provenance
+  columns `step`, `agent_name`, `source_run_id`, `source_thread_id`, `created_by`, `trust_level`,
+  `created_at`, `updated_at`.
+- **Mount.** `/memory/` is a deepagents `StoreBackend` over `SystemMemoryFiles` (a LangGraph `BaseStore`
+  bound to the run's system). `MEMORY.md` is derived on every read (one line per entry: date · step · agent ·
+  **name** — summary, grouped by audit, newest first); a write to it is accepted and ignored. A `write_file` /
+  `edit_file` may write `audits/<current audit>/<slug>.md` only (body stored verbatim, provenance from the
+  run, never from the body); other audits' folders, deletes and unknown paths are refused with a tool error.
+- **Prompt.** `ensure_built` loads `MEMORY.md` once and the `memory` section (`prompts/memory_prompt.py`)
+  injects it into the main agent's prompt and every sub-agent's (blocking and async). Entries are read on
+  demand. A memory outage is logged and the run continues without it.
+- **Tools.** `remember(name, summary, content)`: slugged name (`[a-z0-9-]`, 80 chars), summary ≤ 200 and
+  content ≤ 8000 characters, idempotent upsert by name, never raises (every failure is a string), refuses a
+  new entry past the cap. `forget(name, audit_id?)`: HITL-gated, idempotent. Both names are reserved: an MCP
+  tool called `remember` / `forget` is dropped. A sub-agent whose `tools:` list narrows its tools still gets them.
+- **Gate contract.** When a human rejects or requests changes at a gate, the pipeline passes the reason to the
+  next agent run (same `system_id` / `audit_id`, the step being redone); that agent records the lesson with
+  `remember` before redoing the work. The backend only records the decision.
+- **Debugging.** `GET /internal/systems/{id}/memory` (internal secret) returns `{systemId, index, entries}`
+  with each entry's path and provenance.
+
 ## Tools and approvals
 
 | Tool | Where from | Approval by default |
@@ -158,6 +195,8 @@ file and the orchestrator presents it.
 | `task` / `start_async_task` | deepagents (blocking / async sub-agents) | yes (one gate under two names) |
 | `check_/update_/cancel_/list_async_tasks` | deepagents async sub-agents | no |
 | `present_artifact`, `view_image`, `render_chart` | native (`harness/tools/`) | no |
+| `remember` | native; only with `system_id` + `audit_id` in the context | no |
+| `forget` | native; same | **yes** |
 | `ask_user` | native; main agent of a chat run only | never (the call is the pause) |
 | MCP gateway tools | `MCP_GATEWAY_URL` | per the agent's `hitl:` |
 
@@ -212,6 +251,7 @@ fail-open: a Langfuse outage costs traces, never a run.
 | `AGENT_MODELS` | gpt-6-luna, gpt-5, gpt-4o(-mini) | JSON `{"provider:model": {"reasoning": bool, "context_window": int}}` |
 | `OUTPUT_MAX_FILE_BYTES` / `OUTPUT_MAX_FILES` | 26214400 / 20 | Presented bytes per file / per run |
 | `CONVERSATION_FILE_MAX_BYTES` | 104857600 | One stored file |
+| `MEMORY_MAX_ENTRIES_PER_SYSTEM` | 200 | New memory entries per audited system (updates always allowed) |
 
 Every secret also accepts `<NAME>_FILE`. Tuning knobs not listed (pool sizes,
 timeouts, summarization thresholds, rate-limit retry, `ASYNC_TASKS_*`) are in

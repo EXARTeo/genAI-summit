@@ -78,7 +78,7 @@ All `/v1` routes need `X-Client-Id`, are rate-limited (`WORKSPACE_RATE_LIMIT_*`)
 | `GET / POST /v1/audits/{id}/approvals` | list; record `{gate, decision, artifactId?, reasonCategory?, comment?, edits?}` |
 | `POST /v1/admin/import-seed` | import every `SYS-xxx/` folder of `SEED_CASES_DIR` (`_answer-key/`, hidden and `_`-prefixed dirs skipped) |
 
-`POST /v1/conversations` also accepts optional `systemId` / `auditId` (404 if unknown); summaries return them.
+`POST /v1/conversations` (and a `new` run start) also accept optional `systemId` / `auditId` (404 if unknown); summaries return them. Every run of such a conversation sends `system_id` / `audit_id` in the agents run context, which mounts that system's memory.
 
 ## Internal API (agents service)
 

@@ -9,8 +9,8 @@ Before the agent audits a system it needs four things:
 2. **The system:** everything known about the system being audited (the **system dossier**, "the folder").
 3. **The targets:** one **plugin** per model or endpoint: how to reach it, where it sits in the pipeline,
    what it should do, plus any docs and training-data descriptions added when the plugin was configured.
-4. **The lessons:** what humans corrected before, for this system and for the whole organisation
-   (**agent memory**, audited).
+4. **The lessons:** what the agents learned from human corrections on earlier audits of this system
+   (**agent memory**, per system, not user-visible).
 
 All four reach the agent the same way: as **files in a virtual filesystem stored in Postgres** (section 5).
 The agent reads them with its normal file tools, and every file has an owner, a version and an audit trail.
@@ -167,101 +167,64 @@ Security rules:
 - The sandbox's network egress is allow-listed to the target's host and MLflow only.
 - Production endpoints, or anything over `max_requests`, need approval at the test-plan gate (G5).
 
-## 4. Agent memory: general and per system, fully audited
+## 4. Agent memory: per system
 
-The agent improves from human feedback without retraining. When the engineer or the AI Officer approves,
-edits or rejects something, the reason is stored as **memory**: a file in Postgres. Later runs read it and
-**cite** it.
+> Status: **built** in the agents service ([agents service § Memory](../services/agents-service.md#memory)).
+> Replaces the earlier design (org memory, proposals, promote, `MEM-xxxx` ids), which is dropped.
 
-### Two scopes
+The agent improves from human feedback without retraining. Memory is **per audited system**: every pipeline
+step and every agent or sub-agent working on **any audit** of `SYS-00X` shares one memory. It is **not shown to
+users** (no UI, no public API); it is the agents' own notebook. Humans steer it indirectly, through the reasons
+they give at the gates.
 
-| Scope | Path | Example | Who approves it |
-| --- | --- | --- | --- |
-| **Per system** | `/memory/systems/SYS-001/` | "SYS-001: `postcode_region` is a proxy for nationality; always include it in counterfactual tests" | Engineer of that system |
-| **General (org)** | `/memory/org/` | "For hiring systems, use equal opportunity, not demographic parity, as the primary fairness metric" | AI Officer, after a regression check on the eval set |
+### What the agent sees
 
-Per-system entries can be **promoted** to general. Promotion is a separate, logged decision.
+Virtual files, rows in the agents service's `agent_runtime` database (nothing on disk):
 
-### Where feedback comes from
+```text
+/memory/MEMORY.md                       derived on every read: one line per entry of the system
+                                        (date · step · agent · name — summary), grouped by audit,
+                                        newest first; a write to it changes nothing
+/memory/audits/<audit_id>/<name>.md     one entry: "# <name>", the one-line summary, the detail
+```
 
-| Trigger | Typical memory |
+- **`MEMORY.md` is in the prompt.** When a run has a `system_id`, the index is loaded when the agent is built
+  and injected into the system prompt of the agent and of every sub-agent. Entries are read on demand with
+  `read_file`. The agent says which entry it applied (by path), so the trace shows why a plan changed.
+- **`remember(name, summary, content)`** writes `/memory/audits/<current audit>/<slug>.md`. The system and the
+  audit come from the run config, never from the model. Same name in the same audit = update in place
+  (idempotent, safe on a resumed node). Never raises; returns a string. Cap per system
+  (`MEMORY_MAX_ENTRIES_PER_SYSTEM`, default 200); updates always go through.
+- **`forget(name, audit_id?)`** deletes one entry; approval-gated (HITL) by default.
+- `write_file` / `edit_file` may write an entry only in the current audit's folder (same cap). Provenance
+  (step, agent, run, thread, trust) lives in **columns only**, never in the body, so the agent cannot rewrite
+  its own audit trail. Both tool names are reserved: no MCP tool can shadow them.
+
+### Where lessons come from
+
+| Trigger | Typical entry |
 | --- | --- |
-| Test-plan gate: test removed, added or edited | "Don't run adversarial tests on rule-based components" |
-| Dataset audit: dataset rejected or regenerated | "Synthetic ages must match the applicant population (18–67)" |
+| Test-plan gate: test rejected or edited, with a reason | "Don't run adversarial tests on rule-based components" |
+| Dataset audit: dataset rejected | "Synthetic ages must match the applicant population (18–67)" |
 | Finding overridden by a human | "Gap at ratio 0.78 is inconclusive when the CI crosses 0.8" |
-| Change judge overridden | "Changes to Annex III §4 always mean `rerun_tests` for hiring systems" |
-| Endpoint behaviour discovered during a run | "Ranker returns 429 above 5 rps" (system quirk, per system) |
-| Like / dislike on a chat answer (already stored by the backend) | Low-weight signal; only becomes memory if a human writes a reason |
+| Change judge overridden | "Changes to Annex III §4 mean `rerun_tests` for this system" |
+| Endpoint behaviour discovered during a run | "Ranker returns 429 above 5 rps" |
 
-Every rejection asks for a **reason category** (`wrong_fact`, `wrong_interpretation`, `missing_info`,
-`wrong_metric`, `unrealistic_data`, `org_policy`, `other`) plus free text. An `unrealistic_data` rejection
-points at the GenerationSpec field or rule ids it is about, so the next spec fixes exactly that.
-
-### Memory files
-
-Each entry is one file; each scope folder has an `INDEX.md` the agent reads first (one line per active entry):
-
-```text
-/memory/
-├── org/
-│   ├── INDEX.md
-│   └── MEM-0042.yaml
-├── systems/
-│   └── SYS-001/
-│       ├── INDEX.md
-│       └── MEM-0057.yaml
-└── proposals/               # the only place an agent may write: suggested entries, inactive until approved
-```
-
-```yaml
-# /memory/org/MEM-0042.yaml
-id: MEM-0042
-scope: org                       # or: system:SYS-001
-kind: precedent                  # correction | precedent | preference | quirk
-applies_to: {step: plan_tests, requirement: REQ.AIA.10.2.f.bias-examination, sector: hiring}
-proposed: "Primary metric: demographic parity"
-human_decision: "Primary metric: equal opportunity"
-reason_category: wrong_metric
-rationale: "For shortlisting, qualified candidates must have equal chances; base rates differ by design."
-author: engineer:alice
-approved_by: ai-officer:bob      # engineer:<id> is enough for system scope
-promoted_from: MEM-0039          # the per-system entry it generalises
-status: active                   # proposed | active | retired | stale
-kb_version: 2026.11.14-1
-card_version: 3
-source_trace: langfuse:<trace id>
-supersedes: null
-```
-
-### Lifecycle
-
-```text
-human feedback at a gate → proposed → active (per system) ──promote + AI Officer + regression check──→ active (org)
-                                         │
-                       law change touching its provisions → stale (re-review)   ·   retire / roll back at any time
-```
-
-- **Agents never write active memory.** They can only write to `/memory/proposals/`; a human activates an entry,
-  which moves it into its scope folder.
-- An entry becomes **stale** when a regulation change touches a provision it relies on (same impact index as findings).
-
-### How it is used
-
-Before `plan_tests`, `generate_data`, `critic` and the change judge, the agent reads the system's `INDEX.md` and
-**all active per-system entries**, plus the **top matching general entries** (by step, requirement and sector,
-then similarity). They go into the prompt as numbered, citable items. When an entry changes what the agent
-does, the output must cite it ("applied MEM-0042"), so the human sees *why* the plan differs.
+**Gate contract (the pipeline is built later):** when a human rejects or requests changes at a gate, the
+backend records the decision with its `reason_category` and comment (it no longer writes any memory itself).
+The pipeline passes that reason to the next agent run of the audit (same `system_id`, `audit_id`, the `step`
+being redone), and that agent records the lesson with `remember` before redoing the work. Reason categories:
+`wrong_fact`, `wrong_interpretation`, `missing_info`, `wrong_metric`, `unrealistic_data`, `org_policy`, `other`.
 
 ### Audit
 
-- **Append-only:** files are never edited in place. Every write creates a new version of the file, and every
-  create, approve, promote, retire, stale and **every read during a run** is an event with who, what, why and when.
-- **In the trace:** each memory read and use is a Langfuse span tagged with the memory ids, so a replayed run
-  shows exactly which lessons shaped it.
-- **Reviewable:** a memory view per system and for the org, filterable by status, author, reason, and usage
-  count; any entry can be retired or rolled back to an earlier version.
-- **Measured:** feedback is also written as Langfuse scores. We track rejection rate per step before vs after
-  memory, and run the golden set as a regression gate before a general entry goes active.
+- **Table** `system_memories` (PK `system_id, audit_id, name`): `summary`, `content_md` (the body, verbatim),
+  `step`, `agent_name`, `source_run_id`, `source_thread_id`, `created_by`, `trust_level`, `created_at`,
+  `updated_at`. Created on boot (`CREATE TABLE IF NOT EXISTS`), no Alembic.
+- **In the trace:** `remember` / `forget` calls are tool spans in Langfuse, and the prompt of every step
+  contains the `MEMORY.md` it started from, so a replayed run shows which lessons shaped it.
+- **For judges and debugging:** `GET /internal/systems/{id}/memory` on the agents service (internal secret)
+  returns the index and every entry with its provenance. Read-only.
 
 ## 5. The filesystem (stored in Postgres)
 
@@ -274,9 +237,8 @@ The agents service already exposes Postgres rows as files through one `Composite
 | `/regulation/` | RKS corpus, pinned to the run's `kb_version` | no | watcher + HITL (RKS) | per `kb_version` |
 | `/systems/<SYS-ID>/` | `workspace_files`, namespace `system:<id>` | no | PM / AI Officer / engineer (UI, uploads) | per `dossier_version` |
 | `/systems/<SYS-ID>/plugins/<plugin>/` | `workspace_files`, namespace `system:<id>`, paths under `plugins/<plugin>/` | no | engineer, when configuring the plugin | per `card_version` |
-| `/memory/systems/<SYS-ID>/` | `workspace_files`, namespace `memory:system:<id>` | no | engineer approves | every write |
-| `/memory/org/` | `workspace_files`, namespace `memory:org` | no | AI Officer approves | every write |
-| `/memory/proposals/` | `workspace_files`, namespace `memory:proposals` | **yes** | agents (suggestions only) | every write |
+| `/memory/MEMORY.md` | derived from `system_memories` rows (agents service, `agent_runtime`) | no (writes ignored) | nobody: generated on read | always current |
+| `/memory/audits/<audit_id>/<name>.md` | `system_memories` row `(system_id, audit_id, name)` | **yes**, own audit only (`remember`, `write_file`) | agents of any audit of the system | updated in place |
 | `/conversation/…`, scratch | existing tables (unchanged) | as today | as today | as today |
 
 Tables (backend Postgres, migration `0003_systems_audits`; built, see
@@ -287,15 +249,15 @@ Tables (backend Postgres, migration `0003_systems_audits`; built, see
 | `workspace_file_blobs` | Content once per hash (`sha256`), plain bytes like conversation blobs (encryption at rest: later) |
 | `workspace_files` | `(namespace, path, version)` → blob, plus `content_type`, `created_by`, `created_at`, `is_current`. A new version is a new row; old rows stay |
 | `workspace_file_meta` | *Not built yet:* indexed fields parsed from structured files and a pgvector embedding. Until then, per-version metadata lives in `workspace_files.data` (JSONB) |
-| `workspace_events` | Append-only audit ledger: `(namespace, path, version, action, actor, reason, run_id, trace_id, at)`. Actions today: `create`, `update`, `delete`, `read` (with `audit_id`); `approve`, `promote`, `retire`, `stale` next |
+| `workspace_events` | Append-only audit ledger: `(namespace, path, version, action, actor, reason, run_id, trace_id, at)`. Actions today: `create`, `update`, `delete`, `read` (with `audit_id`); `approve`, `stale` next |
 | `systems` | One audited system (`SYS-001`): `name`, `status`, JSONB `data` (parsed system card). Not scoped by client id |
 | `audits` | One audit of a system: `status`, `stage`, JSONB `data` (`dossier_version` locked at creation, `plugin_ids`, `kb_version`) |
 | `audit_artifacts` | Every stage output, versioned per `(audit, kind, name)`; `status` proposed / approved / rejected / changes_requested / superseded; JSONB `data` + `file_refs` |
-| `approvals` | Every human gate decision: `gate`, `decision`, `reason_category`, `comment`, `edits`, `decided_by`. A rejection with a reason writes a memory proposal |
+| `approvals` | Every human gate decision: `gate`, `decision`, `reason_category`, `comment`, `edits`, `decided_by`. The reason goes to the next agent run, which records the lesson with `remember` |
 
-- **Mounting:** the backend passes the system id in the run's config; the agents service mounts
-  `/systems/<id>/`, `/memory/systems/<id>/`, `/memory/org/` and `/regulation/` for that run only. A run never
-  sees another system's files.
+- **Mounting:** the backend passes `system_id` (and `audit_id`, `step`) in the run's config; the agents
+  service mounts `/memory/` for that system (built) and `/systems/<id>/` and `/regulation/` (not yet). A run
+  never sees another system's files or memory.
 - **Pinning:** a run reads the versions current at its start and records them in the trace, so a replay sees
   exactly the same files.
 - **Reads are logged** (`read` events), so the audit can show which files an audit actually used.
@@ -306,14 +268,13 @@ Tables (backend Postgres, migration `0003_systems_audits`; built, see
 
 1. The engineer configures the `ranker` plugin: picks MLflow, fills the card, uploads the training-data
    description. The agent generates personas and counterfactual twins that match that population.
-2. They reject a fairness test on SYS-001 ("wrong metric for hiring") → `/memory/systems/SYS-001/MEM-0039.yaml`.
-3. They promote it; the AI Officer approves → `/memory/org/MEM-0042.yaml`.
-4. A new hiring system is planned correctly first time, the plan cites `MEM-0042`, and the Langfuse trace and
-   the file history show where the lesson came from and who approved it.
+2. They reject a fairness test on SYS-001 ("wrong metric for hiring"). The pipeline hands the reason to the
+   planner, which calls `remember` → `/memory/audits/<audit>/wrong-fairness-metric.md`, then re-plans.
+3. The next audit of SYS-001 starts with that line in its `MEMORY.md`; the plan cites the entry, and the
+   Langfuse trace shows the `remember` call, the reviewer's reason and the prompt that carried it.
 
 ## Open questions
 
-- Who may promote to general memory besides the AI Officer (a second reviewer)?
-- How many general entries to inject per step before the prompt gets noisy (start with top 5)?
-- Do quirks discovered automatically need approval, or only a notification?
+- Should a lesson ever apply across systems (an org-wide memory), and who would approve it?
+- Do quirks discovered automatically need a human look, or only a notification?
 - Does `/regulation/` read from RKS through an API at mount time, or does the RKS publish each `kb_version` into `workspace_files`?
