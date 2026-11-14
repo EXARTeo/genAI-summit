@@ -1,5 +1,6 @@
-import { FileText, History } from 'lucide-react';
-import { useState } from 'react';
+import { Download, FileText, History, Maximize2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { blobFromBase64, classifyFile } from '@/shared/lib/files';
 import { formatBytes, formatRelative } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -8,9 +9,14 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  FilePreviewBody,
+  FilePreviewPanel,
+  IconButton,
   Markdown,
   SkeletonText,
+  downloadPreviewFile,
   type DataTableColumn,
+  type PreviewFile,
 } from '@/shared/ui';
 import { useFileVersions, useSystemFile } from '../../hooks/useSystems';
 import { languageFor } from '../../lib/styles';
@@ -58,6 +64,26 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
   const [version, setVersion] = useState<number | undefined>();
   const file = useSystemFile(systemId, path, version);
   const versions = useFileVersions(systemId, path);
+  const [expanded, setExpanded] = useState(false);
+  // The loaded version as a shared preview file (bytes from its text or base64).
+  const data = file.data;
+  const preview = useMemo<PreviewFile | null>(
+    () =>
+      data && path
+        ? {
+            id: `${systemId}:${path}@${data.version}`,
+            name: path.split('/').pop() ?? path,
+            mime: data.contentType,
+            size: data.size,
+            meta: [`v${data.version}`],
+            load: async () =>
+              data.text != null
+                ? new Blob([data.text], { type: data.contentType })
+                : blobFromBase64(data.dataB64 ?? '', data.contentType),
+          }
+        : null,
+    [data, path, systemId],
+  );
 
   if (!path) {
     return (
@@ -71,7 +97,9 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
   if (file.error) return <ErrorState compact error={file.error} onRetry={() => file.refetch()} />;
 
   const lang = languageFor(path);
-  const isPdf = /\.pdf$/i.test(path);
+  // Binary files (PDF, images, Word) render in the shared preview body.
+  const kind = classifyFile({ name: path, mime: file.data?.contentType }).kind;
+  const binary = file.data?.text === null || kind === 'pdf' || kind === 'image' || kind === 'docx';
   const text = file.data?.text ?? '';
 
   return (
@@ -87,17 +115,28 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
             </span>
           </>
         )}
+        {preview && (
+          <span className="ml-auto flex items-center gap-0.5">
+            <IconButton
+              label={`Open ${preview.name} in the preview`}
+              icon={<Maximize2 />}
+              onClick={() => setExpanded(true)}
+            />
+            <IconButton
+              label={`Download ${preview.name}`}
+              icon={<Download />}
+              onClick={() => void downloadPreviewFile(preview)}
+            />
+          </span>
+        )}
       </div>
 
       {file.isLoading ? (
         <SkeletonText lines={10} />
-      ) : isPdf || (file.data && file.data.text === null) ? (
-        <EmptyState
-          compact
-          icon={<FileText />}
-          title="Binary file"
-          description="PDF and binary previews are not available yet. The agent reads the extracted text."
-        />
+      ) : binary && preview ? (
+        <div className="h-[32rem] overflow-hidden rounded-xl border border-border bg-surface-sunken p-3">
+          <FilePreviewBody file={preview} onDownload={() => void downloadPreviewFile(preview)} />
+        </div>
       ) : lang === 'markdown' ? (
         <div className="rounded-xl border border-border bg-surface p-5">
           <Markdown>{text}</Markdown>
@@ -111,6 +150,8 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
           title={path.split('/').pop()}
         />
       )}
+
+      <FilePreviewPanel file={expanded ? preview : null} onClose={() => setExpanded(false)} />
 
       {(versions.data?.length ?? 0) > 1 && (
         <div className="rounded-xl border border-border bg-surface p-4">

@@ -4,14 +4,16 @@ import {
   CircleDashed,
   Database,
   ExternalLink,
-  FileText,
   MinusCircle,
   Plus,
   RefreshCw,
   Star,
 } from 'lucide-react';
+import { useState } from 'react';
+import { baseName, blobFromBase64 } from '@/shared/lib/files';
 import { cn } from '@/shared/lib/utils';
-import { Badge, KeyValue, Tooltip } from '@/shared/ui';
+import { Badge, FileChip, FilePreviewPanel, KeyValue, Tooltip, type PreviewFile } from '@/shared/ui';
+import { auditsApi } from '../../handlers/audits';
 import type {
   ContextData,
   PublicCandidatesData,
@@ -67,15 +69,7 @@ export function ContextView({ data }: { data: ContextData }) {
       {data.filesRead.length === 0 ? (
         <p className="text-sm text-muted">{DASH}</p>
       ) : (
-        <ul className="space-y-1 text-xs">
-          {data.filesRead.map((f) => (
-            <li key={f.path} className="flex min-w-0 items-center gap-2 font-mono">
-              <FileText className="size-3 shrink-0 text-muted" />
-              <span className="truncate">{f.path}</span>
-              <span className="text-muted">{f.version != null ? `v${f.version}` : DASH}</span>
-            </li>
-          ))}
-        </ul>
+        <FilesRead systemId={s.id} files={data.filesRead} />
       )}
     </div>
   );
@@ -457,5 +451,53 @@ export function TestResultsView({ data }: { data: TestResultsData }) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The files the step read, as shared file rows: a system-folder file opens in the shared preview at
+ * the version the audit pinned; other paths (regulation) are listed only.
+ */
+function FilesRead({ systemId, files }: { systemId?: string | null; files: ContextData['filesRead'] }) {
+  const [open, setOpen] = useState<PreviewFile | null>(null);
+  const relative = (path: string) => {
+    const prefix = systemId ? `/systems/${systemId}/` : null;
+    if (prefix && path.startsWith(prefix)) return path.slice(prefix.length);
+    return path.startsWith('/') ? null : path;
+  };
+  return (
+    <>
+      <ul className="-mx-1.5 space-y-0.5">
+        {files.map((f) => {
+          const rel = systemId ? relative(f.path) : null;
+          const file: PreviewFile | null =
+            rel && systemId
+              ? {
+                  id: `${systemId}:${rel}@${f.version ?? 'current'}`,
+                  name: baseName(rel),
+                  meta: f.version != null ? [`v${f.version}`] : undefined,
+                  load: async () => {
+                    const r = await auditsApi.systemFile(systemId, rel, f.version);
+                    return r.text != null
+                      ? new Blob([r.text], { type: r.contentType })
+                      : blobFromBase64(r.dataB64 ?? '', r.contentType);
+                  },
+                }
+              : null;
+          return (
+            <li key={f.path}>
+              <FileChip
+                variant="row"
+                mono
+                name={f.path}
+                trailing={f.version != null ? `v${f.version}` : DASH}
+                onOpen={file ? () => setOpen(file) : undefined}
+              />
+            </li>
+          );
+        })}
+      </ul>
+      <FilePreviewPanel file={open} onClose={() => setOpen(null)} />
+    </>
   );
 }
