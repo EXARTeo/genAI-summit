@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Backend: audited **systems**, versioned **workspace files** (system folders + agent memory), **audits** with versioned stage artifacts and **human approvals** (migration `0003_systems_audits`: `systems`, `workspace_file_blobs`, `workspace_files`, `workspace_events`, `audits`, `audit_artifacts`, `approvals`, `conversations.system_id` / `audit_id`; flexible JSONB `data` columns). Routes `/v1/systems` (CRUD, files tree/read/write/delete/versions/events, copy from a conversation attachment, start an audit), `/v1/memory/{org,proposals,systems/{id}}`, `/v1/audits` (artifacts, approvals; a rejection with a reason writes a memory proposal), `POST /v1/admin/import-seed` (`SEED_CASES_DIR`, skips `_answer-key/`, idempotent by sha256) and the agents-service API `/internal/audits/{id}/...` (`X-Internal-Secret`; read files with `read` events, write artifacts and memory proposals only). Systems are not scoped by client id (deliberate). Compose mounts `seed_cases` read-only into the backend; `WORKSPACE_MAX_FILE_BYTES` in `.env.example`; `pyyaml` added. Tests in `tests/backend/test_systems.py`; docs in `docs/services/backend-systems.md`.
 - Repository scaffolding: README, license, docs, tests, scripts, CI workflow and contribution templates.
 - `branding/`: brand tokens (`brand.json`), guidelines, logo and font folders, CSS token export.
 - `presentations/`: YAML-to-PowerPoint deck builder using the brand tokens, with an example deck.
