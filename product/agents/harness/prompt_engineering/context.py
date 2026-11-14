@@ -1,0 +1,56 @@
+"""The facts a system prompt is allowed to depend on.
+
+Every platform-owned prompt section is a pure function of this object. That is
+the whole point: a section can only describe a mount or a tool that the run
+actually has, because the same flags that build the mounts fill this in.
+
+Advertising a capability that is not there is worse than saying nothing — the
+agent tries it, gets an error, and then distrusts the rest of its prompt. The
+filesystem permission ladder already works this way
+(``workspace_write_deny(include_reference=...)`` derives from the same flag as
+the mount); this mirrors it for the prompt.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+
+@dataclass(frozen=True)
+class PromptContext:
+    """What this run actually has. Defaults are the empty run: nothing mounted."""
+
+    #: There is a conversation, so the ``/conversation/`` mounts exist along
+    #: with the tools that point into them.
+    has_conversation: bool = False
+    #: ``/reference/`` is mounted — the agent's own definition folder. Only
+    #: declarative agents have one; a code-defined agent's package is source.
+    has_reference: bool = False
+    #: The sandbox is enabled, so ``execute`` exists.
+    sandbox_enabled: bool = False
+    #: This agent has sub-agents, so the "only the orchestrator presents"
+    #: rule is worth stating. The rule is platform-wide — the normalizer drops
+    #: a sub-agent's ``present_artifact`` for every deep agent — but it only
+    #: *applies* to an agent that can delegate, and is noise to one that cannot.
+    has_subagents: bool = False
+    #: ``ask_user`` is attached: a conversation's own run, not a background task.
+    has_ask_user: bool = False
+    #: Sub-agents run as background tasks (``ASYNC_SUBAGENTS_ENABLED``):
+    #: delegation is ``start_async_task`` and friends, not the blocking
+    #: ``task``. Only meaningful with ``has_subagents``.
+    async_subagents: bool = False
+    #: The user follows this agent's work live in a conversation, so it should
+    #: narrate between tool calls (``progress_prompt``). Off for a background
+    #: task's run, whose text is its parent's input, not the user's chat.
+    narrate_progress: bool = False
+    #: The run is a background sub-agent task: it narrates too, but its text is
+    #: shown in its task panel (the drill-down) and its last message is the
+    #: result handed back to its parent, so it gets the sub-agent wording.
+    narrate_as_subagent: bool = False
+    #: Wall-clock for the run, injected rather than read inside a prompt so the
+    #: composed text is deterministic under test.
+    now: datetime | None = None
+
+
+__all__ = ["PromptContext"]

@@ -1,0 +1,34 @@
+# Runtime
+fastapi==0.135.3
+starlette==0.49.3  # pinned to a newer compatible release for FastAPI 0.135.x
+uvicorn==0.32.0
+pydantic==2.12.5
+pydantic-settings==2.16.3
+httpx==0.28.1
+langchain==1.4.9
+langchain-core==1.7.6
+langchain-openai==1.3.2
+langchain-text-splitters==1.1.3  # not imported; pinned to avoid a vulnerable transitive release
+langgraph==1.2.20
+langgraph-prebuilt==1.1.0
+langgraph-checkpoint-postgres==3.1.0
+langgraph-sdk==0.4.14  # the async sub-agents' Agent Protocol client (in process)
+deepagents==0.7.34
+wcmatch==12.0.1  # glob over the conversation files (harness/conversation_files/backend.py)
+psycopg[binary,pool]==3.2.13
+psycopg-pool==3.3.3
+pycryptodome==3.24.1  # AES for checkpoints and conversation files (EncryptedSerializer)
+ag-ui-protocol==0.1.14
+mcp==1.23.0
+langchain-mcp-adapters==0.1.13
+PyYAML==6.0.3  # agent.yaml definitions
+Pillow==13.0.0  # thumbnails for image tool results (AG-UI previews) and view_image crops
+redis==8.1.0  # async-task event and status streams
+langfuse==4.18.0  # traces to the self-hosted Langfuse; off unless LANGFUSE_BASE_URL + keys are set
+tzdata==2025.2  # IANA zones for LOG_TIMEZONE on a slim image without a system tz database
+
+# Tests (the suite lives in the repo's tests/agents/, outside the image)
+pytest==8.4.2
+pytest-asyncio==1.2.0
+pytest-timeout==2.4.0
+fakeredis[lua]==2.32.0  # lua: the Redis SDKs count with Lua scripts

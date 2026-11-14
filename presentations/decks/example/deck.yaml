@@ -1,0 +1,46 @@
+# Example deck: shows every layout. Copy this folder to start a new deck.
+title: Product kickoff
+theme: light            # light | dark (override with --theme)
+footer: GenAI Summit 2026
+
+slides:
+  - layout: title
+    title: Product Name
+    subtitle: One line that says what the product does.
+    meta: GenAI Summit · 2026
+    notes: Speaker notes go here. They show in PowerPoint's presenter view.
+
+  - layout: section
+    title: The problem
+    subtitle: Why this matters now
+
+  - layout: bullets
+    title: What we are building
+    bullets:
+      - A multi-agent assistant for <use case>
+      - text: Backend that streams agent runs to the UI
+        sub:
+          - Postgres for conversations and history
+          - Redis for live streams and caching
+      - Branded, demo-ready by the summit
+
+  - layout: two-column
+    title: Before and after
+    left:
+      heading: Today
+      bullets:
+        - Manual, slow, scattered
+        - No single source of truth
+    right:
+      heading: With the product
+      bullets:
+        - Agents do the heavy lifting
+        - Every answer traceable
+
+  - layout: quote
+    quote: The best way to predict the future is to build it.
+    author: Team motto
+
+  - layout: closing
+    title: Thank you
+    subtitle: Questions?

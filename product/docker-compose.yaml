@@ -1,0 +1,455 @@
+# Product stack: backend + its Postgres/Redis, plus a self-hosted Langfuse v4
+# (web, worker, Postgres, ClickHouse, Valkey, MinIO) for full agent tracing.
+#
+#   cp product/.env.example product/.env      # then change the secrets
+#   docker compose -f product/docker-compose.yaml up -d --build
+#
+# Every variable has a dev default, so the stack also starts without a .env.
+# Services, ports and networks: product/README.md.
+name: genai-summit
+
+# ---- Shared blocks ----------------------------------------------------------
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+# Images that start as root and drop to their own user (postgres, clickhouse,
+# valkey): only the capabilities their entrypoints need to chown the data dir
+# and switch user.
+x-root-start: &root-start
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    - SETGID
+    - SETUID
+
+# Images that run as a non-root user from the start: no capabilities.
+x-non-root: &non-root
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+# Environment shared by langfuse-web and langfuse-worker.
+x-langfuse-env: &langfuse-env
+  NEXTAUTH_URL: http://localhost:${LANGFUSE_PORT:-3400}
+  DATABASE_URL: postgresql://langfuse:${LANGFUSE_POSTGRES_PASSWORD:-langfuse-dev-postgres}@langfuse-postgres:5432/langfuse
+  SALT: ${LANGFUSE_SALT:-genai-summit-dev-salt}
+  # 64 hex chars (openssl rand -hex 32). Never change it once data exists.
+  ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+  TELEMETRY_ENABLED: "false"
+  LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+  # v4 in-app AI agent: off (it would send trace content to an LLM provider).
+  LANGFUSE_IN_APP_AGENT_ENABLED: "false"
+  LANGFUSE_LOG_LEVEL: info
+  CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+  CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+  CLICKHOUSE_USER: langfuse
+  CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-langfuse-dev-clickhouse}
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  # Raw ingestion events (full content) -> MinIO bucket `langfuse`, prefix events/.
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER:-langfuse-minio}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD:-langfuse-dev-minio}
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  # Media uploads and batch exports are off: both need MinIO reachable from the
+  # browser (presigned URLs), and MinIO is deliberately not published.
+  LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+  REDIS_HOST: langfuse-redis
+  REDIS_PORT: "6379"
+  REDIS_AUTH: ${LANGFUSE_REDIS_PASSWORD:-langfuse-dev-redis}
+  REDIS_TLS_ENABLED: "false"
+
+x-langfuse-depends-on: &langfuse-depends-on
+  langfuse-postgres:
+    condition: service_healthy
+  langfuse-clickhouse:
+    condition: service_healthy
+  langfuse-redis:
+    condition: service_healthy
+  langfuse-minio:
+    condition: service_healthy
+
+services:
+
+  # ---- Product --------------------------------------------------------------
+
+  backend: # 8000
+    build:
+      context: ./backend
+    # Runs `alembic upgrade head` on start, then serves the API.
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_FORMAT: ${LOG_FORMAT:-console}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Same value as the agents service: both hash a client id to the same h:<hex>.
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:-genai-summit-dev-log-redaction}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app-dev-postgres}@postgres:5432/${POSTGRES_DB:-app}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-app-dev-redis}
+      AGENTS_SERVICE_URL: ${AGENTS_SERVICE_URL:-http://agents:8003}
+      # Background-task consumers (mirror, wake-ups, reconcile loop).
+      ASYNC_TASKS_ENABLED: ${ASYNC_TASKS_ENABLED:-true}
+      AGENTS_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      # Traces go to langfuse-web over the `langfuse` network.
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-http://langfuse-web:3000}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-genai-summit-dev}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-genai-summit-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # python:3.12-slim has no curl/wget.
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 4
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8100}:8000"
+    networks:
+      - backend
+      - edge
+      - langfuse
+
+  agents: # 8003, not published
+    build:
+      context: ./agents
+    # Runs the agents (OpenAI) and streams AG-UI to the backend
+    # (docs/agents-contract.md). Creates the `agent_runtime` database on the
+    # product Postgres at start: checkpoints, conversation files, task rows.
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_FORMAT: ${LOG_FORMAT:-console}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:-genai-summit-dev-log-redaction}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AGENT_RUNTIME_DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app-dev-postgres}@postgres:5432/agent_runtime
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-app-dev-redis}
+      # The backend must send the same value (AGENTS_SERVICE_SECRET); the
+      # sandbox runner checks it too, so it must equal ../sandbox/.env's
+      # TRUSTED_PROXY_SECRET when the shared runner is used.
+      INTERNAL_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
+      # Encrypts checkpoints and conversation files: exactly 32 characters
+      # (openssl rand -hex 16). Never change it once data exists.
+      LANGGRAPH_AES_KEY: ${LANGGRAPH_AES_KEY:-genai-summit-dev-checkpoint-key!}
+      ASYNC_SUBAGENTS_ENABLED: ${ASYNC_SUBAGENTS_ENABLED:-true}
+      # Siblings in ../mcp_gateway and ../sandbox, reached over shared networks.
+      MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://mcp_gateway:8005/sse}
+      SANDBOX_RUNNER_URL: ${SANDBOX_RUNNER_URL:-http://sandbox_runner:8090}
+      SANDBOX_EXECUTION_ENABLED: ${SANDBOX_EXECUTION_ENABLED:-true}
+      LANGFUSE_BASE_URL: ${LANGFUSE_HOST:-http://langfuse-web:3000}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-genai-summit-dev}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-genai-summit-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/health', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 4
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - backend
+      - edge        # OpenAI API
+      - langfuse
+      - mcp_net
+      - sandbox_net
+
+  postgres: # 5432, not published
+    image: postgres:16.14-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app-dev-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    # /dev/shm for parallel workers (Docker's 64 MB default is too small).
+    shm_size: 256m
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    <<: *root-start
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - backend
+
+  redis: # 6379, not published
+    # Cache only, no persistence. volatile-lru: only keys with a TTL are
+    # evicted under memory pressure; keys without one are never dropped.
+    image: redis:7.4.9-alpine
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:-app-dev-redis}
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    environment:
+      # For the healthcheck only (redis-cli reads REDISCLI_AUTH).
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-app-dev-redis}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    user: "999:999"
+    <<: *non-root
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ---- Langfuse (tracing) -----------------------------------------------------
+
+  langfuse-web: # 3000
+    # UI + public API (ingestion). Runs the Postgres and ClickHouse migrations
+    # and the headless init (org, project, API keys, user) on start.
+    image: langfuse/langfuse:4.70.0@sha256:932a46dfab770f89ecb2ec35258b6b80d3be8773403981a64d271ff0a408deef
+    environment:
+      <<: *langfuse-env
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      NODE_OPTIONS: --max-old-space-size=1024
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-genai-summit-dev-nextauth}
+      AUTH_DISABLE_SIGNUP: "true"
+      NEXT_PUBLIC_SIGN_UP_DISABLED: "true"
+      # Headless init: create-if-missing on every start, so a fresh stack has
+      # a project whose keys match the backend's LANGFUSE_*_KEY.
+      LANGFUSE_INIT_ORG_ID: genai-summit
+      LANGFUSE_INIT_ORG_NAME: GenAI Summit
+      LANGFUSE_INIT_PROJECT_ID: product
+      LANGFUSE_INIT_PROJECT_NAME: product
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-genai-summit-dev}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-genai-summit-dev}
+      LANGFUSE_INIT_USER_NAME: admin
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@example.com}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-genai-summit-dev-1}
+    depends_on: *langfuse-depends-on
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/public/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 180s
+      retries: 4
+    <<: *non-root
+    mem_limit: 1536m
+    logging: *logging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LANGFUSE_PORT:-3400}:3000"
+    networks:
+      - langfuse_internal
+      - langfuse
+
+  langfuse-worker: # 3030
+    # Async ingestion: S3 event -> ClickHouse.
+    image: langfuse/langfuse-worker:4.70.0@sha256:3b3b204fa72fd02d010ab90c667d07281e4b9ec3b5b0b1d21470ac2624b8a564
+    environment:
+      <<: *langfuse-env
+      HOSTNAME: 0.0.0.0
+      NODE_OPTIONS: --max-old-space-size=640
+    depends_on:
+      <<: *langfuse-depends-on
+      # web runs the migrations; the worker starts on a migrated schema.
+      langfuse-web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3030/api/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 4
+    <<: *non-root
+    mem_limit: 1024m
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - langfuse_internal
+
+  langfuse-postgres: # 5432
+    # Own instance, not a database on `postgres`: see product/README.md.
+    image: postgres:16.14-alpine
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=60"]
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: ${LANGFUSE_POSTGRES_PASSWORD:-langfuse-dev-postgres}
+      POSTGRES_DB: langfuse
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    shm_size: 128m
+    volumes:
+      - langfuse-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    <<: *root-start
+    mem_limit: 256m
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - langfuse_internal
+
+  langfuse-clickhouse: # 8123 http, 9000 native
+    # Langfuse v4 needs ClickHouse >= 25.12; 26.3 is the LTS line.
+    image: clickhouse/clickhouse-server:26.3.60.2-alpine@sha256:4522d78c784f287988a51b3e4f96792b1833c7575ce1f3192d3d96c0ad0292f5
+    environment:
+      # No CLICKHOUSE_DB: `default` exists anyway, and setting it makes the
+      # entrypoint run a temporary init server it can't kill without CAP_KILL.
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-langfuse-dev-clickhouse}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "0"
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+      - langfuse-clickhouse-logs:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    <<: *root-start
+    mem_limit: 1536m
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - langfuse_internal
+
+  langfuse-redis: # 6379
+    # BullMQ queues. Its own instance because Langfuse requires noeviction
+    # (an evicted job is a lost trace), unlike the backend's cache.
+    image: valkey/valkey:8.1.10-alpine3.24@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+    command:
+      - valkey-server
+      - --requirepass
+      - ${LANGFUSE_REDIS_PASSWORD:-langfuse-dev-redis}
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - noeviction
+      - --appendonly
+      - "yes"
+      - --save
+      - ""
+      - --loglevel
+      - warning
+    environment:
+      REDISCLI_AUTH: ${LANGFUSE_REDIS_PASSWORD:-langfuse-dev-redis}
+    volumes:
+      - langfuse-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    <<: *root-start
+    mem_limit: 192m
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - langfuse_internal
+
+  langfuse-minio: # 9000 (S3 API; console off), not published
+    # Chainguard's MinIO build (MinIO stopped publishing community images in
+    # 2025); only `latest` exists, so it is pinned by digest. The bucket is
+    # created as a directory before the server starts.
+    image: cgr.dev/chainguard/minio@sha256:a1ac4589a5f8136b616e667b48a0bea9719bb10bd45799ea946f24bbedfafde4
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["mkdir -p /data/langfuse && exec minio server --json --address :9000 /data"]
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_MINIO_ROOT_USER:-langfuse-minio}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_ROOT_PASSWORD:-langfuse-dev-minio}
+      MINIO_BROWSER: "off"
+    volumes:
+      - langfuse-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    <<: *non-root
+    mem_limit: 256m
+    logging: *logging
+    restart: unless-stopped
+    networks:
+      - langfuse_internal
+
+
+volumes:
+  postgres-data:
+  langfuse-postgres-data:
+  langfuse-clickhouse-data:
+  langfuse-clickhouse-logs:
+  langfuse-redis-data:
+  langfuse-minio-data:
+
+
+networks:
+  # Data plane: backend <-> postgres, redis. No route out (internal).
+  backend:
+    internal: true
+  # The backend's way out: published port, LLM APIs, the future agents service.
+  edge:
+  # Langfuse's front door: langfuse-web (published UI port) and every app that
+  # sends traces to http://langfuse-web:3000. Nothing else of Langfuse is on it.
+  langfuse:
+  # Langfuse datastores, worker and web. No route out (internal).
+  langfuse_internal:
+    internal: true
+  # Shared by name with the ../mcp_gateway and ../sandbox projects (and
+  # other local projects): whichever project starts first creates them, so none
+  # depends on another being up.
+  # agents -> mcp_gateway (http://mcp_gateway:8005/sse).
+  mcp_net:
+    name: mcp_net
+  # agents <-> sandbox_runner only, and internal: no route out.
+  sandbox_net:
+    name: sandbox_net
+    internal: true

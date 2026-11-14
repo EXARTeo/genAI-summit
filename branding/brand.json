@@ -1,0 +1,37 @@
+{
+  "name": "Product Name",
+  "tagline": "One line that says what the product does.",
+  "colors": {
+    "light": {
+      "background": "#FFFFFF",
+      "surface": "#F5F5F7",
+      "text": "#0F172A",
+      "muted": "#64748B",
+      "border": "#E2E8F0",
+      "primary": "#4F46E5",
+      "primary_foreground": "#FFFFFF",
+      "accent": "#14B8A6"
+    },
+    "dark": {
+      "background": "#0B1020",
+      "surface": "#151B2E",
+      "text": "#F1F5F9",
+      "muted": "#94A3B8",
+      "border": "#26304A",
+      "primary": "#818CF8",
+      "primary_foreground": "#0B1020",
+      "accent": "#2DD4BF"
+    }
+  },
+  "fonts": {
+    "heading": "Inter",
+    "body": "Inter",
+    "mono": "JetBrains Mono"
+  },
+  "logo": {
+    "on_light": "logo/logo-on-light.png",
+    "on_dark": "logo/logo-on-dark.png",
+    "svg": "logo/logo.svg",
+    "icon": "logo/icon.png"
+  }
+}

@@ -1,0 +1,57 @@
+"""Helpers for declarative (YAML-defined) agents.
+
+Kept out of ``harness/abstractions/`` so the registry can build a manifest
+straight from a spec without importing the agent runtime, and so prompt
+resolution is unit-testable in isolation. The dependency on ``AgentSpec`` is
+type-only, which keeps the import graph free of a cycle through
+``harness.abstractions``.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, see the module docstring
+    from harness.abstractions.agent_spec import AgentSpec
+
+
+def read_prompt(value: str, source_dir: Path) -> str:
+    """Resolve a prompt field to text.
+
+    A value that looks like a path (``./x.md``, ``../x``, or ``*.md``) is read
+    from a file **confined to the agent directory** (traversal-guarded);
+    anything else is treated as an inline prompt string.
+    """
+    candidate = value.strip()
+    looks_like_path = (
+        candidate.startswith("./") or candidate.startswith("../") or candidate.endswith(".md")
+    )
+    if not looks_like_path:
+        return value
+
+    root = source_dir.resolve()
+    target = (root / candidate).resolve()
+    if target != root and root not in target.parents:
+        raise ValueError(f"prompt path {value!r} escapes the agent directory {root}")
+    return target.read_text(encoding="utf-8")
+
+
+def manifest_from_spec(spec: AgentSpec) -> dict[str, Any]:
+    """The registry manifest for a YAML agent (mirrors ``BaseAgent.manifest``).
+
+    ``type`` is normalised from the spec's ``deep_agent`` to the runtime literal
+    ``"deep agent"``.
+    """
+    return {
+        "id": spec.id,
+        "slug": spec.slug,
+        "name": spec.name,
+        "version": spec.version,
+        "type": "deep agent",
+        "description": spec.description or "",
+        "icon": spec.icon or "",
+    }
+
+
+__all__ = ["manifest_from_spec", "read_prompt"]

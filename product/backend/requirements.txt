@@ -1,0 +1,24 @@
+fastapi==0.135.3
+fastapi-pagination==0.15.12
+starlette==0.49.3  # pinned to a release compatible with FastAPI 0.135.x
+uvicorn==0.32.1
+websockets==13.1
+httpx==0.27.0
+sqlalchemy[asyncio]==2.0.40
+asyncpg==0.30.0
+alembic==1.13.3
+psycopg2-binary==2.9.10  # alembic migrations only (sync driver)
+pydantic==2.12.5
+pydantic-settings==2.7.1
+python-multipart==0.0.26
+redis==8.1.0
+fastapi-redis-sdk==0.8.0
+langfuse==4.18.0  # traces each run; the agents service should pin the same, so spans nest
+tzdata==2025.2
+
+# Tests (the suite lives in the repo's tests/backend/, outside the image)
+pytest==8.4.2
+pytest-asyncio==1.2.0
+pytest-timeout==2.4.0
+fakeredis[lua]==2.32.0  # lua: the rate-limit SDK counts with a Lua script
+aiosqlite==0.21.0

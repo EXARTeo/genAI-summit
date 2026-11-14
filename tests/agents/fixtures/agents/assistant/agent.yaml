@@ -1,0 +1,32 @@
+# TEST FIXTURE ONLY (tests/agents): a deep agent with two sub-agents, every MCP
+# gateway tool, the sandbox and the conversation's files, so the suite exercises
+# the harness end to end. The service itself ships no agent; the product agent
+# goes in product/agents/definitions/<slug>/.
+id: assistant
+slug: assistant
+name: Assistant
+version: 1.0.0
+type: deep_agent
+description: General-purpose agent for research, analysis, writing and files
+icon: Sparkles
+prompt: ./AGENT.md
+model:
+  main: openai:gpt-6-luna
+all_mcp_tools: true
+tools: []          # the native builtins and every gateway tool; sub-agents inherit them
+subagents:
+  - name: researcher
+    description: >-
+      Deep-dives a topic, looks up facts, gathers and verifies sources.
+      Returns structured findings ready to act on.
+    prompt: ./subagents/researcher.md
+  - name: writer
+    description: >-
+      Formats, polishes and produces structured written output. Saves the
+      final document under /conversation/output/ and returns its path.
+    prompt: ./subagents/writer.md
+hitl:              # approval before these run; execute always asks (locked)
+  write_file: false
+  edit_file: false
+  start_async_task: false
+  execute: true

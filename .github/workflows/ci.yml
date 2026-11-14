@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check --output-format=github .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  backend:
+    name: Backend tests and migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: product/backend
+    services:
+      postgres:
+        image: postgres:16.14-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv venv .venv && uv pip install -r requirements.txt
+      # The migrations apply to a real Postgres and match the ORM models.
+      - run: .venv/bin/python -m alembic upgrade head
+      - run: .venv/bin/python -m alembic check
+      - run: .venv/bin/python -m alembic downgrade base
+      # The unit suite (tests/backend) uses its own SQLite + fakeredis, not the service above.
+      - run: .venv/bin/python -m pytest ../../tests/backend
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./ci-bootstrap.db
+
+  agents:
+    name: Agents service tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv venv product/agents/.venv && uv pip install --python product/agents/.venv/bin/python -r product/agents/requirements.txt
+      # No real OpenAI, Postgres or Redis: fakes and fakeredis.
+      - run: product/agents/.venv/bin/python -m pytest tests/agents
+
+  compose:
+    name: Validate docker compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose config
+        run: |
+          files=$(find . \( -name 'docker-compose*.y*ml' -o -name 'compose*.y*ml' \) -not -path './.git/*')
+          if [ -z "$files" ]; then
+            echo "No compose files yet; skipping."
+            exit 0
+          fi
+          # A sibling .env.example, when present, supplies the variables.
+          for f in $files; do
+            echo "::group::$f"
+            env_file="$(dirname "$f")/.env.example"
+            if [ -f "$env_file" ]; then
+              docker compose -f "$f" --env-file "$env_file" config --quiet
+            else
+              docker compose -f "$f" config --quiet
+            fi
+            echo "::endgroup::"
+          done

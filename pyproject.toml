@@ -1,0 +1,59 @@
+# Repo-level tooling only (lint, tests, hooks). The product's services live in
+# their own folder, each with its own Dockerfile and dependencies, wrapped by
+# that folder's docker-compose.yaml.
+[project]
+name = "genai-summit"
+version = "0.1.0"
+description = "GenAI Summit workspace tooling."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pyyaml>=6.0",
+    "ruff>=0.11",
+]
+# presentations/build.py: YAML decks -> branded .pptx
+presentations = [
+    "python-pptx>=1.0",
+    "pyyaml>=6.0",
+]
+
+[tool.uv]
+package = false
+default-groups = ["dev", "presentations"]
+
+# --- Ruff ---
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "SIM",      # simplify
+    "S",        # bandit (security)
+]
+
+[tool.ruff.lint.isort]
+# product/backend's and product/agents' top-level packages (each service runs
+# with its folder on sys.path).
+known-first-party = ["core", "harness", "router", "schema", "utils", "main"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]  # assert is fine in tests
+
+# --- Pytest ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests/backend and tests/agents need their service's own venv; each has its
+# own pytest.ini and runs separately (scripts/check.*, CI jobs "backend"/"agents").
+addopts = "-ra --strict-markers --ignore=tests/backend --ignore=tests/agents"

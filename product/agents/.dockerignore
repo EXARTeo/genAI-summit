@@ -1,0 +1,40 @@
+# Keep the build context lean and keep local files (secrets, caches, venvs)
+# out of the image. Agent definitions (*.md, *.yaml under definitions/)
+# are runtime content and must stay in.
+
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Tests live in the repo's tests/agents/, never here; ignore any stray ones.
+tests/
+test_*.py
+conftest.py
+
+# Editor / OS cruft
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker build files themselves
+Dockerfile
+.dockerignore
