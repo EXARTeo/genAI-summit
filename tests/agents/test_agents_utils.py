@@ -27,6 +27,12 @@ from utils import mcp_tools
 from utils.declarative import manifest_from_spec, read_prompt
 
 
+@pytest.fixture(autouse=True)
+def _yaml_only(monkeypatch):
+    """These tests pin the YAML scan; the shipped Python agents are tested elsewhere."""
+    monkeypatch.setattr(agents_util, "PYTHON_AGENTS", ())
+
+
 def _spec_dict(slug: str = "probe", **overrides: Any) -> dict[str, Any]:
     return {
         "id": slug,

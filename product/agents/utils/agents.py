@@ -19,6 +19,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import yaml
+from pipeline.agent import AuditPipelineAgent
 
 from core.logging import get_logger
 from core.settings import settings
@@ -31,7 +32,7 @@ from utils.declarative import manifest_from_spec
 logger = get_logger(__name__)
 
 #: Python-class agents, registered by their ``name``. Add a class here to ship it.
-PYTHON_AGENTS: tuple[type[BaseAgent], ...] = ()
+PYTHON_AGENTS: tuple[type[BaseAgent], ...] = (AuditPipelineAgent,)
 
 
 def _is_known_model(model_id: str) -> bool:
