@@ -4,14 +4,12 @@ context → model_profile → scenarios → scenario_analysis → [approve] →
 generation_spec → dataset → dataset_analysis → [approve] → tests → findings →
 critic → report. Every stage output is an ``audit_artifacts`` row, versioned
 per (audit, kind, name); a new version supersedes the slot's earlier live
-versions. Every human decision is an ``approvals`` row with its reason; a
-rejection (or change request) with a reason also writes a memory proposal
-file under ``memory:proposals`` (inactive until a human activates it).
+versions. Every human decision is an ``approvals`` row with its reason
+(``reason_category`` + ``comment``). The pipeline hands a rejection's reason to
+the next agent, which records the lesson in the agents service's per-system
+memory; the backend writes no memory itself.
 """
 
-from typing import Any
-
-import yaml
 from fastapi import HTTPException
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,10 +26,8 @@ from schema.audits import (
     AuditPatch,
 )
 from utils.workspace import (
-    MEMORY_PROPOSALS,
     dossier_version,
     plugin_ids,
-    put_file,
     system_namespace,
 )
 
@@ -182,10 +178,9 @@ def patch_artifact(artifact: AuditArtifactTable, payload: ArtifactPatch) -> None
 
 async def record_approval(
     db: AsyncSession, audit: AuditTable, payload: ApprovalIn, actor: str
-) -> tuple[ApprovalTable, AuditArtifactTable | None, str | None]:
-    """Store the decision, set the artifact's status, and for a rejection or a
-    change request with a reason write a memory proposal. Returns
-    ``(approval, artifact, proposal_path)``."""
+) -> tuple[ApprovalTable, AuditArtifactTable | None]:
+    """Store the decision (with its reason) and set the artifact's status.
+    Returns ``(approval, artifact)``."""
     artifact = (
         await get_artifact_or_404(db, audit.id, payload.artifactId) if payload.artifactId else None
     )
@@ -203,53 +198,5 @@ async def record_approval(
     await db.flush()
     if artifact is not None:
         artifact.status = _DECISION_STATUS[payload.decision]
-
-    proposal_path = None
-    if payload.decision != "approved" and (payload.reasonCategory or payload.comment):
-        proposal_path = await _write_memory_proposal(db, audit, approval, artifact)
     await db.flush()
-    return approval, artifact, proposal_path
-
-
-async def _write_memory_proposal(
-    db: AsyncSession,
-    audit: AuditTable,
-    approval: ApprovalTable,
-    artifact: AuditArtifactTable | None,
-) -> str:
-    entry_id = f"PROP-{approval.id[:8]}"
-    entry: dict[str, Any] = {
-        "id": entry_id,
-        "scope": f"system:{audit.system_id}",
-        "kind": "correction",
-        "applies_to": {
-            "gate": approval.gate,
-            "artifact_kind": artifact.kind if artifact else None,
-            "artifact_name": artifact.name if artifact else None,
-        },
-        "human_decision": approval.decision,
-        "reason_category": approval.reason_category,
-        "rationale": approval.comment,
-        "edits": approval.edits or {},
-        "author": approval.decided_by,
-        "status": "proposed",
-        "source": {
-            "audit_id": audit.id,
-            "artifact_id": artifact.id if artifact else None,
-            "artifact_version": artifact.version if artifact else None,
-            "approval_id": approval.id,
-        },
-    }
-    path = f"{audit.system_id}/{entry_id}.yaml"
-    await put_file(
-        db,
-        namespace=MEMORY_PROPOSALS,
-        path=path,
-        content=yaml.safe_dump(entry, sort_keys=False, allow_unicode=True).encode("utf-8"),
-        content_type="application/yaml",
-        actor=approval.decided_by,
-        reason=f"{approval.decision} at gate {approval.gate}: {approval.reason_category or ''}",
-        meta={"system_id": audit.system_id, "status": "proposed"},
-        audit_id=audit.id,
-    )
-    return path
+    return approval, artifact

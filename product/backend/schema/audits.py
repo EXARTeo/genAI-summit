@@ -93,8 +93,6 @@ class ApprovalOut(BaseModel):
 class ApprovalResultOut(BaseModel):
     approval: ApprovalOut
     artifact: ArtifactOut | None = None
-    # The memory proposal written for a rejection with a reason (namespace path).
-    memoryProposalPath: str | None = None
 
 
 class AuditOut(BaseModel):
@@ -113,12 +111,3 @@ class AuditOut(BaseModel):
 class AuditDetail(AuditOut):
     artifacts: list[ArtifactOut] = Field(default_factory=list)
     approvals: list[ApprovalOut] = Field(default_factory=list)
-
-
-class MemoryProposalIn(BaseModel):
-    """An agent's suggested memory entry (internal API). Inactive until a human approves."""
-
-    name: str | None = Field(None, pattern=SLUG_PATTERN, description="File stem; default random")
-    content: str = Field(..., min_length=1)
-    contentType: str = Field("application/yaml", max_length=255)
-    reason: str | None = Field(None, max_length=2000)

@@ -1,12 +1,11 @@
-"""Systems, versioned workspace files (system folders + memory), the seed
-import, audits / artifacts / approvals, the internal API and migration 0003."""
+"""Systems, versioned workspace files (system folders), the seed import,
+audits / artifacts / approvals, the internal API and migrations 0003 / 0004."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
-import yaml
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from conftest import AGENT_SLUG, CLIENT_ID
@@ -19,6 +18,7 @@ from core.database import (
     ConversationTable,
     MessageTable,
     WorkspaceEventTable,
+    WorkspaceFileTable,
 )
 from core.settings import settings
 
@@ -139,18 +139,15 @@ async def test_multipart_upload_and_path_safety(client):
     assert (await _put(client, "x.md", "x", base="/v1/systems/SYS-404")).status_code == 404
 
 
-async def test_memory_namespaces(client):
+async def test_memory_routes_are_gone(client):
+    """Agent memory moved to the agents service: the backend serves no memory."""
     await _system(client)
-    org = await _put(client, "MEM-0001.yaml", "id: MEM-0001\n", base="/v1/memory/org")
-    assert org.status_code == 201
-    assert org.json()["file"]["namespace"] == "memory:org"
-    per_system = await _put(client, "INDEX.md", "- MEM-1", base="/v1/memory/systems/SYS-001")
-    assert per_system.json()["file"]["namespace"] == "memory:system:SYS-001"
-    assert (await _put(client, "x.md", "x", base="/v1/memory/systems/SYS-404")).status_code == 404
-    assert [f["path"] for f in (await client.get("/v1/memory/org/files")).json()] == [
-        "MEM-0001.yaml"
-    ]
-    assert (await client.get("/v1/memory/proposals/files")).json() == []
+    for path in (
+        "/v1/memory/org/files",
+        "/v1/memory/proposals/files",
+        "/v1/memory/systems/SYS-001/files",
+    ):
+        assert (await client.get(path)).status_code == 404, path
 
 
 async def test_copy_attachment_into_a_system_folder(client, other_client, session_factory):
@@ -263,7 +260,7 @@ async def test_audit_locks_the_dossier_and_lists(client):
     assert (await client.post("/v1/systems/SYS-404/audits", json={})).status_code == 404
 
 
-async def test_artifact_versions_supersede_and_approvals(client):
+async def test_artifact_versions_supersede_and_approvals(client, session_factory):
     audit = await _audit(client)
     base = f"/v1/audits/{audit['id']}"
     v1 = (
@@ -300,13 +297,13 @@ async def test_artifact_versions_supersede_and_approvals(client):
     body = rejected.json()
     assert body["artifact"]["status"] == "rejected"
     assert body["approval"]["decidedBy"] == f"client:{CLIENT_ID}"
-    proposal_path = body["memoryProposalPath"]
-    assert proposal_path.startswith("SYS-001/PROP-")
-    proposal = await client.get(f"/v1/memory/proposals/files/{proposal_path}")
-    entry = yaml.safe_load(proposal.text)
-    assert entry["reason_category"] == "unrealistic_data"
-    assert entry["status"] == "proposed"
-    assert entry["source"]["artifact_id"] == v2["id"]
+    assert body["approval"]["reasonCategory"] == "unrealistic_data"
+    assert body["approval"]["comment"] == "Ages must be 18-67"
+    assert "memoryProposalPath" not in body
+    # A rejection only records the reason: no memory file is written.
+    async with session_factory() as session:
+        namespaces = set(await session.scalars(select(WorkspaceFileTable.namespace)))
+    assert not any(ns.startswith("memory:") for ns in namespaces)
 
     approved = (
         await client.post(
@@ -314,7 +311,6 @@ async def test_artifact_versions_supersede_and_approvals(client):
             json={"gate": "finding_review", "decision": "approved", "artifactId": finding["id"]},
         )
     ).json()
-    assert approved["memoryProposalPath"] is None
     assert approved["artifact"]["status"] == "approved"
 
     detail = (await client.get(base)).json()
@@ -382,7 +378,6 @@ async def test_internal_reads_are_logged_and_scoped(client, internal_secret, ses
     audit = await _audit(client)
     await _system(client, "SYS-002", "Other")
     await _put(client, "secret.md", "other system", base="/v1/systems/SYS-002")
-    await _put(client, "MEM-1.yaml", "id: MEM-1\n", base="/v1/memory/org")
     base = f"/internal/audits/{audit['id']}"
     headers = {**internal_secret, "X-Run-Id": "run-1", "X-Trace-Id": "trace-1"}
 
@@ -390,8 +385,6 @@ async def test_internal_reads_are_logged_and_scoped(client, internal_secret, ses
     assert [f["path"] for f in tree] == ["plugins/ranker/plugin.yaml"]
     read = await client.get(f"{base}/files/plugins/ranker/plugin.yaml", headers=headers)
     assert read.json()["text"] == "id: SYS-001.ranker\n"
-    org = await client.get(f"{base}/files/MEM-1.yaml", params={"scope": "org"}, headers=headers)
-    assert org.status_code == 200
     # Another system's file is not reachable through this audit.
     assert (await client.get(f"{base}/files/secret.md", headers=headers)).status_code == 404
 
@@ -403,11 +396,10 @@ async def test_internal_reads_are_logged_and_scoped(client, internal_secret, ses
         ).all()
     assert {(r.namespace, r.path, r.run_id, r.trace_id, r.audit_id) for r in reads} == {
         ("system:SYS-001", "plugins/ranker/plugin.yaml", "run-1", "trace-1", audit["id"]),
-        ("memory:org", "MEM-1.yaml", "run-1", "trace-1", audit["id"]),
     }
 
 
-async def test_internal_writes_artifacts_and_proposals_only(client, internal_secret):
+async def test_internal_writes_artifacts_only(client, internal_secret):
     audit = await _audit(client)
     base = f"/internal/audits/{audit['id']}"
     headers = {**internal_secret, "X-Agent-Name": "profiler"}
@@ -421,15 +413,12 @@ async def test_internal_writes_artifacts_and_proposals_only(client, internal_sec
     stage = await client.patch(base, json={"stage": "scenarios"}, headers=headers)
     assert stage.json()["stage"] == "scenarios"
 
+    # Memory proposals are gone (memory lives in the agents service).
     proposal = await client.post(
-        f"{base}/memory-proposals",
-        json={"name": "ranker-429", "content": "kind: quirk\n", "reason": "saw 429 above 5 rps"},
-        headers=headers,
+        f"{base}/memory-proposals", json={"content": "kind: quirk"}, headers=headers
     )
-    assert proposal.status_code == 201
-    assert proposal.json()["file"]["namespace"] == "memory:proposals"
-    assert proposal.json()["file"]["path"] == "SYS-001/ranker-429.yaml"
-    # No internal route writes the system folder or active memory.
+    assert proposal.status_code in {404, 405}
+    # No internal route writes the system folder.
     put = await client.put(f"{base}/files/x.md", json={"content": "x"}, headers=headers)
     assert put.status_code == 405
 
@@ -437,11 +426,14 @@ async def test_internal_writes_artifacts_and_proposals_only(client, internal_sec
 # --- migration ----------------------------------------------------------------
 
 
-def test_migration_0003_is_the_single_head():
+def test_migration_0004_is_the_single_head():
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "core/database/migrations"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0003_systems_audits"]
+    assert script.get_heads() == ["0004_drop_memory_namespaces"]
+    head = script.get_revision("0004_drop_memory_namespaces")
+    assert head.down_revision == "0003_systems_audits"
+    assert "memory:%" in Path(head.path).read_text(encoding="utf-8")
     revision = script.get_revision("0003_systems_audits")
     assert revision.down_revision == "0002_async_tasks"
     source = Path(revision.path).read_text(encoding="utf-8")

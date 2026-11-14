@@ -422,7 +422,7 @@ event.listen(
 )
 
 
-# --- Audited systems, their files, memory and audits (migration 0003) --------
+# --- Audited systems, their files and audits (migration 0003) ---------------
 #
 # Few typed columns (what we filter or join on); everything else lives in the
 # JSONB ``data`` column so the shapes can change without a migration.
@@ -464,8 +464,8 @@ class WorkspaceFileBlobTable(Base):
 class WorkspaceFileTable(Base):
     """One version of one file in a namespace. A write adds a row; old rows stay.
 
-    Namespaces: ``system:<id>`` (the dossier, plugins under ``plugins/<name>/``),
-    ``memory:system:<id>``, ``memory:org``, ``memory:proposals``. At most one
+    Namespaces: ``system:<id>`` (the dossier, plugins under ``plugins/<name>/``).
+    Agent memory lives in the agents service, not here. At most one
     row per (namespace, path) is current; a delete clears it (and logs an event).
     """
 

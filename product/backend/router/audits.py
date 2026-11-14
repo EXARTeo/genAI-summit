@@ -171,13 +171,13 @@ async def get_approvals(
     "/{audit_id}/approvals",
     response_model=ApprovalResultOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Record a human decision at a gate (a rejection with a reason → memory proposal)",
+    summary="Record a human decision at a gate (with its reason)",
 )
 async def post_approval(
     audit_id: str, payload: ApprovalIn, caller: CallerDep, _limited: Limited, db: Db
 ) -> ApprovalResultOut:
     audit = await get_audit_or_404(db, audit_id)
-    approval, artifact, proposal = await record_approval(db, audit, payload, actor_for(caller.id))
+    approval, artifact = await record_approval(db, audit, payload, actor_for(caller.id))
     await db.commit()
     await db.refresh(approval)
     if artifact is not None:
@@ -188,10 +188,8 @@ async def post_approval(
         audit_id=audit_id,
         gate=approval.gate,
         decision=approval.decision,
-        memory_proposal=bool(proposal),
     )
     return ApprovalResultOut(
         approval=ApprovalOut.model_validate(approval),
         artifact=ArtifactOut.model_validate(artifact) if artifact else None,
-        memoryProposalPath=proposal,
     )

@@ -1,4 +1,4 @@
-"""Versioned workspace files in Postgres: system folders and memory.
+"""Versioned workspace files in Postgres: the audited systems' folders.
 
 A file is ``(namespace, path)``; every write adds a version row pointing at a
 content-addressed blob (sha256), and every create / update / delete / read is
@@ -7,9 +7,10 @@ version is a no-op (``changed=False``), which makes the seed import idempotent.
 
 Namespaces:
 
-* ``system:<id>``: the system dossier, plugins under ``plugins/<name>/``;
-* ``memory:system:<id>``, ``memory:org``: active memory (humans write);
-* ``memory:proposals``: the only namespace an agent may write.
+* ``system:<id>``: the system dossier, plugins under ``plugins/<name>/``.
+
+Agent memory is not here: it lives in the agents service, per system
+(``docs/services/agents-service.md`` § Memory).
 """
 
 import base64
@@ -32,8 +33,6 @@ from core.settings import settings
 from schema.systems import FileContentOut
 from utils.attachments import ACTIVE_CONTENT_MIMES, encode_disposition
 
-MEMORY_ORG = "memory:org"
-MEMORY_PROPOSALS = "memory:proposals"
 MAX_PATH_LENGTH = 512
 _SEGMENT = re.compile(r"^[A-Za-z0-9._ ()+@=,-]{1,255}$")
 
@@ -53,10 +52,6 @@ _INLINE_TYPES = ("text/plain", "text/markdown", "text/csv", "application/json", 
 
 def system_namespace(system_id: str) -> str:
     return f"system:{system_id}"
-
-
-def system_memory_namespace(system_id: str) -> str:
-    return f"memory:system:{system_id}"
 
 
 def normalize_path(raw: str) -> str:

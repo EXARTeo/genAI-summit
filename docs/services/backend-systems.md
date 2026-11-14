@@ -1,10 +1,14 @@
-# Backend: systems, workspace files, memory and audits
+# Backend: systems, workspace files and audits
 
-The backend stores the audited AI systems, their versioned folders (the dossier the agent reads), the agent
-memory, and every audit with its stage outputs and human decisions. Design background:
-[agent context](../architecture/agent-context.md) (§2 dossier, §3 plugins, §4 memory, §5 filesystem).
+The backend stores the audited AI systems, their versioned folders (the dossier the agent reads), and every
+audit with its stage outputs and human decisions. Design background:
+[agent context](../architecture/agent-context.md) (§2 dossier, §3 plugins, §5 filesystem).
 
-> **Ownership exception.** Systems, audits and memory are **not** scoped by `X-Client-Id`: every caller sees
+**Agent memory is not here.** It lives in the agents service, one namespace per system, in `agent_runtime`
+([agents service § Memory](agents-service.md#memory), [agent context §4](../architecture/agent-context.md#4-agent-memory-per-system)).
+It is not user-visible and the backend has no memory routes.
+
+> **Ownership exception.** Systems and audits are **not** scoped by `X-Client-Id`: every caller sees
 > every system (for now). The client id is still required for rate limiting and logging, and is the actor
 > (`client:<id>`) recorded on every write. A conversation attachment copied into a system folder must still
 > belong to the caller.
@@ -13,12 +17,12 @@ memory, and every audit with its stage outputs and human decisions. Design backg
 
 | File | Holds |
 | --- | --- |
-| `core/database/models.py`, migration `0003_systems_audits` | the tables below + `conversations.system_id` / `audit_id` |
+| `core/database/models.py`, migrations `0003_systems_audits`, `0004_drop_memory_namespaces` | the tables below + `conversations.system_id` / `audit_id`; 0004 deletes the old `memory:*` rows (data only) |
 | `utils/workspace.py` | versioned files: path safety, write (new version, no-op on same bytes), tree, read, versions, delete, ledger, `dossier_version` |
 | `utils/systems.py` | systems CRUD, the write body (JSON or multipart), attachment → system folder |
-| `utils/audits.py` | audits, artifacts (versioning + supersede), approvals (+ memory proposal on rejection) |
+| `utils/audits.py` | audits, artifacts (versioning + supersede), approvals (decision + reason) |
 | `utils/seed_import.py` | `SEED_CASES_DIR` → systems + files |
-| `router/systems.py`, `router/memory.py`, `router/workspace_files.py` | public routes; the file routes are one factory reused per namespace |
+| `router/systems.py`, `router/workspace_files.py` | public routes; the file routes are one factory (`build_file_router`) |
 | `router/audits.py`, `router/admin.py` | audits, artifacts, approvals; seed import |
 | `router/internal.py`, `core/security/internal.py` | the agents service's internal API and its shared-secret guard |
 
@@ -36,8 +40,7 @@ Few typed columns (what is filtered or joined on); everything else in JSONB `dat
 | `audit_artifacts` | `audit_id`, `kind`, `name`, `version`, `status`, `parent_id`, `created_by` | `data`, `file_refs` (workspace paths, MLflow URIs, trace ids) |
 | `approvals` | `audit_id`, `artifact_id`, `gate`, `decision`, `reason_category`, `comment`, `decided_by`, `at` | `edits` JSONB; append-only |
 
-**Namespaces:** `system:<id>` (the system folder; plugins under `plugins/<name>/`), `memory:system:<id>`,
-`memory:org`, `memory:proposals` (the only one an agent writes; entries live under `<system id>/`).
+**Namespaces:** `system:<id>` (the system folder; plugins under `plugins/<name>/`).
 
 **Writes:** `PUT` adds version `n+1` and logs `create` / `update`. Writing the same bytes and content type as
 the current version changes nothing (`changed: false`, `200`), so re-imports are idempotent. `DELETE` clears
@@ -48,10 +51,10 @@ the current version (history stays) and logs `delete`; a later write continues t
 `test_plan`, `test_result`, `critic`, `report`) or e.g. a finding id for `kind=finding`. A new version marks the
 slot's earlier `proposed` / `approved` / `changes_requested` versions `superseded`.
 
-**Approvals:** `decision` = `approved | rejected | changes_requested` sets the artifact's status. A rejection or
-change request with a `reasonCategory` or `comment` also writes a memory proposal
-`memory:proposals/<system>/PROP-<id>.yaml` (`status: proposed`, the reason, edits and source ids), inactive
-until a human copies it into `memory:system:<id>` or `memory:org`. Reason categories: `wrong_fact`,
+**Approvals:** `decision` = `approved | rejected | changes_requested` sets the artifact's status and records
+the `reasonCategory`, `comment` and `edits`. Nothing else is written: the pipeline passes a rejection's reason
+to the next agent, which records the lesson in the system's memory with `remember` (agents service). Reason
+categories: `wrong_fact`,
 `wrong_interpretation`, `missing_info`, `wrong_metric`, `unrealistic_data`, `org_policy`, `other`.
 
 ## Routes
@@ -69,7 +72,6 @@ All `/v1` routes need `X-Client-Id`, are rate-limited (`WORKSPACE_RATE_LIMIT_*`)
 | `GET /v1/systems/{id}/events[?path=]` | the ledger, newest first |
 | `POST /v1/systems/{id}/files/from-attachment` | `{attachmentId, path?, reason?}`: copy one of the caller's attachments (default `uploads/<name>`) |
 | `POST /v1/systems/{id}/audits` | start an audit (`{stage?, data?}`); locks `dossier_version` and `plugin_ids` |
-| `/v1/memory/org/...`, `/v1/memory/proposals/...`, `/v1/memory/systems/{id}/...` | the same `files`, `files/{path}`, `versions`, `events` routes over the memory namespaces |
 | `GET /v1/audits[?systemId=]`, `GET / PATCH /v1/audits/{id}` | list; detail with every artifact and approval; set `status` / `stage` / merge `data` |
 | `GET / POST /v1/audits/{id}/artifacts[?kind=&liveOnly=]` | list; new version `{kind, name?, data, fileRefs, parentId?, status?}` |
 | `GET / PATCH /v1/audits/{id}/artifacts/{artifactId}` | one artifact; set `status` / merge `data` |
@@ -89,12 +91,11 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 | --- | --- |
 | `GET /internal/audits/{id}` | `{audit (artifacts, approvals), system}` |
 | `PATCH /internal/audits/{id}` | move `stage` / `status`, merge `data` |
-| `GET /internal/audits/{id}/files[?scope=system\|memory\|org&prefix=]` | tree of the audit's system folder, its memory, or org memory |
-| `GET /internal/audits/{id}/files/{path}[?scope=&version=]` | JSON content; logs a `read` event (`audit_id`, `run_id`, `trace_id`) |
+| `GET /internal/audits/{id}/files[?prefix=]` | tree of the audit's system folder |
+| `GET /internal/audits/{id}/files/{path}[?version=]` | JSON content; logs a `read` event (`audit_id`, `run_id`, `trace_id`) |
 | `POST /internal/audits/{id}/artifacts` | new artifact version (actor `agent[:name]`) |
-| `POST /internal/audits/{id}/memory-proposals` | `{name?, content, contentType?, reason?}` → `memory:proposals/<system>/<name>` |
 
-The agent cannot write the system folder or active memory: no internal route does.
+The agent cannot write the system folder: no internal route does.
 
 ## Settings
 
@@ -109,6 +110,4 @@ The agent cannot write the system folder or active memory: no internal route doe
 
 - `workspace_file_meta` (indexed fields + pgvector) from the design: filters run on JSONB `data` for now.
 - Blob encryption at rest (conversation blobs are plain too).
-- Promote / retire / stale actions as first-class routes: today a human activates a proposal with a `PUT` into
-  the scope folder, and the ledger records it.
-- The agents-service side (mounting `/systems/<id>/` and `/memory/...` from these routes).
+- The agents-service side (mounting `/systems/<id>/` from these routes).

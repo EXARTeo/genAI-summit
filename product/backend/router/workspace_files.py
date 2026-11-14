@@ -1,5 +1,5 @@
-"""The file routes shared by every workspace namespace (a system folder, a
-memory scope): tree, read (raw or JSON, any version), write (new version),
+"""The file routes shared by every workspace namespace (a system folder):
+tree, read (raw or JSON, any version), write (new version),
 delete, version history and the event ledger.
 
 ``build_file_router(namespace_dep)`` returns a router whose routes resolve
