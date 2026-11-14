@@ -71,6 +71,18 @@ Read first: [docs/architecture/README.md](docs/architecture/README.md) (summary 
 - **Demo spine:** live test run with HITL gates → finding + critic → reject a test → the agent remembers the lesson → the next audit of the system is planned right, citing the memory entry → live regulation change (mirrored guideline page + Firecrawl "Check now") → Telegram alert → re-run → delta report. Langfuse shows every step.
 - **Open:** LLM provider; whether the Omnibus changed ex-Art. 10(5) (protected attributes in bias tests).
 
+## UI polish backlog (flagged by the user 2026-11-15, not started)
+
+Do these after the demo blockers, in one frontend pass: use the `frontend-design` skill, port mAgenticX patterns where they fit (as with the pipeline graph from its workflow run view), take Playwright screenshots in both themes at desktop and mobile, and commit as you go.
+
+| Page | What needs work |
+| --- | --- |
+| System header + tabs | The id shows twice (breadcrumb and a line above the title); badge weights are uneven; the tab bar is a cramped toolbar pill; "Start audit" vs "Chat" has no clear hierarchy |
+| Folder tab | Plain tree with no file-type icons or metadata; the viewer scrolls both ways inside a fixed box and clips long lines; raw YAML even for known files (`system-card.yaml`, `generated-stats.yaml`, `data-dictionary.yaml`) where a structured view fits; "Add files for the agent" (free-text folder + big dropzone) reads like a dev tool |
+| Plugins tab | Dense card; monospace target/limits wrap mid-token; weak label/value hierarchy; flat expected-behaviour list; the "Plugins (1)" title floats with no action |
+| Add a business rule dialog | Plain form with big empty textareas and tiny helper text; no preview of the line written to `business-rules.md`; low-contrast disabled primary |
+| Regulation | Long list of near-identical cards with three noisy chips each; awkward title wraps; raw EUR-Lex text in a fixed scroll box; cramped version table with an empty "Changed sections" column; no search or grouping by kind; "Check now" sits apart from the change inbox |
+
 ## Layout
 
 - The product lives in its own folder named after the brand, `mnamon/` (*Mnamon*, `branding/brand.json`): one subfolder per service, each with its own Dockerfile, and a `docker-compose.yaml` in the product folder wrapping them.
