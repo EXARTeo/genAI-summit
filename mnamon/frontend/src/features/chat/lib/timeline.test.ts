@@ -86,6 +86,26 @@ describe('timeline fold', () => {
     expect(pendingInterrupts(resumed)).toEqual([]);
   });
 
+  it('an approved re-run keeps the stalled step args until new ones stream', () => {
+    const paused = reduceTimelineEvents(
+      createTimeline(),
+      seq([
+        { type: 'TOOL_CALL_START', toolCallId: 'c1', toolCallName: 'write_note' },
+        { type: 'TOOL_CALL_ARGS', toolCallId: 'c1', delta: '{"path":"a.md"}' },
+        interrupt,
+      ]),
+    );
+    const rerun = reduceTimelineEvents(paused, [
+      { ...custom('BRIDGE_HITL_RESOLVED', { interrupt_id: 'int-1', decision: 'approve' }), seq: 5 },
+      { type: 'TOOL_CALL_START', toolCallId: 'c2', toolCallName: 'write_note', seq: 6 },
+    ]);
+    expect(((rerun.blocks[0] as ThinkingBlock).items[0] as ToolStep).argsText).toBe('{"path":"a.md"}');
+    const reargs = reduceTimelineEvents(rerun, [
+      { type: 'TOOL_CALL_ARGS', toolCallId: 'c2', delta: '{"path":"b.md"}', seq: 7 },
+    ]);
+    expect(((reargs.blocks[0] as ThinkingBlock).items[0] as ToolStep).argsText).toBe('{"path":"b.md"}');
+  });
+
   it('a rejected approval marks the step as not run', () => {
     const t = reduceTimelineEvents(
       createTimeline(),

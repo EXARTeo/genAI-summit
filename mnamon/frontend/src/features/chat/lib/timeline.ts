@@ -54,6 +54,8 @@ export interface ToolStep {
   id: string;
   name: string;
   argsText: string;
+  /** A re-run folded into this step: the old args stay until the new ones start streaming. */
+  argsStale?: boolean;
   result?: string;
   resultTruncated?: boolean;
   state: ToolState;
@@ -313,7 +315,7 @@ function applyTool(state: RunTimeline, scope: Scope, event: RawEvent) {
     if (target) {
       const item = itemAt(target);
       if (item?.kind === 'tool') {
-        item.argsText = '';
+        item.argsStale = true;
         item.state = 'input-streaming';
         item.startedAt = ts(event) ?? item.startedAt;
         if (id) paths[id] = { block: target.block, item: target.item };
@@ -337,6 +339,10 @@ function applyTool(state: RunTimeline, scope: Scope, event: RawEvent) {
   const item = path ? itemAt(path) : undefined;
   if (!item || item.kind !== 'tool') return;
   if (type === 'TOOL_CALL_ARGS') {
+    if (item.argsStale) {
+      item.argsText = '';
+      item.argsStale = false;
+    }
     item.argsText += String(event.delta ?? '');
   } else if (type === 'TOOL_CALL_END') {
     if (item.state === 'input-streaming') item.state = 'input-available';

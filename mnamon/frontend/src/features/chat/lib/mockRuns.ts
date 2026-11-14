@@ -150,6 +150,11 @@ What the evidence says:
 2. The dataset sheet shows the training data is 61 % male applicants (Art. 10(2)(f) asks for an examination of possible biases).
 3. The reviewer's lesson from the last audit already flagged the same pattern.
 
+| Group | Shortlisted | Applicants | Selection rate |
+| --- | ---: | ---: | ---: |
+| Women | 142 | 200 | 0.71 |
+| Men | 172 | 200 | 0.86 |
+
 \`\`\`python
 ratio = 0.71 / 0.86  # selection rate, female / male
 assert ratio >= 0.90, f"disparate impact {ratio:.2f}"
@@ -157,15 +162,22 @@ assert ratio >= 0.90, f"disparate impact {ratio:.2f}"
 
 I wrote a finding note to the system folder and attached a short evidence summary below.`;
 
+const NOTE_ARGS =
+  '{"system": "SYS-001", "path": "findings/F-001-note.md", "summary": "Selection-rate ratio 0.83 < 0.90 (equal opportunity)"}';
+
 function answerScript(opts: { toolCallId: string; taskId: string; interruptId: string; text: string }) {
   const { toolCallId, taskId, interruptId } = opts;
   const searchId = uid('call');
   const readId = uid('call');
+  const execId = uid('call');
+  const grepId = uid('call');
   const before: RawEvent[][] = [
     [ev('RUN_STARTED')],
     [
       ev('THINKING_START'),
-      ev('THINKING_TEXT_MESSAGE_CONTENT', { delta: 'The user asks why F-001 was raised. ' }),
+      ev('THINKING_TEXT_MESSAGE_CONTENT', {
+        delta: '**Checking F-001 against Art. 10**\n\nThe user asks why F-001 was raised. ',
+      }),
     ],
     [
       ev('THINKING_TEXT_MESSAGE_CONTENT', {
@@ -203,11 +215,33 @@ function answerScript(opts: { toolCallId: string; taskId: string; interruptId: s
       }),
     ],
     [
+      ev('THINKING_TEXT_MESSAGE_CONTENT', {
+        delta:
+          '**Recomputing the ratio**\n\nThe finding quotes 0.71 and 0.86; recompute the ratio before I rely on it.',
+      }),
+    ],
+    [
+      ev('TOOL_CALL_START', { toolCallId: execId, toolCallName: 'execute' }),
+      ev('TOOL_CALL_ARGS', {
+        toolCallId: execId,
+        delta: '{"command": "python -c \\"print(round(0.71 / 0.86, 2))\\""}',
+      }),
+      ev('TOOL_CALL_END', { toolCallId: execId }),
+    ],
+    [ev('TOOL_CALL_RESULT', { toolCallId: execId, content: '0.83\n[Command succeeded with exit code 0]' })],
+    [
+      ev('THINKING_TEXT_MESSAGE_CONTENT', {
+        delta:
+          '**Handing the dossier check to the evidence checker**\n\nThe ratio holds. The evidence checker should confirm the per-group rates in the dossier.',
+      }),
+    ],
+    [
       ev('THINKING_END'),
       custom('TASK_SUBAGENT', {
         task_id: taskId,
         subagent_type: 'evidence-checker',
-        description: 'Check the CV Screener dossier for per-group selection rates',
+        description:
+          'Check the CV Screener dossier for per-group selection rates: read the model card and data/selection_rates.csv, recompute the female / male ratio and say whether it is under the organisation threshold of 0.90. Quote the file and line for every number you report.',
       }),
     ],
     [
@@ -215,6 +249,26 @@ function answerScript(opts: { toolCallId: string; taskId: string; interruptId: s
       sub(
         taskId,
         ev('THINKING_TEXT_MESSAGE_CONTENT', { delta: 'Looking for per-group metrics in the dossier.' }),
+      ),
+    ],
+    [
+      sub(taskId, ev('TOOL_CALL_START', { toolCallId: grepId, toolCallName: 'grep' })),
+      sub(
+        taskId,
+        ev('TOOL_CALL_ARGS', {
+          toolCallId: grepId,
+          delta: '{"pattern": "selection_rate", "path": "/systems/SYS-001/"}',
+        }),
+      ),
+      sub(taskId, ev('TOOL_CALL_END', { toolCallId: grepId })),
+    ],
+    [
+      sub(
+        taskId,
+        ev('TOOL_CALL_RESULT', {
+          toolCallId: grepId,
+          content: '/systems/SYS-001/data/selection_rates.csv\n/systems/SYS-001/model-card.md',
+        }),
       ),
     ],
     [
@@ -234,7 +288,8 @@ function answerScript(opts: { toolCallId: string; taskId: string; interruptId: s
       sub(
         taskId,
         ev('TEXT_MESSAGE_CONTENT', {
-          delta: 'Selection rate female 0.71, male 0.86 → ratio 0.83 (below 0.90).',
+          delta:
+            'Selection rate **female 0.71**, **male 0.86** (data/selection_rates.csv, lines 2–3) → ratio **0.83**, below the 0.90 threshold. The model card reports accuracy only overall, not per group.',
         }),
       ),
     ],
@@ -245,15 +300,15 @@ function answerScript(opts: { toolCallId: string; taskId: string; interruptId: s
     [
       ev('THINKING_START'),
       ev('THINKING_TEXT_MESSAGE_CONTENT', {
-        delta: 'I will record the finding note in the system folder. That writes, so it needs approval.',
+        delta:
+          '**Recording the finding note**\n\nI will record the finding note in the system folder. That writes, so it needs approval.',
       }),
     ],
     [ev('TOOL_CALL_START', { toolCallId, toolCallName: 'write_finding_note' })],
     [
       ev('TOOL_CALL_ARGS', {
         toolCallId,
-        delta:
-          '{"system": "SYS-001", "path": "findings/F-001-note.md", "summary": "Selection-rate ratio 0.83 < 0.90 (equal opportunity)"}',
+        delta: NOTE_ARGS,
       }),
       ev('TOOL_CALL_END', { toolCallId }),
     ],
@@ -289,7 +344,11 @@ function answerScript(opts: { toolCallId: string; taskId: string; interruptId: s
     ],
     ...(approved
       ? [
-          [ev('TOOL_CALL_START', { toolCallId: rerunId, toolCallName: 'write_finding_note' })],
+          [
+            ev('TOOL_CALL_START', { toolCallId: rerunId, toolCallName: 'write_finding_note' }),
+            ev('TOOL_CALL_ARGS', { toolCallId: rerunId, delta: NOTE_ARGS }),
+            ev('TOOL_CALL_END', { toolCallId: rerunId }),
+          ],
           [
             ev('TOOL_CALL_RESULT', {
               toolCallId: rerunId,
@@ -724,6 +783,10 @@ function seedFinished(opts: {
   auditId?: string;
   pinned?: boolean;
   approve?: boolean;
+  /** Show the agent's plan and a background task in the answer. */
+  withPlan?: boolean;
+  /** An earlier version of the user message: the chat then has 2 branches (edited message). */
+  editedFrom?: string;
 }) {
   const userId = `${opts.id}-u1`;
   const aiId = `${opts.id}-a1`;
@@ -734,6 +797,24 @@ function seedFinished(opts: {
     text: opts.user,
   });
   const all = [...script.before, ...script.tail(opts.approve ?? true)].flat();
+  if (opts.withPlan) {
+    all.splice(1, 0, custom('PLAN_SNAPSHOT', { todos: PLAN_TODOS }));
+    const after = all.findIndex((e) => e.name === 'SUBAGENT_COMPLETED') + 1;
+    all.splice(
+      after,
+      0,
+      custom('TASK_LAUNCHED', {
+        task_id: `${opts.id}-bg`,
+        name: 'evidence-checker',
+        description: 'Collect the per-group rates of the last three audits for the trend chart',
+      }),
+      custom('TASK_SETTLED_INLINE', {
+        task_id: `${opts.id}-bg`,
+        name: 'evidence-checker',
+        status: 'success',
+      }),
+    );
+  }
   const start = Date.parse(minutesAgo(opts.minutes));
   const events: RawEvent[] = all.map((e, i) => ({ ...e, seq: i + 1, timestamp: start + i * 900 }));
   const text = events
@@ -754,6 +835,7 @@ function seedFinished(opts: {
     created_at: minutesAgo(opts.minutes + 2),
     updated_at: minutesAgo(opts.minutes),
     messages: [
+      ...(opts.editedFrom ? earlierBranch(opts.id, opts.editedFrom, opts.minutes + 6) : []),
       message({
         id: userId,
         sender: 'user',
@@ -784,6 +866,47 @@ function seedFinished(opts: {
     ],
   };
   conversations.set(conv.id, conv);
+}
+
+const PLAN_TODOS = [
+  { content: 'Check F-001 against Art. 10(2)(f)', status: 'completed' },
+  { content: 'Recompute the per-group selection ratio', status: 'completed' },
+  { content: 'Confirm the rates in the system dossier', status: 'completed' },
+  { content: 'Write the finding note and the evidence summary', status: 'completed' },
+];
+
+/** The first version of an edited user message and the answer it got (branch 1 of 2). */
+function earlierBranch(convId: string, text: string, minutes: number): MessageOut[] {
+  const userId = `${convId}-u0`;
+  const answer =
+    'Two systems use training data covered by the changed Art. 10 guidance: the **CV Screener** and the **Loan Scorer**.';
+  const start = Date.parse(minutesAgo(minutes));
+  const events: RawEvent[] = [
+    ev('RUN_STARTED'),
+    ev('THINKING_START'),
+    ev('THINKING_TEXT_MESSAGE_CONTENT', {
+      delta: '**Finding the affected systems**\n\nList the systems whose data falls under Art. 10.',
+    }),
+    ev('THINKING_END'),
+    ev('TEXT_MESSAGE_START'),
+    ev('TEXT_MESSAGE_CONTENT', { delta: answer }),
+    ev('TEXT_MESSAGE_END'),
+    ev('RUN_FINISHED'),
+  ].map((e, i) => ({ ...e, seq: i + 1, timestamp: start + i * 1200 }));
+  return [
+    message({ id: userId, sender: 'user', content: text, created_at: minutesAgo(minutes) }),
+    message({
+      id: `${convId}-a0`,
+      sender: 'ai',
+      parentMessageId: userId,
+      content: answer,
+      rawEvents: events,
+      streamingStatus: 'completed',
+      agentSlug: 'assistant',
+      agentName: 'Copilot',
+      created_at: minutesAgo(minutes - 1),
+    }),
+  ];
 }
 
 function seedPausedOnApproval() {
@@ -873,6 +996,7 @@ function seed() {
     title: 'Art. 10 guideline change: who is affected?',
     minutes: 60 * 26,
     user: 'Which systems are affected by the Art. 10 guideline change?',
+    editedFrom: 'Which systems does the new Art. 10 guidance touch?',
   });
   seedFinished({
     id: 'conv-plan',
@@ -880,6 +1004,7 @@ function seed() {
     minutes: 60 * 50,
     user: 'Draft an audit plan for the Loan Scorer.',
     pinned: true,
+    withPlan: true,
   });
   seedPausedOnApproval();
 }

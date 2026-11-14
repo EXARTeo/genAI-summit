@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { mockChat, subscribeMockRun } from './mockRuns';
 import { mergeRunUpdate, type LiveRun } from './runState';
-import { pendingInterrupts, timelineText } from './timeline';
+import { childrenIndex, ROOT } from './branches';
+import { createTimeline, pendingInterrupts, reduceTimelineEvents, timelineText } from './timeline';
 import type { RunFrame } from './types';
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
@@ -49,5 +50,18 @@ describe('mock runs', () => {
     const stored = mockChat.get(started!.summary.id)!.messages.find((m) => m.id === started!.run.id)!;
     expect(stored.streamingStatus).toBe('completed');
     expect(stored.attachments[0]?.origin).toBe('generated');
+  });
+
+  it('seeds an edited user message with two branches and a chat with a plan and a background task', () => {
+    const art10 = mockChat.get('conv-art10')!;
+    const roots = childrenIndex(art10.messages).get(ROOT) ?? [];
+    expect(roots.filter((m) => m.sender === 'user')).toHaveLength(2);
+
+    const plan = mockChat.get('conv-plan')!;
+    const ai = plan.messages.find((m) => m.sender === 'ai')!;
+    const timeline = reduceTimelineEvents(createTimeline(), ai.rawEvents ?? []);
+    expect(timeline.plan?.length).toBe(4);
+    expect(timeline.blocks.some((b) => b.kind === 'task_ref')).toBe(true);
+    expect(timeline.blocks.some((b) => b.kind === 'task_settled')).toBe(true);
   });
 });
