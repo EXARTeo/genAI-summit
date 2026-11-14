@@ -1,0 +1,231 @@
+# reg-memory source catalog. Append a new entry to add a source; field
+# reference in docs/services/reg-memory.md. Never fetch eur-lex.europa.eu
+# directly (WAF challenge, HTTP 202): EU law comes from the Cellar API by CELEX.
+sources:
+
+  # ---- EU law (Cellar) --------------------------------------------------------
+
+  - id: ai-act-consolidated
+    title: AI Act, consolidated text after the Digital Omnibus (02024R1689-20260727)
+    kind: consolidated
+    binding: true
+    status: final
+    publisher: Publications Office of the EU
+    fetcher: cellar
+    celex: 02024R1689-20260727
+    formats: [xhtml]
+    tags: [ai-act, main-text]
+    notes: Main working text. Consolidated texts are documentary only; the OJ texts are authentic.
+
+  - id: ai-act
+    title: Regulation (EU) 2024/1689 (Artificial Intelligence Act), OJ version
+    kind: regulation
+    binding: true
+    status: final
+    publisher: Publications Office of the EU
+    fetcher: cellar
+    celex: 32024R1689
+    formats: [xhtml, pdf]
+    tags: [ai-act]
+
+  - id: digital-omnibus-ai
+    title: Regulation (EU) 2026/1744 (Digital Omnibus on AI)
+    kind: amendment
+    binding: true
+    status: final
+    publisher: Publications Office of the EU
+    fetcher: cellar
+    celex: 32026R1744
+    formats: [xhtml, pdf]
+    tags: [ai-act, omnibus]
+    notes: OJ 24 Jul 2026, in force 27 Jul 2026. Provenance of amendments and new dates.
+
+  - id: gdpr
+    title: Regulation (EU) 2016/679 (GDPR)
+    kind: regulation
+    binding: true
+    status: final
+    publisher: Publications Office of the EU
+    fetcher: cellar
+    celex: 32016R0679
+    formats: [xhtml]
+    tags: [gdpr, dpia]
+    notes: DPIA/FRIA and special-category data overlap.
+
+  # ---- Commission guidelines and codes (digital-strategy.ec.europa.eu) ---------
+
+  - id: guidelines-ai-system-definition
+    title: Commission Guidelines on the definition of an AI system
+    kind: guideline
+    binding: false
+    status: final
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/library/commission-publishes-guidelines-ai-system-definition-facilitate-first-ai-acts-rules-application
+    follow_links: &ec-downloads
+      pattern: ^https://ec\.europa\.eu/newsroom/dae/redirection/document/\d+$
+      max: 5
+      hosts: [ec.europa.eu]
+    tags: [ai-act, art-3]
+
+  - id: guidelines-prohibited-practices
+    title: Commission Guidelines on prohibited AI practices
+    kind: guideline
+    binding: false
+    status: final
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/library/commission-publishes-guidelines-prohibited-artificial-intelligence-ai-practices-defined-ai-act
+    follow_links: *ec-downloads
+    tags: [ai-act, art-5]
+
+  - id: guidelines-gpai-scope
+    title: Commission Guidelines on the scope of obligations for providers of GPAI models
+    kind: guideline
+    binding: false
+    status: final
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/library/guidelines-scope-obligations-providers-general-purpose-ai-models-under-ai-act
+    follow_links: *ec-downloads
+    tags: [ai-act, gpai]
+
+  - id: gpai-code-of-practice
+    title: General-Purpose AI Code of Practice
+    kind: code_of_practice
+    binding: false
+    status: final
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/policies/contents-code-gpai
+    follow_links:
+      pattern: ^https://ec\.europa\.eu/newsroom/dae/redirection/document/\d+$
+      max: 8
+      hosts: [ec.europa.eu]
+    tags: [ai-act, gpai]
+
+  - id: guidelines-high-risk-draft
+    title: Draft Commission Guidelines on the classification of high-risk AI systems (Art. 6)
+    kind: guideline
+    binding: false
+    status: draft
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/library/draft-commission-guidelines-classification-high-risk-ai-systems
+    follow_links: *ec-downloads
+    tags: [ai-act, art-6, high-risk]
+    notes: Draft of 19 May 2026 (targeted consultation). Announcement page is guidelines-high-risk-draft-news.
+
+  - id: guidelines-high-risk-draft-news
+    title: Commission seeks feedback on draft high-risk classification guidelines (news)
+    kind: other
+    binding: false
+    status: draft
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/news/commission-seeks-feedback-draft-guidelines-classification-high-risk-artificial-intelligence-systems
+    tags: [ai-act, art-6, high-risk]
+
+  - id: ai-regulatory-framework
+    title: Regulatory framework on AI (Commission policy page)
+    kind: other
+    binding: false
+    status: final
+    publisher: European Commission
+    fetcher: http
+    url: https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai
+    tags: [ai-act, timeline]
+
+  - id: ai-act-service-desk-faq
+    title: AI Act Service Desk FAQ
+    kind: faq
+    binding: false
+    status: final
+    publisher: European Commission (AI Office)
+    fetcher: http
+    url: https://ai-act-service-desk.ec.europa.eu/en/faq
+    tags: [ai-act, faq]
+
+  # ---- Standards (status and metadata only) -----------------------------------
+
+  - id: cen-cenelec-ai-standards
+    title: CEN-CENELEC JTC 21 artificial intelligence standardisation
+    kind: standard
+    binding: false
+    status: draft
+    publisher: CEN-CENELEC
+    fetcher: http
+    url: https://www.cencenelec.eu/areas-of-work/cen-cenelec-topics/artificial-intelligence/
+    tags: [standards, jtc21]
+    notes: Status and metadata only; the standards themselves are paywalled.
+
+  # ==== Verified 14 Nov 2026 (curl 200 + magic bytes): direct documents and more pages ====
+  # Direct newsroom PDFs may duplicate a landing page's follow_links children; both are kept
+  # (same bytes => same sha256 in the store).
+
+  # --- Guidelines: AI system definition / prohibited practices ---
+  - {id: guidelines-ai-system-definition-pdf, title: "Guidelines on the definition of an AI system", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/112455", formats: [pdf], tags: [ai-act, art-3, definition]}
+  - {id: guidelines-ai-system-definition-communication, title: "Communication approving the Guidelines on the definition of an AI system", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118559", formats: [pdf], tags: [ai-act, art-3]}
+  - {id: guidelines-prohibited-practices-pdf, title: "Guidelines on prohibited AI practices", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/112367", formats: [pdf], tags: [ai-act, art-5]}
+  - {id: guidelines-prohibited-practices-communication, title: "Communication C(2025) 884 approving the Guidelines on prohibited AI practices", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/112366", formats: [pdf], tags: [ai-act, art-5]}
+
+  # --- GPAI ---
+  - {id: guidelines-gpai-scope-obligations-pdf, title: "Guidelines on the scope of obligations for GPAI models", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118340", formats: [pdf], tags: [ai-act, gpai, art-53, art-55]}
+  - {id: guidelines-gpai-scope-communication, title: "Communication approving the GPAI guidelines", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118343", formats: [pdf], tags: [ai-act, gpai]}
+  - {id: faq-gpai-guidelines, title: "FAQ - Guidelines on obligations for GPAI providers", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/guidelines-obligations-gpai-providers", formats: [html], tags: [ai-act, gpai, faq]}
+  - {id: gpai-submitting-documents-eu-send, title: "Technical guidance - submitting GPAI documents via EU SEND", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118672", formats: [pdf], tags: [ai-act, gpai, procedure]}
+  - {id: gpai-cop-transparency-chapter, title: "GPAI Code of Practice - Transparency chapter", kind: code_of_practice, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118120", formats: [pdf], tags: [ai-act, gpai, art-53]}
+  - {id: gpai-cop-copyright-chapter, title: "GPAI Code of Practice - Copyright chapter", kind: code_of_practice, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118115", formats: [pdf], tags: [ai-act, gpai, copyright]}
+  - {id: gpai-cop-safety-security-chapter, title: "GPAI Code of Practice - Safety and Security chapter", kind: code_of_practice, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118119", formats: [pdf], tags: [ai-act, gpai, art-55]}
+  - {id: gpai-cop-model-documentation-form, title: "GPAI Code of Practice - Model Documentation Form", kind: code_of_practice, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118118", formats: [docx], tags: [ai-act, gpai, template]}
+  - {id: gpai-cop-signatory-vademecum, title: "Vademecum of the GPAI Signatory Taskforce", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/124170", formats: [pdf], tags: [ai-act, gpai]}
+  - {id: faq-gpai-code-of-practice, title: "Q&A on the GPAI code of practice", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/questions-and-answers-code-practice-general-purpose-ai", formats: [html], tags: [ai-act, gpai, faq]}
+  - {id: gpai-training-content-summary-notice, title: "Explanatory notice and template - public summary of training content (GPAI)", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118480", formats: [pdf], tags: [ai-act, gpai, training-data]}
+  - {id: gpai-training-content-summary-template, title: "Template - public summary of training content (GPAI)", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/118578", formats: [docx], tags: [ai-act, gpai, template]}
+  - {id: factpage-gpai-obligations, title: "GPAI obligations under the AI Act (factpage)", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/factpages/general-purpose-ai-obligations-under-ai-act", formats: [html], tags: [ai-act, gpai]}
+
+  # --- Draft Art. 6 high-risk classification guidelines (19 May 2026) ---
+  - {id: draft-guidelines-high-risk-general, title: "Draft Guidelines on high-risk classification - General principles", kind: guideline, binding: false, status: draft, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/128559", formats: [pdf], tags: [ai-act, art-6, high-risk, draft]}
+  - {id: draft-guidelines-high-risk-annex-i, title: "Draft Guidelines on high-risk classification - Annex I (Art. 6(1))", kind: guideline, binding: false, status: draft, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/128560", formats: [pdf], tags: [ai-act, art-6-1, annex-i, draft]}
+  - {id: draft-guidelines-high-risk-annex-iii, title: "Draft Guidelines on high-risk classification - Annex III (Art. 6(2)-(3))", kind: guideline, binding: false, status: draft, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/128561", formats: [pdf], tags: [ai-act, art-6-2, art-6-3, annex-iii, draft]}
+  - {id: service-desk-high-risk-guideline-explorer, title: "Service Desk - high-risk guidelines explorer (HTML)", kind: guideline, binding: false, status: draft, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/guideline-explorer", formats: [html], tags: [ai-act, art-6, high-risk]}
+  - {id: service-desk-high-risk-summaries-examples, title: "Service Desk - high-risk guidelines summaries and examples", kind: guideline, binding: false, status: draft, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/guidelines-classification-high-risk-ai-systems-summaries-examples", formats: [html], tags: [ai-act, art-6, examples]}
+
+  # --- Art. 50 transparency ---
+  - {id: guidelines-art50-transparency, title: "Guidelines on Article 50 transparency obligations", kind: guideline, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/131215", formats: [pdf], tags: [ai-act, art-50, transparency]}
+  - {id: cop-transparency-ai-generated-content, title: "Code of Practice on transparency of AI-generated content", kind: code_of_practice, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/129555", formats: [pdf], tags: [ai-act, art-50, labelling]}
+  - {id: faq-art50-transparency, title: "FAQ - Article 50 transparency obligations", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/transparency-obligations-under-article-50-ai-act", formats: [html], tags: [ai-act, art-50, faq]}
+  - {id: faq-cop-transparency-ai-generated-content, title: "FAQ - Code of Practice on transparency of AI-generated content", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/code-practice-transparency-ai-generated-content", formats: [html], tags: [ai-act, art-50, faq]}
+
+  # --- Art. 73 serious incidents (draft) ---
+  - {id: draft-guidance-art73-incident-reporting, title: "Draft guidance on Article 73 serious incident reporting", kind: guideline, binding: false, status: draft, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/119624", formats: [pdf], tags: [ai-act, art-73, incidents]}
+  - {id: template-art73-incident-report, title: "Serious incident report template (high-risk AI)", kind: guideline, binding: false, status: draft, publisher: European Commission, fetcher: http, url: "https://ec.europa.eu/newsroom/dae/redirection/document/119623", formats: [pdf], tags: [ai-act, art-73, template]}
+
+  # --- FAQs / Omnibus / Service Desk ---
+  - {id: faq-ai-literacy, title: "AI literacy Q&A (Art. 4)", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/ai-literacy-questions-answers", formats: [html], tags: [ai-act, art-4, faq]}
+  - {id: faq-navigating-ai-act, title: "Navigating the AI Act (FAQ)", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/navigating-ai-act", formats: [html], tags: [ai-act, faq]}
+  - {id: faq-digital-package-omnibus, title: "FAQ - Digital package (Omnibus)", kind: faq, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/faqs/digital-package", formats: [html], tags: [ai-act, omnibus, faq]}
+  - {id: library-digital-omnibus-ai-proposal, title: "Digital Omnibus on AI - proposal page", kind: other, binding: false, status: final, publisher: European Commission, fetcher: http, url: "https://digital-strategy.ec.europa.eu/en/library/digital-omnibus-ai-regulation-proposal", formats: [html], tags: [ai-act, omnibus]}
+  - {id: service-desk-ai-act-explorer, title: "Service Desk - AI Act explorer (links per article/annex)", kind: consolidated, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/ai-act-explorer", formats: [html], tags: [ai-act, articles], notes: "314 per-item pages /en/ai-act/article-N, /en/ai-act/annex-N; follow_links candidate, throttle 3 s"}
+  - {id: service-desk-implementation-timeline, title: "Service Desk - AI Act implementation timeline", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/ai-act/timeline/timeline-implementation-eu-ai-act", formats: [html], tags: [ai-act, timeline]}
+  - {id: service-desk-resources, title: "Service Desk - resources index", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/resources", formats: [html], tags: [ai-act, index]}
+  - {id: service-desk-national-resources, title: "Service Desk - national resources", kind: other, binding: false, status: final, publisher: AI Act Service Desk, fetcher: http, url: "https://ai-act-service-desk.ec.europa.eu/en/national-resources", formats: [html], tags: [ai-act, national-authorities]}
+
+  # --- Implementing / Commission acts (Cellar) ---
+  - {id: ir-2026-2487-ai-regulatory-sandboxes, title: "Implementing Regulation (EU) 2026/2487 on AI regulatory sandboxes", kind: regulation, binding: true, status: final, publisher: European Commission, fetcher: cellar, celex: 32026R2487, formats: [xhtml, pdf], tags: [ai-act, art-57, art-58, sandboxes]}
+  - {id: ir-2025-454-scientific-panel, title: "Implementing Regulation (EU) 2025/454 - scientific panel", kind: regulation, binding: true, status: final, publisher: European Commission, fetcher: cellar, celex: 32025R0454, formats: [xhtml, pdf], tags: [ai-act, art-68, gpai]}
+  - {id: decision-ai-office-establishment, title: "Commission Decision establishing the AI Office (C/2024/1459)", kind: other, binding: true, status: final, publisher: European Commission, fetcher: cellar, celex: 32024D01459, formats: [xhtml], tags: [ai-act, ai-office]}
+
+  # --- Related EU law (Cellar) ---
+  - {id: machinery-regulation-2023-1230, title: "Regulation (EU) 2023/1230 on machinery products", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32023R1230, formats: [xhtml], tags: [annex-i, art-6-1, related-law]}
+  - {id: product-liability-directive-2024-2853, title: "Directive (EU) 2024/2853 on liability for defective products", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32024L2853, formats: [xhtml], tags: [liability, related-law]}
+  - {id: data-act-2023-2854, title: "Regulation (EU) 2023/2854 (Data Act)", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32023R2854, formats: [xhtml], tags: [data, related-law]}
+  - {id: cyber-resilience-act-2024-2847, title: "Regulation (EU) 2024/2847 (Cyber Resilience Act)", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32024R2847, formats: [xhtml], tags: [cybersecurity, art-15, related-law]}
+  - {id: dsa-2022-2065, title: "Regulation (EU) 2022/2065 (Digital Services Act)", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32022R2065, formats: [xhtml], tags: [platforms, related-law]}
+  - {id: gpsr-2023-988, title: "Regulation (EU) 2023/988 on general product safety", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32023R0988, formats: [xhtml], tags: [product-safety, related-law], enabled: false}
+  - {id: copyright-dsm-directive-2019-790, title: "Directive (EU) 2019/790 on copyright in the DSM", kind: regulation, binding: true, status: final, publisher: EU, fetcher: cellar, celex: 32019L0790, formats: [xhtml], tags: [copyright, gpai, related-law]}
+
+  # --- Greece ---
+  - {id: gr-law-5321-2026, title: "Ν. 5321/2026 - Μέτρα εφαρμογής του Κανονισμού (ΕΕ) 2024/1689 (ΦΕΚ Α' 114/20.07.2026)", kind: national_law, binding: true, status: final, publisher: "Hellenic Republic (unofficial mirror: Taxheaven)", fetcher: http, url: "https://www.taxheaven.gr/law/5321/2026", formats: [html], tags: [greece, national-law], notes: "unofficial consolidation; official FEK (et.gr) not fetchable"}
+  - {id: gr-bill-ai-act-implementation, title: "Σχέδιο νόμου - Μέτρα εφαρμογής του Κανονισμού (ΕΕ) 2024/1689 (bill)", kind: national_law, binding: false, status: draft, publisher: Hellenic Parliament, fetcher: http, url: "https://www.hellenicparliament.gr/UserFiles/c8827c35-4399-4fbb-8ea6-aebdc768f4f7/13353094.pdf", formats: [pdf], tags: [greece, bill]}
+  - {id: gr-bill-ai-act-explanatory-report, title: "Αιτιολογική έκθεση - Μέτρα εφαρμογής του Κανονισμού (ΕΕ) 2024/1689", kind: other, binding: false, status: final, publisher: Hellenic Parliament, fetcher: http, url: "https://www.hellenicparliament.gr/UserFiles/c8827c35-4399-4fbb-8ea6-aebdc768f4f7/13353095.pdf", formats: [pdf], tags: [greece, explanatory-memo]}
