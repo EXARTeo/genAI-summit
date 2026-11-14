@@ -84,7 +84,8 @@ def plan_scenarios(state: dict[str, Any]) -> ScenarioPlan:
     bias_req = _requirement_for(state, FAIRNESS_TT, "REQ.AIA.10.2.f.bias-examination")
     group_req = _requirement_for(state, GROUP_TT, bias_req)
     scenarios: list[Scenario] = []
-    for attr in protected[:2]:
+    # Every protected attribute (at most 3): a proxy that moves the output is the point.
+    for attr in protected[:3]:
         proxies = [
             f
             for f, d in fields.items()
