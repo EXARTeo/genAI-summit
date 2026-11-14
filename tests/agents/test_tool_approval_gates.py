@@ -49,6 +49,8 @@ def test_the_baseline_gates_the_write_tools_delegation_and_execute():
         "task": True,
         "start_async_task": True,
         "forget": True,
+        "propose_system_note": True,
+        "start_audit": True,
     }
 
 

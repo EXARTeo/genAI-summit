@@ -53,6 +53,10 @@ class PromptContext:
     memory_index: str | None = None
     #: The audit ``remember`` records into; None means the memory is read-only.
     memory_audit_id: str | None = None
+    #: The system / audit the conversation was opened from (``system_id`` /
+    #: ``audit_id`` in the run context); None for an unscoped chat.
+    scope_system_id: str | None = None
+    scope_audit_id: str | None = None
     #: Wall-clock for the run, injected rather than read inside a prompt so the
     #: composed text is deterministic under test.
     now: datetime | None = None

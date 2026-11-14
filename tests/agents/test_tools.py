@@ -55,8 +55,27 @@ def test_the_roster_is_the_native_tools_in_order():
         "ask_user",
         "remember",
         "forget",
+        "list_systems",
+        "list_system_files",
+        "read_system_file",
+        "list_audits",
+        "read_audit",
+        "read_audit_artifact",
+        "lookup_provision",
+        "search_regulation",
+        "propose_system_note",
+        "start_audit",
     ]
-    assert all(defn.auto_attach for defn in registry.NATIVE_TOOLS.values())
+    # The platform verbs attach to every agent; the product-API tools are selected in agent.yaml.
+    auto = [name for name, defn in registry.NATIVE_TOOLS.items() if defn.auto_attach]
+    assert auto == [
+        "render_chart",
+        "view_image",
+        "present_artifact",
+        "ask_user",
+        "remember",
+        "forget",
+    ]
 
 
 def test_known_names_are_recognised_for_spec_validation():

@@ -27,6 +27,12 @@ from harness.tools.forget import build_forget_tool
 from harness.tools.present_artifact import PresentedFiles, build_present_artifact_tool
 from harness.tools.remember import build_remember_tool
 from harness.tools.view_image import build_view_image_tool
+from harness.tools.workspace_api import (
+    WORKSPACE_TOOL_NAMES,
+    WorkspaceAPI,
+    WorkspaceScope,
+    build_workspace_tool,
+)
 
 
 @dataclass(frozen=True)
@@ -49,6 +55,10 @@ class NativeToolContext:
     #: The run's system memory (``system_id`` in the context), or None.
     memory: MemoryBinding | None = None
     memory_store: MemoryStoreProtocol | None = None
+    #: The run's client and conversation scope, for the systems/audits/regulation tools.
+    workspace_scope: WorkspaceScope | None = None
+    #: One API client per run, shared by those tools (and its kb_version pin).
+    workspace_api: WorkspaceAPI | None = None
 
 
 @dataclass(frozen=True)
@@ -150,6 +160,21 @@ register_native_tool(
         ),
     )
 )
+
+
+# The product's systems, audits and regulation through its own APIs (the chat
+# copilot selects them in agent.yaml). The two writes are gated in builtins.py.
+for _name in WORKSPACE_TOOL_NAMES:
+    register_native_tool(
+        NativeToolDef(
+            name=_name,
+            builder=lambda ctx, n=_name: (
+                build_workspace_tool(n, ctx.workspace_scope, ctx.workspace_api)
+                if ctx.workspace_scope is not None
+                else None
+            ),
+        )
+    )
 
 
 def is_known_native_tool(name: str) -> bool:

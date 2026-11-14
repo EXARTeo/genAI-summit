@@ -72,6 +72,7 @@ from harness.memory import (
     memory_binding_from_context,
 )
 from harness.memory.binding import MEMORY_CONTEXT_KEYS
+from harness.memory.entries import is_valid_id
 from harness.middlewares import (
     RetryOnRateLimitMiddleware,
     ToolErrorMiddleware,
@@ -93,6 +94,7 @@ from harness.tools.ask_user import ASK_USER_TOOL_NAME
 from harness.tools.gates import resolve_interrupt_on, strip_reserved_names
 from harness.tools.present_artifact import PresentedFiles
 from harness.tools.registry import NativeToolContext, build_auto_attach_tools
+from harness.tools.workspace_api import WorkspaceAPI, WorkspaceScope
 
 logger = get_logger(__name__)
 
@@ -208,6 +210,7 @@ class DeepAgent(BaseAgent, ABC):
         # by ``ensure_built``: the mount, and the index the prompt carries.
         self._memory_files: SystemMemoryFiles | None = None
         self._memory_index: str | None = None
+        self._workspace_api_client: WorkspaceAPI | None = None
         self.sub_agents: SubAgentsT = None
         self.agent: Any = None
         self.async_task_node = None
@@ -368,7 +371,32 @@ class DeepAgent(BaseAgent, ABC):
             async_task_id=self.async_task_id,
             memory=self._memory_files.binding if self._memory_files else None,
             memory_store=self._memory_files.store if self._memory_files else None,
+            workspace_scope=self._workspace_scope(),
+            workspace_api=self._workspace_api(),
         )
+
+    def _workspace_scope(self) -> WorkspaceScope | None:
+        """The run's client and conversation scope (``system_id`` / ``audit_id``), or None."""
+        if not self.client_id:
+            return None
+        system_id = self.context.get("system_id")
+        audit_id = self.context.get("audit_id")
+        return WorkspaceScope(
+            client_id=self.client_id,
+            agent_slug=self.name,
+            system_id=system_id if is_valid_id(system_id) else None,
+            audit_id=audit_id if is_valid_id(audit_id) else None,
+        )
+
+    def _workspace_api(self) -> WorkspaceAPI | None:
+        """One product-API client per run, shared by every tool bound to it."""
+        if not self.client_id:
+            return None
+        if self._workspace_api_client is None:
+            self._workspace_api_client = WorkspaceAPI(
+                client_id=self.client_id, agent_slug=self.name
+            )
+        return self._workspace_api_client
 
     def _builtin_tools(self) -> list[Any]:
         """The always-on native tools, each subject to its gate (none without a client)."""
@@ -418,6 +446,7 @@ class DeepAgent(BaseAgent, ABC):
         so a section can never advertise a mount or tool the run lacks.
         """
         has_conversation = bool(self.context.get("conversation_id"))
+        scope = self._workspace_scope()
         return PromptContext(
             has_subagents=has_subagents,
             async_subagents=async_subagents,
@@ -430,6 +459,8 @@ class DeepAgent(BaseAgent, ABC):
             sandbox_enabled=settings.filesystem.sandbox_execution_active,
             memory_index=self._memory_index if self._memory_files is not None else None,
             memory_audit_id=self._memory_files.binding.audit_id if self._memory_files else None,
+            scope_system_id=scope.system_id if scope else None,
+            scope_audit_id=scope.audit_id if scope else None,
             now=datetime.now(UTC),
         )
 

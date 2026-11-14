@@ -64,6 +64,18 @@ BUILTIN_TOOLS: tuple[BuiltinTool, ...] = (
     BuiltinTool("remember"),
     BuiltinTool("forget", hitl_default=True),
     BuiltinTool("ask_user", gateable=False),
+    # The product's own APIs (harness/tools/workspace_api): reads are free, the
+    # two writes (a proposed note in a system folder, a new audit) ask first.
+    BuiltinTool("list_systems"),
+    BuiltinTool("list_system_files"),
+    BuiltinTool("read_system_file"),
+    BuiltinTool("list_audits"),
+    BuiltinTool("read_audit"),
+    BuiltinTool("read_audit_artifact"),
+    BuiltinTool("lookup_provision"),
+    BuiltinTool("search_regulation"),
+    BuiltinTool("propose_system_note", hitl_default=True),
+    BuiltinTool("start_audit", hitl_default=True),
 )
 
 BUILTIN_BY_NAME: dict[str, BuiltinTool] = {t.name: t for t in BUILTIN_TOOLS}
