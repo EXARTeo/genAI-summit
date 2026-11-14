@@ -6,9 +6,12 @@ import { defineConfig, loadEnv } from 'vite';
 // Dev: `/api/*` is proxied to the backend published by compose (BACKEND_PORT, default 8100),
 // with `/api` stripped, exactly like nginx does in the container.
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  // One env file for the whole repo: <repo>/.env (template: <repo>/.env.example).
+  const envDir = path.resolve(__dirname, '../..');
+  const env = loadEnv(mode, envDir, '');
   const backend = env.VITE_DEV_BACKEND_URL || 'http://127.0.0.1:8100';
   return {
+    envDir,
     plugins: [react()],
     resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
     server: {
