@@ -5,7 +5,7 @@ Set-Location (Join-Path $PSScriptRoot '..')
 $steps = @(
     @{ Name = 'ruff check';            Args = @('run', 'ruff', 'check', '.') },
     @{ Name = 'ruff format --check';   Args = @('run', 'ruff', 'format', '--check', '.') },
-    @{ Name = 'pytest';                Args = @('run', 'pytest') }
+    @{ Name = 'pytest';                Args = @('run', 'python', '-m', 'pytest') }
 )
 
 foreach ($step in $steps) {
@@ -15,8 +15,8 @@ foreach ($step in $steps) {
 }
 
 # Service suites: each in its own venv (product/<service>/.venv), created on
-# first run; the tests live in tests/<service>/.
-foreach ($service in 'backend', 'agents') {
+# first run; the tests live in tests/<service>/ (dashes as underscores).
+foreach ($service in 'backend', 'agents', 'reg-memory', 'model-gateway', 'mlflow-seed', 'sandbox') {
     Write-Host "==> $service tests"
     $venv = "product\$service\.venv"
     if (-not (Test-Path $venv)) {
@@ -26,7 +26,12 @@ foreach ($service in 'backend', 'agents') {
     $python = Join-Path $venv 'Scripts\python.exe'
     uv pip install --quiet --python $python -r "product\$service\requirements.txt"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    & $python -m pytest "tests\$service" -q
+    if ($service -eq 'sandbox') {
+        # synthkit is the image's `synthkit` command; the exec tests run it.
+        uv pip install --quiet --python $python -e "product\sandbox\synthkit"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    & $python -m pytest "tests\$($service -replace '-', '_')" -q
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

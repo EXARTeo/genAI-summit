@@ -44,9 +44,12 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-# product/backend's and product/agents' top-level packages (each service runs
+# product/backend's, product/agents' and product/reg-memory's top-level packages (each service runs
 # with its folder on sys.path).
-known-first-party = ["core", "harness", "router", "schema", "utils", "main"]
+known-first-party = [
+    "core", "engine", "harness", "router", "schema", "utils", "main",
+    "seedlib", "seedmodels", "seed",  # product/mlflow-seed
+]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]  # assert is fine in tests
@@ -54,6 +57,6 @@ known-first-party = ["core", "harness", "router", "schema", "utils", "main"]
 # --- Pytest ---
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# tests/backend and tests/agents need their service's own venv; each has its
+# tests/backend, tests/agents, tests/reg_memory, tests/model_gateway, tests/mlflow_seed and tests/sandbox need their service's own venv; each has its
 # own pytest.ini and runs separately (scripts/check.*, CI jobs "backend"/"agents").
-addopts = "-ra --strict-markers --ignore=tests/backend --ignore=tests/agents"
+addopts = "-ra --strict-markers --ignore=tests/backend --ignore=tests/agents --ignore=tests/reg_memory --ignore=tests/model_gateway --ignore=tests/mlflow_seed --ignore=tests/sandbox"

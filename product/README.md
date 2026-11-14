@@ -19,6 +19,11 @@ First start takes about a minute: Langfuse runs its Postgres and ClickHouse migr
 | --- | --- | --- | --- | --- |
 | `backend` | built from `./backend` (python:3.12-slim) | `127.0.0.1:${BACKEND_PORT:-8100}` → 8000 | `backend`, `edge`, `langfuse` | `GET /health` (python urllib) |
 | `agents` | built from `./agents` (python:3.12-slim) | none (8003 internal) | `backend`, `edge`, `langfuse`, `mcp_net`, `sandbox_net` | `GET /health` (python urllib) |
+| `reg-memory` | built from `./reg-memory` (python:3.12-slim), volume `reg-memory-data` → `/data` | none (8010 internal) | `backend`, `edge` | `GET /health` (python urllib) |
+| `model-gateway` | built from `./model-gateway` (python:3.12-slim) | `127.0.0.1:${MODEL_GATEWAY_PORT:-8200}` → 8000 | `backend`, `edge`, `sandbox_models` | `GET /health` (python urllib) |
+| `mlflow` | built from `./mlflow` (python:3.12-slim, MLflow 3.17.2), volume `mlflow_artifacts` → `/mlartifacts`; metadata in the `mlflow` database on `postgres` | `127.0.0.1:${MLFLOW_PORT:-5500}` → 5000 | `backend`, `edge`, `sandbox_models` | `GET /health` (python urllib) |
+| `sandbox_runner` | built from `./sandbox` (python:3.12-slim + ML stack + synthkit); read-only rootfs, tmpfs `/work` + `/tmp`, 4 GB | none (8090 internal) | `sandbox_net`, `sandbox_models` | `GET /health` (python urllib) |
+| `mlflow-seed` | built from `./mlflow-seed` (python:3.12-slim); one-shot (`restart: "no"`), volume `seed_cases` → `/seed-cases` | none | `backend` | none (exits 0; `model-gateway` waits for `service_completed_successfully`) |
 | `postgres` | `postgres:16.14-alpine` | none | `backend` | `pg_isready` |
 | `redis` | `redis:7.4.9-alpine` (256 MB, `volatile-lru`, no persistence) | none | `backend` | `redis-cli ping` (auth) |
 | `langfuse-web` | `langfuse/langfuse:4.70.0` | `127.0.0.1:${LANGFUSE_PORT:-3400}` → 3000 | `langfuse`, `langfuse_internal` | `GET /api/public/health` |
@@ -34,10 +39,12 @@ Default host ports avoid the ones already taken on the dev machine (8000, 3000, 
 
 | Network | Internal | Members | Purpose |
 | --- | --- | --- | --- |
-| `backend` | yes | backend, postgres, redis | Data plane; no route out |
-| `edge` | no | backend | Published port and egress (LLM APIs, future agents service) |
+| `backend` | yes | backend, agents, reg-memory, model-gateway, mlflow, mlflow-seed, postgres, redis | Data plane; no route out |
+| `edge` | no | backend, agents, reg-memory, model-gateway, mlflow | Published port and egress (LLM APIs; reg-memory downloads from public EU sites) |
 | `langfuse` | no | backend, langfuse-web | Apps send traces to `http://langfuse-web:3000`; web's published UI port |
 | `langfuse_internal` | yes | all `langfuse-*` | Langfuse datastores and worker; no route out |
+| `sandbox_net` | yes | agents, sandbox_runner | `execute` → `POST http://sandbox_runner:8090/v1/exec` |
+| `sandbox_models` | yes | sandbox_runner, mlflow, model-gateway | The sandbox reaches only the model under test; no internet |
 
 ## Langfuse
 

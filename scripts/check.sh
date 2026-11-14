@@ -8,11 +8,11 @@ uv run ruff check .
 echo "==> ruff format --check"
 uv run ruff format --check .
 echo "==> pytest"
-uv run pytest
+uv run python -m pytest
 
 # Service suites: each in its own venv (product/<service>/.venv), created on
-# first run; the tests live in tests/<service>/.
-for service in backend agents; do
+# first run; the tests live in tests/<service>/ (dashes as underscores).
+for service in backend agents reg-memory model-gateway mlflow-seed sandbox; do
   echo "==> $service tests"
   venv="product/$service/.venv"
   if [ ! -d "$venv" ]; then
@@ -21,7 +21,11 @@ for service in backend agents; do
   python="$venv/bin/python"
   [ -x "$python" ] || python="$venv/Scripts/python.exe"
   uv pip install --quiet --python "$python" -r "product/$service/requirements.txt"
-  "$python" -m pytest "tests/$service" -q
+  if [ "$service" = sandbox ]; then
+    # synthkit is the image's `synthkit` command; the exec tests run it.
+    uv pip install --quiet --python "$python" -e product/sandbox/synthkit
+  fi
+  "$python" -m pytest "tests/${service//-/_}" -q
 done
 
 # Validate every docker compose file, with its sibling .env.example if present

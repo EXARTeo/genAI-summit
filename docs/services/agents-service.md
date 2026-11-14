@@ -172,7 +172,7 @@ a gated one.
   `http://mcp_gateway:8005/sse`. One SSE session per run; empty URL, or a
   gateway that does not finish its handshake within
   `MCP_CONNECT_TIMEOUT_SECONDS`, means the run goes on without MCP tools.
-- **Sandbox runner** (sibling `sandbox`): `execute` exists only when
+- **Sandbox runner** (`product/sandbox`, compose `sandbox_runner`, [sandbox.md](sandbox.md)): `execute` exists only when
   `SANDBOX_EXECUTION_ENABLED=true` **and** `SANDBOX_RUNNER_URL` is set (e.g.
   `http://sandbox_runner:8090`). Each call is `POST /v1/exec` with
   `X-Internal-Proxy-Secret: <SANDBOX_RUNNER_SECRET>` (the runner's

@@ -13,11 +13,16 @@ docs/
 | `guides/` | [Getting started](guides/getting-started.md) | Install, configure and run the project locally |
 | `architecture/` | [Architecture](architecture/README.md) | AI Act Governance Copilot: MVP scope, containers, pipelines, decisions |
 | `architecture/` | [Agent context and memory](architecture/agent-context.md) | reg-memory scope, system dossier, plugins (target card + docs + training-data description), per-system + general memory, Postgres-backed filesystem and audit ledger |
+| `architecture/` | [Synthetic test data](architecture/synthetic-data.md) | How `generate_data` builds schema-correct, business-realistic test data: LLM-drafted GenerationSpec → DAG sampler + rule enforcement, twins and edge cases per template, validation gates, Data Card, sandbox libraries, MVP cut |
 | `architecture/` | [Diagrams](architecture/diagrams/) | PNG + SVG: containers, engineer pipeline, regulation change, traceability (rebuild: `scripts/build-diagrams.*`) |
 | `architecture/` | [Design document (PDF, Greek)](architecture/ai-act-governance-copilot.pdf) | Full system design: personas, layers, agents, HITL gates, data model, eval, MVP |
 | `services/` | [Backend: systems, files, memory, audits](services/backend-systems.md) | Systems, versioned workspace files, memory, audits, approvals, seed import and the agents' internal API |
 | `services/` | [Backend: async sub-agents](services/backend.md) | The backend's task mirror, task routes and sockets, channel frames, the wake-up flow and its settings |
 | `services/` | [Agents service](services/agents-service.md) | How the agents service is built: run path, filesystem and uploads, tools and approvals, MCP, sandbox, tracing, env vars |
+| `services/` | [reg-memory](services/reg-memory.md) | The regulation store: source catalog, Cellar/HTTP fetching, versioned file store (raw, text, diffs, manifests, runs), incremental stages, API, env vars, how to add a source |
+| `services/` | [model-gateway](services/model-gateway.md) | Seed models as production-style REST endpoints (bearer auth, per-token rate limit, latency, signature validation), the SYS-001 parser→ranker pipeline and the simulated SYS-004 chatbot with planted Art. 50 flaws |
+| `services/` | [MLflow and the seed job](services/mlflow.md) | MLflow tracking server + registry, the one-shot seed job (causal-graph synthetic data, training, per-subgroup metrics, registration, idempotent `seed_hash`), the four demo system dossiers and their planted issues, the model naming contract, how to add a case |
+| `services/` | [sandbox_runner and synthkit](services/sandbox.md) | The `execute` runner (`POST /v1/exec`: files in/out, time/memory/output/disk limits, no internet) and synthkit: profile the model → check scenarios → generate (DAG, rules, twins, boundary-aware) → analyze (five gates), Data Card |
 | `contracts/` | [Agents-service contract](contracts/agents-contract.md) | What the agents service must implement for the backend: endpoints, request JSON, AG-UI events, errors |
 
 Put a new page in the folder that matches it and add a row here.
