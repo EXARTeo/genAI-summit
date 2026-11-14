@@ -326,9 +326,9 @@ class AgentRegistrySettings(BaseSettings):
 
     # Folder of declarative agents (``<slug>/agent.yaml``), read at boot.
     agents_dir: Path = Field(_DEFAULT_AGENTS_DIR, validation_alias="AGENTS_DIR")
-    # The agent GET /agents marks as the default for a new conversation (none
-    # by default: there is no built-in agent).
-    default_agent_slug: str | None = Field(None, validation_alias="DEFAULT_AGENT_SLUG")
+    # The agent GET /agents marks as the default for a new conversation: the
+    # chat copilot the image ships (``definitions/mnamon/``).
+    default_agent_slug: str | None = Field("mnamon", validation_alias="DEFAULT_AGENT_SLUG")
     # Model facts, ``provider:model`` -> ModelInfo, as JSON in the env.
     models: Annotated[dict[str, ModelInfo], NoDecode] = Field(
         default_factory=lambda: {

@@ -434,22 +434,21 @@ def test_agent_models_refuse_unknown_facts():
 
 def test_the_registry_defaults(monkeypatch):
     # The suite points AGENTS_DIR / DEFAULT_AGENT_SLUG at its fixture; the
-    # service's own defaults are an empty definitions folder and no default.
+    # service's own defaults are its definitions folder and the chat copilot.
     monkeypatch.delenv("AGENTS_DIR", raising=False)
     monkeypatch.delenv("DEFAULT_AGENT_SLUG", raising=False)
     monkeypatch.delenv("AGENT_MODELS", raising=False)
     registry = settings_module.AgentRegistrySettings()
-    assert registry.default_agent_slug is None
+    assert registry.default_agent_slug == "mnamon"
     assert registry.agents_dir == SERVICE_ROOT / "definitions"
     # Gemini only: the product's model facts.
     assert all(spec.startswith("google_genai:") for spec in registry.models)
     assert registry.models["google_genai:gemini-3.5-flash-lite"].context_window == 1_048_576
 
 
-def test_the_service_ships_no_agent_definition():
-    # Scaffolding only: the product agent is written at the hackathon.
-    shipped = [p for p in (SERVICE_ROOT / "definitions").iterdir() if p.name != ".gitkeep"]
-    assert shipped == []
+def test_the_service_ships_only_the_chat_copilot():
+    shipped = [p.name for p in (SERVICE_ROOT / "definitions").iterdir() if p.name != ".gitkeep"]
+    assert shipped == ["mnamon"]
 
 
 # ---------------------------------------------------------------------------
@@ -685,6 +684,7 @@ def test_base_agent_manifest():
         "type": "langgraph agent",
         "description": "",
         "icon": "",
+        "kind": "chat",
     }
 
 

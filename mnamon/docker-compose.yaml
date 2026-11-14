@@ -219,6 +219,8 @@ services:
       # Encrypts checkpoints and conversation files: exactly 32 characters
       # (openssl rand -hex 16). Never change it once data exists.
       LANGGRAPH_AES_KEY: ${LANGGRAPH_AES_KEY:-genai-summit-dev-checkpoint-key!}
+      # The chat's agent (mnamon/agents/definitions/<slug>/); GET /agents marks it default.
+      DEFAULT_AGENT_SLUG: ${DEFAULT_AGENT_SLUG:-mnamon}
       ASYNC_SUBAGENTS_ENABLED: ${ASYNC_SUBAGENTS_ENABLED:-true}
       MEMORY_MAX_ENTRIES_PER_SYSTEM: ${MEMORY_MAX_ENTRIES_PER_SYSTEM:-200}
       # mcp_gateway is a sibling project (shared mcp_net); sandbox_runner is

@@ -26,9 +26,11 @@ from core.logging import get_logger
 from harness.abstractions.agent_spec import AgentSpec, SubAgentSpec, ToolRef
 from harness.abstractions.deep_agent import DeepAgent
 from harness.abstractions.subagent_tree import SUBAGENTS_KEY
+from harness.models.fake import DryRunChatModel
+from harness.models.gemini import is_fake
 from harness.tools.ask_user import ASK_USER_TOOL_NAME
 from harness.tools.registry import resolve_native_tool
-from utils.declarative import read_prompt
+from utils.declarative import expand_model_id, read_prompt
 from utils.mcp_tools import build_tool_cache_key, get_tool_cache_key
 
 logger = get_logger(__name__)
@@ -150,9 +152,44 @@ class YamlDeepAgent(DeepAgent):
             )
         return tools
 
-    def _resolve_subagent_model(self, sa: SubAgentSpec) -> str:
-        """Sub-agent model: explicit, then ``model.subagents[name]``, then the main model."""
-        return sa.model or self._spec.model.subagents.get(sa.name) or self._spec.model.main
+    def _resolve_subagent_model(self, sa: SubAgentSpec) -> Any:
+        """Sub-agent model: explicit, then ``model.subagents[name]``, then the main model.
+
+        In fake mode (``AGENTS_FAKE_LLM``) a text-only dry-run stand-in."""
+        if is_fake():
+            return DryRunChatModel()
+        return expand_model_id(
+            sa.model or self._spec.model.subagents.get(sa.name) or self._spec.model.main
+        )
+
+    def _main_model(self) -> Any:
+        """The spec's main model, or in fake mode a dry-run stand-in that still calls
+        one real tool for the conversation's scope (its audit, its system, or the
+        system list), so a dry run exercises the tools and APIs end to end."""
+        if not is_fake():
+            return expand_model_id(self._spec.model.main)
+        declared = {t.native for t in self._spec.tools if t.is_native}
+        scope = self._workspace_scope()
+        system_id = scope.system_id if scope else None
+        audit_id = scope.audit_id if scope else None
+        if audit_id and "read_audit" in declared:
+            return DryRunChatModel(
+                first_tool="read_audit",
+                first_args={"audit_id": audit_id},
+                preface=f"Scoped to audit {audit_id} of system {system_id}.",
+            )
+        if system_id and "list_system_files" in declared:
+            return DryRunChatModel(
+                first_tool="list_system_files",
+                first_args={"system_id": system_id},
+                preface=f"Scoped to system {system_id}. Its folder:",
+            )
+        if "list_systems" in declared:
+            return DryRunChatModel(
+                first_tool="list_systems",
+                preface="Not scoped to a system. Name one of these to look at it:",
+            )
+        return DryRunChatModel()
 
     def definition_fingerprint(self) -> str:
         """A hash of the whole definition: the spec and the prompt it resolved to.
@@ -168,7 +205,7 @@ class YamlDeepAgent(DeepAgent):
         """The spec's native tools on top of the filtered MCP ones, then the shared build."""
         self.tools.extend(self._resolve_native_tools([t for t in self._spec.tools if t.is_native]))
         return self.build_deep_agent(
-            model=self._spec.model.main,
+            model=self._main_model(),
             system_prompt=self.instructions,
             subagents=self.sub_agents,
             interrupt_on=self._spec.hitl,

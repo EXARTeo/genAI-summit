@@ -135,6 +135,7 @@ services:
       INTERNAL_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:?set in Portainer}
       # Exactly 32 characters (openssl rand -hex 16). Never change it once data exists.
       LANGGRAPH_AES_KEY: ${LANGGRAPH_AES_KEY:?set in Portainer}
+      DEFAULT_AGENT_SLUG: ${DEFAULT_AGENT_SLUG:-mnamon}   # the chat's agent
       ASYNC_SUBAGENTS_ENABLED: "true"
       MEMORY_MAX_ENTRIES_PER_SYSTEM: ${MEMORY_MAX_ENTRIES_PER_SYSTEM:-200}
       MCP_GATEWAY_URL: http://mcp_gateway:8005/sse   # Dennis' shared gateway

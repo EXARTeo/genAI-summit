@@ -1,0 +1,49 @@
+# Mnamon Copilot: the engineer's EU AI Act compliance copilot in the chat.
+# Grounded in the product's own data: the regulation (reg-memory, pinned to the
+# active kb_version), the system folders and the audits, read through the
+# backend's API. Writes (a proposed note, a new audit) ask the user first.
+id: mnamon
+slug: mnamon
+name: Mnamon Copilot
+version: 1.0.0
+type: deep_agent
+description: >-
+  Your EU AI Act compliance copilot: explains the regulation with citations, a
+  system's dossier and plugins, and an audit's findings, tests, critic and report
+icon: Scale
+prompt: ./AGENT.md
+model:
+  main: google_genai:${GEMINI_MODEL}    # GEMINI_MODEL from .env
+all_mcp_tools: false    # answers come from the knowledge base, not the open web
+tools:
+  - native: list_systems
+  - native: list_system_files
+  - native: read_system_file
+  - native: list_audits
+  - native: read_audit
+  - native: read_audit_artifact
+  - native: lookup_provision
+  - native: search_regulation
+  - native: propose_system_note
+  - native: start_audit
+subagents:
+  - name: regulation-researcher
+    description: >-
+      Answers one question about the EU AI Act and its guidance from the
+      knowledge base: finds the provisions, reads them, returns the answer
+      with each provision id and kb_version.
+    prompt: ./subagents/regulation-researcher.md
+    tools:
+      - native: lookup_provision
+      - native: search_regulation
+  - name: evidence-analyst
+    description: >-
+      Checks one finding or number of an audit against its evidence: reads the
+      artifacts and system files, recomputes in the sandbox when data is
+      attached, returns what holds, what does not and the counter-arguments.
+    prompt: ./subagents/evidence-analyst.md    # inherits every tool, gates included
+hitl:
+  task: false                 # delegating to the read-only sub-agents needs no approval
+  propose_system_note: true   # a note in the system folder
+  start_audit: true           # a new audit run
+  execute: true               # the sandbox (locked on anyway)

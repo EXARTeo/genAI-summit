@@ -44,6 +44,9 @@ os.environ.setdefault(
     ' "google_genai:gemini-3.5-flash-lite": {"context_window": 1048576}}',
 )
 os.environ.setdefault("INTERNAL_SERVICE_SECRET", "agents-test-secret")
+# As in CI: a developer's .env (AGENTS_FAKE_LLM=true for dry runs) must not swap
+# the declarative agents' models; tests that want fake mode turn it on.
+os.environ["AGENTS_FAKE_LLM"] = "false"
 os.environ.setdefault("MCP_GATEWAY_URL", "")
 os.environ.setdefault("LANGFUSE_BASE_URL", "")
 os.environ.setdefault("SANDBOX_EXECUTION_ENABLED", "false")

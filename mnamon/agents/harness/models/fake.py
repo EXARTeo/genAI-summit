@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import ConfigDict, Field
 
@@ -66,4 +66,64 @@ def tool_call_message(name: str, args: dict[str, Any], text: str = "") -> AIMess
     )
 
 
-__all__ = ["ScriptedChatModel", "tool_call_message"]
+#: How much of the tool result a dry-run reply quotes.
+DRY_RUN_QUOTE_CHARS = 1500
+
+DRY_RUN_NOTE = "Dry run (AGENTS_FAKE_LLM=true): no language model was called."
+
+
+class DryRunChatModel(BaseChatModel):
+    """A chat agent's stand-in in fake mode: one optional tool call, then a text answer.
+
+    Each turn (after the last human message) it calls ``first_tool`` once, when
+    set, so a dry run still exercises the real tools and APIs, then answers with
+    a fixed note, ``preface`` and an excerpt of the tool's result. Deterministic:
+    the reply depends only on the messages it is given.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    first_tool: str | None = None
+    first_args: dict[str, Any] = Field(default_factory=dict)
+    preface: str = ""
+    model: str = "fake-gemini"
+
+    @property
+    def _llm_type(self) -> str:
+        return "dry-run-fake"
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        last_human = max(
+            (i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=-1
+        )
+        turn = messages[last_human + 1 :]
+        results = [m for m in turn if isinstance(m, ToolMessage)]
+        if self.first_tool and not results:
+            message = tool_call_message(self.first_tool, dict(self.first_args))
+            message.tool_calls = [
+                {**call, "id": f"call_{uuid4().hex[:12]}"} for call in message.tool_calls
+            ]
+        else:
+            parts = [DRY_RUN_NOTE, self.preface]
+            if results:
+                quoted = str(results[-1].content)[:DRY_RUN_QUOTE_CHARS]
+                parts.append(f"`{results[-1].name}` returned:\n\n```\n{quoted}\n```")
+            message = AIMessage(content="\n\n".join(p for p in parts if p))
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> DryRunChatModel:
+        return self
+
+
+__all__ = [
+    "DRY_RUN_NOTE",
+    "DryRunChatModel",
+    "ScriptedChatModel",
+    "tool_call_message",
+]
