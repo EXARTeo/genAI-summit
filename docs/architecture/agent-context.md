@@ -273,20 +273,25 @@ The agents service already exposes Postgres rows as files through one `Composite
 | --- | --- | --- | --- | --- |
 | `/regulation/` | RKS corpus, pinned to the run's `kb_version` | no | watcher + HITL (RKS) | per `kb_version` |
 | `/systems/<SYS-ID>/` | `workspace_files`, namespace `system:<id>` | no | PM / AI Officer / engineer (UI, uploads) | per `dossier_version` |
-| `/systems/<SYS-ID>/plugins/<plugin>/` | `workspace_files`, namespace `plugin:<system>/<plugin>` | no | engineer, when configuring the plugin | per `card_version` |
+| `/systems/<SYS-ID>/plugins/<plugin>/` | `workspace_files`, namespace `system:<id>`, paths under `plugins/<plugin>/` | no | engineer, when configuring the plugin | per `card_version` |
 | `/memory/systems/<SYS-ID>/` | `workspace_files`, namespace `memory:system:<id>` | no | engineer approves | every write |
 | `/memory/org/` | `workspace_files`, namespace `memory:org` | no | AI Officer approves | every write |
 | `/memory/proposals/` | `workspace_files`, namespace `memory:proposals` | **yes** | agents (suggestions only) | every write |
 | `/conversation/…`, scratch | existing tables (unchanged) | as today | as today | as today |
 
-Tables (backend Postgres, one Alembic migration):
+Tables (backend Postgres, migration `0003_systems_audits`; built, see
+[backend systems](../services/backend-systems.md) for the routes):
 
 | Table | Holds |
 | --- | --- |
-| `workspace_file_blobs` | Content once per hash (`sha256`), AES-encrypted like conversation blobs |
+| `workspace_file_blobs` | Content once per hash (`sha256`), plain bytes like conversation blobs (encryption at rest: later) |
 | `workspace_files` | `(namespace, path, version)` → blob, plus `content_type`, `created_by`, `created_at`, `is_current`. A new version is a new row; old rows stay |
-| `workspace_file_meta` | Indexed fields parsed from structured files (memory `scope`, `status`, `kind`, `applies_to`, `kb_version`; plugin `access.type`) and a pgvector embedding for similarity search |
-| `workspace_events` | Append-only audit ledger: `(namespace, path, version, action, actor, reason, run_id, trace_id, at)`. Actions include `create`, `update`, `approve`, `promote`, `retire`, `stale`, `read` |
+| `workspace_file_meta` | *Not built yet:* indexed fields parsed from structured files and a pgvector embedding. Until then, per-version metadata lives in `workspace_files.data` (JSONB) |
+| `workspace_events` | Append-only audit ledger: `(namespace, path, version, action, actor, reason, run_id, trace_id, at)`. Actions today: `create`, `update`, `delete`, `read` (with `audit_id`); `approve`, `promote`, `retire`, `stale` next |
+| `systems` | One audited system (`SYS-001`): `name`, `status`, JSONB `data` (parsed system card). Not scoped by client id |
+| `audits` | One audit of a system: `status`, `stage`, JSONB `data` (`dossier_version` locked at creation, `plugin_ids`, `kb_version`) |
+| `audit_artifacts` | Every stage output, versioned per `(audit, kind, name)`; `status` proposed / approved / rejected / changes_requested / superseded; JSONB `data` + `file_refs` |
+| `approvals` | Every human gate decision: `gate`, `decision`, `reason_category`, `comment`, `edits`, `decided_by`. A rejection with a reason writes a memory proposal |
 
 - **Mounting:** the backend passes the system id in the run's config; the agents service mounts
   `/systems/<id>/`, `/memory/systems/<id>/`, `/memory/org/` and `/regulation/` for that run only. A run never
