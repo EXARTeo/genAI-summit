@@ -189,6 +189,7 @@ services:
       # (openssl rand -hex 16). Never change it once data exists.
       LANGGRAPH_AES_KEY: ${LANGGRAPH_AES_KEY:-genai-summit-dev-checkpoint-key!}
       ASYNC_SUBAGENTS_ENABLED: ${ASYNC_SUBAGENTS_ENABLED:-true}
+      MEMORY_MAX_ENTRIES_PER_SYSTEM: ${MEMORY_MAX_ENTRIES_PER_SYSTEM:-200}
       # mcp_gateway is a sibling project (shared mcp_net); sandbox_runner is
       # ours (product/sandbox, docs/services/sandbox.md) on sandbox_net.
       MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://mcp_gateway:8005/sse}
