@@ -17,7 +17,8 @@ Limits (Linux; on other platforms only the timeout, output and disk caps hold):
   kills the command → ``output_limit`` (and ``truncated``).
 * **disk**: RLIMIT_FSIZE per file, and the workdir total is measured after the
   run; over ``max_disk_bytes`` → ``disk_limit`` and no files come back.
-* **processes**: RLIMIT_NPROC.
+* **processes**: the container's cgroup ``pids_limit`` (compose). Not RLIMIT_NPROC: it
+  counts every process of the uid on the host, so it breaks fork under load.
 
 Network isolation is the container's job (compose: ``sandbox_net`` + an internal
 network that reaches only ``mlflow`` and ``model-gateway``).
@@ -168,6 +169,12 @@ def _child_env(workdir: Path) -> dict[str, str]:
         "PYTHONDONTWRITEBYTECODE": "1",
         "MPLBACKEND": "Agg",
         "SANDBOX_WORKDIR": str(workdir),
+        # BLAS/OpenMP/Arrow pools size themselves to the host's cores; under the
+        # address-space cap that many threads cannot start (EAGAIN).
+        "OMP_NUM_THREADS": str(settings.exec.threads),
+        "OPENBLAS_NUM_THREADS": str(settings.exec.threads),
+        "MKL_NUM_THREADS": str(settings.exec.threads),
+        "NUMEXPR_NUM_THREADS": str(settings.exec.threads),
     }
     if not IS_POSIX:
         for name in ("SYSTEMROOT", "COMSPEC", "PATHEXT", "WINDIR"):
@@ -190,7 +197,6 @@ def _limits(timeout: int):  # noqa: ANN202 - a preexec_fn
         cap(resource.RLIMIT_AS, cfg.memory_mb * 1024 * 1024)
         cap(resource.RLIMIT_CPU, timeout + 1)
         cap(resource.RLIMIT_FSIZE, cfg.max_disk_bytes)
-        cap(resource.RLIMIT_NPROC, cfg.max_processes)
         cap(resource.RLIMIT_CORE, 0)
 
     return apply
@@ -211,6 +217,18 @@ def _kill(proc: subprocess.Popen) -> None:
         pass
 
 
+def _signal_of(returncode: int | None) -> int | None:
+    """The signal that ended the command: ``-N`` from Popen, or ``128 + N`` when the
+    shell reports a killed child."""
+    if not IS_POSIX or returncode is None:
+        return None
+    if returncode < 0:
+        return -returncode
+    if 128 < returncode < 160:
+        return returncode - 128
+    return None
+
+
 def _killed_reason(
     *, timed_out: bool, overflow: bool, returncode: int | None, stderr: str, disk_over: bool
 ) -> str | None:
@@ -218,13 +236,15 @@ def _killed_reason(
         return "timeout"
     if overflow:
         return "output_limit"
-    if disk_over or (IS_POSIX and returncode == -getattr(signal, "SIGXFSZ", 25)):
+    sig = _signal_of(returncode)
+    tail = stderr[-4000:]
+    if disk_over or sig == getattr(signal, "SIGXFSZ", 25) or "File size limit exceeded" in tail:
         return "disk_limit"
-    if IS_POSIX and returncode == -getattr(signal, "SIGXCPU", 24):
+    if sig == getattr(signal, "SIGXCPU", 24):
         return "timeout"
-    if returncode not in (0, None) and any(m in stderr[-4000:] for m in _MEMORY_MARKERS):
+    if returncode not in (0, None) and any(m in tail for m in _MEMORY_MARKERS):
         return "memory"
-    if IS_POSIX and returncode == -signal.SIGKILL:
+    if sig == signal.SIGKILL:
         return "memory"  # the kernel's (or cgroup's) OOM kill
     return None
 

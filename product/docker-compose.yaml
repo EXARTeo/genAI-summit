@@ -1,8 +1,8 @@
 # Product stack: backend + its Postgres/Redis, plus a self-hosted Langfuse v4
 # (web, worker, Postgres, ClickHouse, Valkey, MinIO) for full agent tracing.
 #
-#   cp product/.env.example product/.env      # then change the secrets
-#   docker compose -f product/docker-compose.yaml up -d --build
+#   cp .env.example .env                      # repo root: the ONE env file
+#   ./scripts/stack.sh up                     # = docker compose --env-file .env -f product/docker-compose.yaml up -d --build
 #
 # Every variable has a dev default, so the stack also starts without a .env.
 # Services, ports and networks: product/README.md.
@@ -371,6 +371,7 @@ services:
       SANDBOX_MAX_OUTPUT_BYTES: ${SANDBOX_MAX_OUTPUT_BYTES:-1048576}
       SANDBOX_MAX_DISK_BYTES: ${SANDBOX_MAX_DISK_BYTES:-268435456}
       SANDBOX_MAX_CONCURRENT: ${SANDBOX_MAX_CONCURRENT:-4}
+      SANDBOX_THREADS: ${SANDBOX_THREADS:-2}
       # Passed through to commands (SANDBOX_PASSTHROUGH_ENV): how synthkit
       # reaches the model under test. Nothing else from this env leaks in.
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}

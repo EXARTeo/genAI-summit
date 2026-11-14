@@ -52,7 +52,7 @@ file counts, the exit code and the kill reason, but never the command text.
 | Memory | RLIMIT_AS = `SANDBOX_MEMORY_MB`; `MemoryError` or an OOM kill | `memory` |
 | Output | per-stream cap; the command is killed as soon as it prints more | `output_limit` |
 | Disk | RLIMIT_FSIZE per file and a workdir-total check after the run; no files come back | `disk_limit` |
-| Processes | RLIMIT_NPROC = `SANDBOX_MAX_PROCESSES`; compose `pids_limit: 512` | – |
+| Processes | compose `pids_limit: 512` (cgroup). Not RLIMIT_NPROC, which counts every process of uid 1000 on the host and broke `fork` | – |
 | Concurrency | `SANDBOX_MAX_CONCURRENT` calls at once; others wait | – |
 | Environment | only `PATH`, locale, `HOME`/`TMPDIR` and `SANDBOX_PASSTHROUGH_ENV` (`MLFLOW_TRACKING_URI`, `MODEL_GATEWAY_URL`, `MODEL_GATEWAY_TOKEN`) | – |
 | Network | compose networks `sandbox_net` (agents) and `sandbox_models` (mlflow, model-gateway), both internal; no internet | – |
@@ -174,7 +174,8 @@ those modes before any data is generated.
 | `SANDBOX_MEMORY_MB` | 3072 | RLIMIT_AS per command |
 | `SANDBOX_MAX_OUTPUT_BYTES` | 1048576 | per stream |
 | `SANDBOX_MAX_DISK_BYTES` | 268435456 | workdir total and per file |
-| `SANDBOX_MAX_PROCESSES` / `SANDBOX_MAX_CONCURRENT` | 256 / 4 | |
+| `SANDBOX_MAX_CONCURRENT` | 4 | calls at once |
+| `SANDBOX_THREADS` | 2 | `OMP`/`OPENBLAS`/`MKL`/`NUMEXPR_NUM_THREADS` inside commands (more threads cannot start under the memory cap) |
 | `SANDBOX_MAX_FILES` / `SANDBOX_MAX_TRANSFER_BYTES` | 100 / 20 MB | each way |
 | `SANDBOX_PASSTHROUGH_ENV` | `MLFLOW_TRACKING_URI,MODEL_GATEWAY_URL,MODEL_GATEWAY_TOKEN` | env vars commands may see |
 | `SANDBOX_MODEL_GATEWAY_URL` (compose) | `http://model-gateway:8000` | becomes `MODEL_GATEWAY_URL` inside the box |

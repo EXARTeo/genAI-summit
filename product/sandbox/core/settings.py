@@ -76,11 +76,12 @@ class ExecSettings(BaseSettings):
     max_disk_bytes: int = Field(
         256 * 1024 * 1024, ge=1024, validation_alias="SANDBOX_MAX_DISK_BYTES"
     )
-    max_processes: int = Field(256, ge=8, validation_alias="SANDBOX_MAX_PROCESSES")
     # The contract's transfer caps, each way (same numbers as the agents client).
     max_files: int = Field(100, ge=1, validation_alias="SANDBOX_MAX_FILES")
     max_transfer_bytes: int = Field(20 * 1024 * 1024, validation_alias="SANDBOX_MAX_TRANSFER_BYTES")
     max_concurrent: int = Field(4, ge=1, validation_alias="SANDBOX_MAX_CONCURRENT")
+    # Thread count for BLAS/OpenMP pools inside commands.
+    threads: int = Field(2, ge=1, validation_alias="SANDBOX_THREADS")
     # Environment variables passed through to commands (comma-separated names):
     # how a command reaches MLflow and the model gateway. Nothing else leaks in.
     passthrough_env: str = Field(
