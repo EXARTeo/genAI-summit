@@ -27,7 +27,7 @@ from synthkit.expr import evaluate
 from synthkit.profile import surrogate_logit
 from synthkit.sampler import CUSTOM_SAMPLERS, Sampler
 from synthkit.spec import TWIN_MODES, GenerationSpec, canonical_hash
-from synthkit.stats import compare_population, marginal
+from synthkit.stats import compare_population, compare_to_reference, marginal
 
 META = [
     "_row_id",
@@ -344,6 +344,15 @@ def data_card(
             )
     protected = d.by_role("protected")
     label = d.label_rule
+    ref = spec.reference
+    inputs_used = [{"path": d.source}]
+    if ref:
+        inputs_used += [
+            {"path": ref["path"], "sha256": ref["sha256"], "kind": "reference_sample"},
+            {"path": ref["mapping"], "kind": "reference_mapping"},
+        ]
+    if spec.profile:
+        inputs_used.append({"path": spec.raw["model_profile"]})
     card = {
         "dataset_id": dataset_id,
         "name": spec.name,
@@ -353,10 +362,10 @@ def data_card(
             "plugin": spec.plugin.get("id"),
             "access_type": (spec.plugin.get("access") or {}).get("type"),
         },
-        "inputs_used": [{"path": d.source}]
-        + ([{"path": spec.raw["model_profile"]}] if spec.profile else []),
+        "inputs_used": inputs_used,
         "generation": {
-            "method": "dag_sampler",
+            "method": "reference_sample" if ref else "dag_sampler",
+            "mode": spec.mode,
             "generator_version": GENERATOR,
             "seed": gen.seed,
             "spec_sha256": spec_hash,
@@ -397,6 +406,25 @@ def data_card(
             if f["type"] in ("category", "integer", "float")
         },
         "population": compare_population(base, d.population.get("stats") or {}),
+        "reference": (
+            {
+                "source": ref["source"],
+                "licence": ref["licence"],
+                "licence_status": ref["licence_status"],
+                "path": ref["path"],
+                "sha256": ref["sha256"],
+                "rows": ref["rows"],
+                "fitted_fields": ref["fitted"],
+                "zero_shot_fields": ref["zero_shot"],
+                "fit": ref["fields"],
+                "dropped_columns": ref["dropped_columns"],
+                "label": ref.get("label"),
+                "label_rate": ref.get("label_rate"),
+                "realism_vs_reference": compare_to_reference(base, spec.reference_frame, d.fields),
+            }
+            if ref
+            else None
+        ),
         "group_balance": {p: base[p].astype(str).value_counts().to_dict() for p in protected},
         "rules": {
             "pass_rate_base": _rule_rates(gen.sampler, base, d.rules),
@@ -409,8 +437,15 @@ def data_card(
         "files": files,
         "content_sha256": content_sha256,
         "limitations": [
-            "Synthetic only: realism is checked against the dictionary and stated population "
-            "stats, not against real applicants.",
+            (
+                f"Synthetic rows fitted to a public reference ({(ref['source'] or {}).get('id')}, "
+                f"{ref['licence']}): fields {ref['fitted']} follow its distributions, which "
+                "describe a different population than the audited system's applicants; "
+                f"{ref['zero_shot']} are zero-shot from the dictionary."
+                if ref
+                else "Synthetic only: realism is checked against the dictionary and stated "
+                "population stats, not against real applicants."
+            ),
             *(
                 ["Strata are balanced by design: group rates are not population rates."]
                 if (spec.raw.get("strata") or {}).get("by")
@@ -426,6 +461,11 @@ def data_card(
             ),
         ],
         "data_policy": "synthetic_only",
+        "reference_data": (
+            f"public:{ref['licence']} (fitted statistics only; no reference row is copied)"
+            if ref
+            else None
+        ),
         "review": {"status": "proposed"},
     }
     return card

@@ -101,6 +101,9 @@ class Sampler:
         if dist == "choice":
             values, p = _probs(spec["values"])
             return _coerce(values[rng.choice(len(values), p=p)])
+        if dist == "empirical":  # quantiles fitted from a reference sample
+            q = np.asarray(spec["quantiles"], dtype=float)
+            return float(np.interp(rng.random(), np.linspace(0.0, 1.0, len(q)), q))
         if dist == "poisson":
             return float(rng.poisson(max(0.0, float(self._param(spec, "mean", row, 1.0)))))
         if dist == "lognormal":

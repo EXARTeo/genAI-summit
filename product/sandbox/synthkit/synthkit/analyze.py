@@ -30,7 +30,13 @@ from synthkit.expr import evaluate
 from synthkit.profile import surrogate_logit
 from synthkit.sampler import Sampler
 from synthkit.spec import GenerationSpec
-from synthkit.stats import compare_population, entropy_norm, ks_complement, tv_complement
+from synthkit.stats import (
+    compare_population,
+    compare_to_reference,
+    entropy_norm,
+    ks_complement,
+    tv_complement,
+)
 
 PII_PATTERNS = {
     "email": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
@@ -143,7 +149,13 @@ def _realism_gate(frame: pd.DataFrame, spec: GenerationSpec, seed: int) -> dict:
         elif fdef["type"] in ("integer", "float"):
             metrics[f"KSComplement.{f}"] = ks_complement(base[f], reference[f])
     population = compare_population(base, d.population.get("stats") or {})
+    vs_reference = (
+        compare_to_reference(base, spec.reference_frame, d.fields)
+        if spec.reference_frame is not None
+        else {}
+    )
     low = {k: v for k, v in metrics.items() if v < 0.8}
+    low.update({f"reference.{k}": v for k, v in vs_reference.items() if v < 0.8})
     off = [k for k, v in population.items() if v.get("within_tolerance") is False]
     by = (spec.raw.get("strata") or {}).get("by") or []
     note = (
@@ -156,8 +168,13 @@ def _realism_gate(frame: pd.DataFrame, spec: GenerationSpec, seed: int) -> dict:
         "metrics": metrics,
         "below_0_8": low,
         "population_stats": population,
+        "vs_reference_sample": vs_reference,
         "note": note,
-        "reference": "1000 rows sampled from the dictionary alone (no strata, no transforms)",
+        "reference": "1000 rows sampled from the (fitted) dictionary alone "
+        "(no strata, no transforms)"
+        + (
+            f"; plus the public reference sample {spec.reference['path']}" if spec.reference else ""
+        ),
     }
 
 
@@ -201,8 +218,11 @@ def _privacy_gate(frame: pd.DataFrame, fields: dict, sample: pd.DataFrame | None
     copies = 0
     if sample is not None and not sample.empty:
         common = [c for c in feats if c in sample.columns]
-        merged = base[common].merge(sample[common].astype(str).drop_duplicates(), how="inner")
-        copies = len(merged)
+        # A row is a copy only if every feature matches; a reference that covers a
+        # subset of the features (reference_sample mode) cannot be copied row-for-row.
+        if len(common) == len(feats):
+            merged = base[common].merge(sample[common].astype(str).drop_duplicates(), how="inner")
+            copies = len(merged)
     return {
         "status": _status(bool(hits) or copies > 0, dup_rate > 0.05),
         "pii_pattern_hits": hits,
@@ -274,7 +294,9 @@ def run_analysis(
         "business_rules": _rules_gate(frame, d.rules),
         "realism": _realism_gate(frame, spec, seed),
         "coverage": _coverage_gate(frame, spec),
-        "privacy": _privacy_gate(frame, d.fields, sample),
+        "privacy": _privacy_gate(
+            frame, d.fields, sample if sample is not None else spec.reference_frame
+        ),
     }
     feats = [f for f, x in d.fields.items() if x.get("role", "feature") not in ("id", "surface")]
     base = frame[frame["_test"] == "base"]

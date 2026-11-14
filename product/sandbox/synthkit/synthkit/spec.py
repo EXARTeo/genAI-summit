@@ -41,10 +41,14 @@ from typing import Any
 import yaml
 
 from synthkit.expr import ExpressionError, compile_expr, names
+from synthkit.reference import ReferenceSampleError, apply_reference
 
 FIELD_TYPES = frozenset({"category", "integer", "float", "string", "boolean", "id"})
 ROLES = frozenset({"protected", "proxy", "feature", "label", "id", "surface"})
-DISTS = frozenset({"poisson", "lognormal", "normal", "uniform", "beta", "choice", "exponential"})
+DISTS = frozenset(
+    {"poisson", "lognormal", "normal", "uniform", "beta", "choice", "exponential", "empirical"}
+)
+GENERATION_MODES = ("zero_shot", "reference_sample")
 TRANSFORMS = frozenset({"twins", "edge_cases", "perturbation"})
 TWIN_MODES = ("attribute_only", "causal", "proxy_only")
 SOURCE_KINDS = frozenset({"sequence", "list", "faker", "custom", "constant"})
@@ -211,6 +215,12 @@ class GenerationSpec:
     plugin: dict
     profile: dict | None
     custom_path: Path | None
+    reference: dict | None = None  # reference_sample mode: provenance + fit report
+    reference_frame: Any = None  # the reference mapped onto our fields (pandas)
+
+    @property
+    def mode(self) -> str:
+        return str((self.raw.get("generation") or {}).get("mode", "zero_shot"))
 
     @property
     def n(self) -> int:
@@ -232,6 +242,7 @@ class GenerationSpec:
                 "label_rule": self.dictionary.label_rule,
                 "custom": custom,
                 "boundary": profile_boundary if self.raw.get("boundary") else None,
+                "reference": (self.reference or {}).get("sha256"),
             }
         )
 
@@ -290,6 +301,18 @@ def load_spec(path: Path) -> GenerationSpec:
     dict_data["rules"] = list(dict_data.get("rules") or []) + extra_rules
     if raw.get("label_rule"):
         dict_data["label_rule"] = raw["label_rule"]
+    mode = (raw.get("generation") or {}).get("mode", "zero_shot")
+    if mode not in GENERATION_MODES:
+        raise SpecError(f"generation.mode must be one of {GENERATION_MODES}")
+    reference = reference_frame = None
+    if mode == "reference_sample":
+        validate_fields(dict_data["fields"])
+        try:
+            dict_data, reference, reference_frame = apply_reference(
+                raw, base, dict_data, topo_order(dict_data["fields"])
+            )
+        except (ReferenceSampleError, OSError, ValueError, KeyError) as exc:
+            raise SpecError(f"reference_sample: {exc}") from exc
     dictionary = Dictionary.from_mapping(dict_data, str(base / raw["dictionary"]))
     _validate_spec_keys(raw, dictionary.fields)
     plugin = load_yaml(base / raw["plugin"]) if raw.get("plugin") else {}
@@ -303,4 +326,6 @@ def load_spec(path: Path) -> GenerationSpec:
     custom = base / raw["custom"] if raw.get("custom") else None
     if custom is not None and not custom.exists():
         raise SpecError(f"custom sampler file not found: {custom}")
-    return GenerationSpec(raw, base, dictionary, plugin or {}, profile, custom)
+    return GenerationSpec(
+        raw, base, dictionary, plugin or {}, profile, custom, reference, reference_frame
+    )

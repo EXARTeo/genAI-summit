@@ -87,3 +87,17 @@ def entropy_norm(col: pd.Series) -> float:
     if len(p) <= 1:
         return 0.0
     return round(float(-(p * np.log(p)).sum() / np.log(len(p))), 4)
+
+
+def compare_to_reference(frame: pd.DataFrame, reference: pd.DataFrame, fields: dict) -> dict:
+    """TV/KS complement of each reference-fitted field: synthetic base rows vs the reference."""
+    out: dict[str, float] = {}
+    for f in reference.columns:
+        if f not in frame.columns or f not in fields:
+            continue
+        ref = reference[f].dropna()
+        if fields[f]["type"] in ("category", "boolean"):
+            out[f"TVComplement.{f}"] = tv_complement(frame[f].dropna(), ref)
+        elif fields[f]["type"] in ("integer", "float"):
+            out[f"KSComplement.{f}"] = ks_complement(frame[f], ref)
+    return out
