@@ -157,16 +157,20 @@ Source of truth: `branding/brand.json` → `branding/export_tokens.py --frontend
 `src/styles/theme/tokens.css` (`--color-*` hex + `--rgb-*` channels, light/dark, `data-theme` override).
 `tests/test_branding.py` fails if the generated file is out of date.
 
-Palette (neutral + teal): zinc surfaces (light `#FAFAFA` / `#FFFFFF`, dark `#09090B` / `#111113`), teal
-`primary` = `accent` (#0F766E / dark #2DD4BF), amber `warning` for HITL, `success` / `danger` for verdicts, a
-slate `info`. Inter + JetBrains Mono, self-hosted via `@fontsource-variable`.
+Palette (Mnamon, from `branding/source/color-palette.pdf`): parchment light theme (`#F4F1EA` page, `#FBF9F4`
+cards, `#E9E3D6` wells) and ink dark theme (`#13171F` / `#1D2330`); terra `primary` (light terra-deep `#9E4A17`,
+dark `#D2773A` with ink text), lex `accent` and `info` (light `#2F5F80`, dark `#7FB0D1`), ochre `warning` for HITL,
+`success` / `danger` for verdicts; every pair is WCAG AA (`tests/test_branding.py`). Fonts: EB Garamond for the
+wordmark and page titles (`h1`), Inter for everything else, JetBrains Mono for code, all self-hosted via
+`@fontsource-variable`.
 
 Theme: light / dark / system, stored in `localStorage['aac.theme']`; `public/theme-init.js` sets
 `data-theme` before React loads, so there is no flash.
 
-> **TODO(brand):** the product name *AI Act Copilot* is a working name, and the logo (a teal rounded square with
-> a shield-check glyph in `src/shared/ui/logo.tsx`; `branding/logo/logo.svg`, `public/favicon.svg`) is a
-> placeholder. Replace both.
+Brand: **Mnamon**, the AI Act Governance Copilot. `src/shared/ui/logo.tsx` draws the mark (`LogoMark`, striped;
+`solid` for tiny sizes) from the `--logo-lex` / `--logo-terra` tokens, so it follows the theme, plus the MNAMON
+`Wordmark`; `PRODUCT_NAME` / `PRODUCT_DESCRIPTOR` mirror `brand.json`. `public/favicon.svg`, `favicon.ico` and
+`apple-touch-icon.png` are copies of `branding/logo/`.
 
 ## API layer and mock mode
 
