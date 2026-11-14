@@ -1,9 +1,10 @@
 # Deploying to Dennis (CI/CD)
 
-`.github/workflows/pipeline.yml` (workflow **CI/CD**) runs the CI jobs on every
-push and pull request. On `main` it then runs CD: it builds the ARM64 images,
-publishes them to GHCR, writes the Dennis stack into a separate **deploy repo**
-and tells Portainer to redeploy.
+`.github/workflows/pipeline.yml` (workflow **CI/CD**) has two stages, shown as two
+boxes: **CI** (`ci.yml`, reusable: one job per service, on every push and pull
+request) and **CD** (`cd.yml`, reusable: on `main` only, after CI passed). CD
+builds the ARM64 images, publishes them to GHCR, writes the Dennis stack into a
+separate **deploy repo** and tells Portainer to redeploy.
 
 ```mermaid
 flowchart LR

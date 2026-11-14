@@ -74,4 +74,4 @@ S = under 1 h, M = 1–3 h, L = more than 3 h (estimates).
 | Containers | All 15 healthy (frontend, backend, agents, reg-memory, sandbox_runner, model-gateway, mlflow, Postgres, Redis, Langfuse ×6) |
 | Seed | SYS-001..004 imported, 4 models `@champion` in MLflow |
 | Branding | Mnamon logo, palette, favicons, deck, diagrams |
-| CI/CD | `.github/workflows/pipeline.yml`: CI jobs + `cd-images` / `cd-deploy` to Dennis (deploy repo + Portainer); needs one-time setup |
+| CI/CD | `.github/workflows/pipeline.yml` → `ci.yml` (CI jobs) then `cd.yml` (`cd-images` / `cd-deploy`) to Dennis (deploy repo + Portainer); needs one-time setup |
