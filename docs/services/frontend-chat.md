@@ -17,7 +17,7 @@ src/features/chat/
 │   ├── hitl.ts           HITL interrupt + ask_user parsing (magenticx features/inference/hitl.ts)
 │   ├── runState.ts       frame → live run fold (magenticx features/inference/runState.ts)
 │   ├── branches.ts       edit/retry branches: visible path, siblings, selection
-│   ├── attachments.ts    upload guards (25 MB / file and message, 10 files), base64 read, preview kinds
+│   ├── attachments.ts    upload guards (25 MB / file and message, 10 files), base64 read (kinds: shared lib/files.ts)
 │   ├── slashCommands.ts  /new /rename /pin /archive /retry /stop /agent /search
 │   ├── sidebarList.ts    conversation list logic: pinned order, paged Chats, search grouping, titles
 │   ├── sidebarMotion.ts  list row / section motion (magenticx sidebarMotion.ts, tweens, no springs)
@@ -32,7 +32,8 @@ src/features/chat/
 ├── hooks/
 │   ├── runStore.ts       live runs app-wide (zustand), socket lifecycle, cache patching on terminal frames
 │   ├── useChat.ts        the controller: visible branch, active run, send/edit/retry/stop/decide/answer/rate
-│   ├── useComposer.ts    draft + attachments with read progress
+│   ├── useComposer.ts    draft + attachments with read progress (a failed read stays as a red chip)
+│   ├── useAttachmentActions.tsx   a sent file's bytes, Download, "Save to <system> folder" for the shared chip / preview
 │   ├── useSidebarUi.ts   section fold state (localStorage) + the chat search panel's open state (zustand)
 │   └── useConversations.ts, keys.ts   react-query (paged Chats, pinned, archived, detail, search, agents, subject)
 └── components/
@@ -45,11 +46,11 @@ src/features/chat/
     ├── ChatBody.tsx, ChatMessage.tsx   message list (stick-to-bottom), user bubble (+ inline edit), agent answer
     ├── ChatComposer.tsx    "Message {agent}…" card: textarea, "+" files (button / paste / drop), slash menu, subject chip, one round Send / Stop / Queue button
     ├── HitlTakeover.tsx, AskUserTakeover.tsx   approvals (batched deck) and the agent's questions
-    ├── AttachmentPreview.tsx   side sheet: image, PDF, DOCX (mammoth → sandboxed frame), Markdown, CSV, JSON/code, text
+    ├── AttachmentPreview.tsx   the shared FilePreviewPanel fed with a sent or composer file (+ Save to <system> folder)
     ├── ChatAboutButton.tsx     "Chat about this system / audit" entry point
     └── message_parts/   ChatMarkdown (GFM + highlight.js, code header with copy/download), MarkdownTable (copy,
                          CSV/Markdown download), ThinkingBlock + CoTStep (CoT), ToolCallView (+ sources), SubagentCard,
-                         RunBlocks (artifact, task rows, plan), MessageAttachments, ActionBars, BranchControls,
+                         RunBlocks (artifact, task rows, plan), MessageAttachments (shared FileChip + ImageGrid), ActionBars, BranchControls,
                          MessageUsage (usage gauge + tooltip)
 ```
 
@@ -64,6 +65,20 @@ suggestions as pills below; the approval takeover is compact (shield, "Approval 
 for the arguments; one row with an optional reason, Reject, Approve in amber); the questions takeover asks one question
 at a time (numbered tiles, keys 1–6, write your own, Skip — let the agent decide, Next / Send answers). Not ported: the
 travelling glow border of the composer (no glows here), the draft command highlight, recent agents in the picker.
+
+## Files and images
+
+Ported from magenticx's attachment UX onto the shared pieces in `@/shared/ui` (see [frontend.md](frontend.md#design-system-srcsharedui)):
+
+| magenticx | Here |
+| --- | --- |
+| Composer strip (`ChatInputBar`): 56 px image thumbnails, file chips with a tile and name, round red remove, fading edges, images first | Same, on `FileChip variant="composer"`; adds type · size, read progress and a failed state; an image opens the lightbox, a file the preview |
+| `MessageAttachments`: 40 px accent tile + name + MIME, Eye / Download on hover; images in a two-column grid, odd last spans both | Same (`FileChip variant="message"`, `ImageGrid`); the subtitle is type · size; a ⋯ menu adds "Save to <system> folder"; on touch screens the ⋯ menu holds every action |
+| `ImageLightbox`: full screen, download + close, Esc / backdrop, panel motion | Same plus zoom (buttons, wheel, double-click, + − 0), drag to pan and ←/→ through the message's images; Radix focus trap and return |
+| `ArtifactCard`: a presented image shows as the image; other files as a "Generated document" card that previews or downloads | Same, opening the shared preview / lightbox |
+| `AttachmentPreviewPanel`: big centred panel, name + type · MIME · size, Download, PDF / Office viewer / Markdown / JSON / CSV / code / text | Same layout on our tokens (full screen on a phone); DOCX converted in the browser (no Office Online viewer, no public token), Excel / PowerPoint download only, images preview in the panel too |
+
+Escape in the lightbox or the preview closes only that layer (it no longer also stops a running answer).
 
 ## Mapping to our API
 

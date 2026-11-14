@@ -100,12 +100,23 @@ Import everything from `@/shared/ui`. Exact exports:
 | Content | `PageHeader` (breadcrumbs, eyebrow, meta, actions; text only, `icon` is ignored), `Section`, `KeyValue`, `CodeBlock` (yaml/json highlight, copy), `Markdown` (GFM, no raw HTML, optional streaming caret), `DataTable` (client sort, sticky header, skeleton rows), `FileTree` (from flat paths) |
 | States | `Skeleton`, `SkeletonText`, `SkeletonCard`, `EmptyState`, `ErrorState` (understands `ApiError`, retry) |
 | Misc | `Tabs` (+ `Tabs.List/Trigger/Content`), `Tooltip`, `TooltipProvider`, `Toaster` / `toast` (sonner), `Logo`, `LogoMark` |
+| Files | `FileChip` (`composer` · `message` · `row`; `FileAction` extra actions), `fileKindIcon`, `ImageGrid` (in-message thumbnails → lightbox), `ImageLightbox` (zoom, ←/→, download), `FilePreviewPanel` (modal preview by kind) + `FilePreviewBody` (inline), `downloadPreviewFile`, `PreviewFile` |
+
+**Files and images** (ports of magenticx's attachment UX, one implementation for chat, the system folder and audits).
+Data in, callbacks out: a surface hands `FileChip` / `ImageGrid` its files and handlers, and the preview a `PreviewFile`
+(`{id, name, mime, size, load: () => Promise<Blob>}`), so nothing in `shared/` knows the API. Pure helpers live in
+`src/shared/lib/files.ts` (`classifyFile` → kind / previewable / label / language by MIME then extension, `guessMime`,
+`formatFileSize`, `fileSubtitle`, `parseCsv`, `blobFromBase64`, `downloadName`, `triggerBrowserDownload`) and
+`src/shared/hooks/useFileBlob.ts` (`useFileBlob`, `useObjectUrl`). The lightbox and the preview are Radix Dialogs (focus trap,
+Escape that closes only them, focus return) moving with `panelBackdrop` / `panelContent` from `motion.ts` on `bg-scrim-strong`.
+PDF frames get an object URL forced to `application/pdf`, DOCX is converted by mammoth (lazy) into a script-less sandboxed
+frame coloured from our tokens, SVG is never previewed.
 
 Colours are Tailwind tokens backed by CSS variables (see Theming): `background`, `foreground` (= `text`),
 `surface` (+ `-raised`, `-sunken`; `surface-muted` = `sunken`), `muted`, `border`, `ring`,
 `primary|accent|success|warning|danger|info` each with `-foreground`, `chart-1..5`, all with opacity
 (`bg-primary/10`); plus full-colour component tokens `hover(-strong)`, `shell-frame`, `shell-card`, `topbar`,
-`scrim`, `switch-thumb`. Never write hex, `rgb()`, or Tailwind palette colours (`white`, `black`, `zinc-*`) in
+`scrim` (+ `scrim-strong` for the lightbox and preview), `switch-thumb`. Never write hex, `rgb()`, or Tailwind palette colours (`white`, `black`, `zinc-*`) in
 components.
 
 ## Theming
