@@ -94,8 +94,9 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 | `GET /internal/audits/{id}/files[?prefix=]` | tree of the audit's system folder |
 | `GET /internal/audits/{id}/files/{path}[?version=]` | JSON content; logs a `read` event (`audit_id`, `run_id`, `trace_id`) |
 | `POST /internal/audits/{id}/artifacts` | new artifact version (actor `agent[:name]`) |
+| `PUT /internal/audits/{id}/datasets/public/{slug}/{name}` | store one file of a human-approved public reference dataset (`router/internal_datasets.py`); only `data.csv`, `mapping.yaml`, `datasheet.md`, `source.json` under `datasets/public/<slug>/` (lower-case slug), JSON `{content, contentType?, reason?, data?}`, logged with run/trace ids |
 
-The agent cannot write the system folder: no internal route does.
+The agent cannot write the system folder, except `datasets/public/<slug>/` (the four files above) for a public dataset a human approved.
 
 ## Settings
 

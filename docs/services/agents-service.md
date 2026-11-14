@@ -220,6 +220,25 @@ a gated one.
   files are written back to `/conversation/output/`. A runner that is down is
   an error result for the model, never a fallback.
 
+## Public dataset discovery
+
+`harness/tools/public_datasets/` (pure Python + httpx; no LLM inside except an optional Gemini note) finds
+public datasets that match an audited system before any synthetic data is made
+([synthetic-data.md § 2a](../architecture/synthetic-data.md#2a-public-data-first-find_public_data)):
+
+- `search_public_datasets(audit_id, plugin?)`: reads the system folder through the backend's internal API,
+  queries OpenML, UCI, Hugging Face and (with `FIRECRAWL_API_KEY`) Firecrawl, scores every candidate against the
+  plugin's `data-dictionary.yaml` and writes a `public_dataset_candidates` artifact (`status: proposed`).
+- `fetch_public_dataset(audit_id, candidate_id)`: refuses unless that artifact is **approved** (and matches a
+  human-set `data.selected`); downloads capped rows, drops PII columns and stores `datasets/public/<slug>/`
+  through `PUT /internal/audits/{id}/datasets/public/{slug}/{file}` (`BACKEND_INTERNAL_URL`, default
+  `http://backend:8000`, secret `INTERNAL_SERVICE_SECRET`).
+
+`build_public_dataset_tools()` returns both as LangChain tools; they are not in the registry yet (the pipeline
+wires them). Local try-out: `python -m harness.tools.public_datasets search --system-dir <case> --out-dir <dir>`,
+then `fetch --candidates <json> --id <id> --approved-by <who> --out-dir <dir>`. Tests:
+`tests/agents/test_public_datasets.py` (mocked HTTP).
+
 ## Tracing
 
 With `LANGFUSE_BASE_URL` and both keys set, each run gets a Langfuse

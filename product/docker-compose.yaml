@@ -179,6 +179,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:-genai-summit-dev-log-redaction}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Public dataset discovery (harness/tools/public_datasets): optional web
+      # search, and the backend's internal API that stores an approved dataset.
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
       AGENT_RUNTIME_DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app-dev-postgres}@postgres:5432/agent_runtime
       REDIS_URL: redis://redis:6379/0
       REDIS_PASSWORD: ${REDIS_PASSWORD:-app-dev-redis}

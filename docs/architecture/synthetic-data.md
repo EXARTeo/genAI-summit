@@ -2,6 +2,8 @@
 
 > Status: **MVP built** in `synthkit` inside the sandbox runner ([sandbox.md](../services/sandbox.md)): profiling,
 > DAG sampler, safe rules, twins, edge cases, perturbations, boundary-aware sampling, five gates, Data Card.
+> **Public data first** (§ 2a): before anything is generated, the agents service searches public catalogues for
+> a dataset that matches the case; a human-approved match feeds synthkit's `reference_sample` mode.
 > The sections below marked *Later* are not built yet. Extends `generate_data` in the
 > [engineer pipeline](README.md#engineer-pipeline-pdf-125) and the plugin files in
 > [agent-context.md § 3](agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do).
@@ -16,8 +18,9 @@ from the DAG (no real data needed), repairs or rejects rows that break hard rule
 realistic surface fields with Faker/Mimesis, and applies **test-specific transforms** (counterfactual twins with and
 without proxy propagation, boundary and missing-value perturbations). Every dataset passes five gates (schema,
 business rules, realism vs the training-data description, coverage, privacy) and ships with a **Data Card**.
-When a reference sample exists, SDV GaussianCopula with CAG constraints replaces the DAG sampler for the base
-population. For LLM chat targets the LLM *does* write the text, but inside a deterministic **persona × intent ×
+**Public data first:** when a public dataset matches the case (found and scored deterministically, picked by a
+human, § 2a), synthkit fits the dictionary's DAG to it (`reference_sample`: marginals and conditionals by
+counting, no SDV) and the same rules and transforms apply; otherwise the DAG is zero-shot from the dictionary. For LLM chat targets the LLM *does* write the text, but inside a deterministic **persona × intent ×
 attack** coverage grid, with name-swap twins built by templates, not by the LLM. Result: schema-correct by
 construction, business-realistic by an auditable spec, and reproducible from `(spec, seed)`.
 
@@ -38,6 +41,8 @@ Why not the alternatives alone:
 ```text
 P0 profile model    code → model-profile.json (synthkit profile): signature, output, sensitivity,
                            monotonicity, decision boundary + surrogate, which protected/proxy fields move it
+P0b find_public_data code (agents service, internet) → dataset-candidates.json/.md, artifact
+                           public_dataset_candidates → [HITL pick] → fetch → datasets/public/<slug>/
 P1 scenarios        LLM  → scenarios.yaml, checked by code (synthkit scenarios-check) against plugin + profile
 plan_tests (one TestSpec per test)
  → generate_data, per TestSpec:
@@ -45,7 +50,7 @@ plan_tests (one TestSpec per test)
                         model-profile.json
    G1 draft spec   LLM  → GenerationSpec (YAML, validated against its JSON Schema)          cites files + MEM ids
    G2 compile      code → DAG sampler + rule checker + value sources; reject unknown fields/ops
-   G3 base sample  code → N rows from DAG (or SDV+CAG if reference_sample); seed fixed;
+   G3 base sample  code → N rows from DAG (fitted to the public reference if reference_sample); seed fixed;
                           boundary-aware: a share of rows picked near the threshold via the profile's surrogate
    G4 enforce      code → hard rules: repair (resample offending node) → reject; Z3 for boundary rows
    G5 surface      code → Faker/Mimesis/LLM-text fields (names, CV text) conditioned on the row
@@ -63,12 +68,53 @@ plan_tests (one TestSpec per test)
 | G0 | `plugin.yaml` (`io`, `expected_behaviour`, `scenarios`, `placement`), `data/*`, `/memory/systems/<id>/`, top `/memory/org/` | – | Load, pin versions, log reads | Run context |
 | G1 | Context + TestSpec (template, metric, groups, N) | Infer missing marginals/conditionals from `training-data.md`; propose personas, edge cases, inter-field rules; mark each with `provenance: dictionary \| training_doc \| memory \| llm_assumption` | Validate spec against JSON Schema; refuse fields not in the dictionary | `GenerationSpec` |
 | G2 | Spec | – | Topological sort of DAG; parse rules with a safe expression evaluator (no `eval`) | Compiled sampler |
-| G3 | Spec (+ reference sample, + model profile) | – | Ancestral sampling, optionally balanced per stratum; **boundary-aware oversampling**: `boundary.share` of rows are each the best of `pool` valid candidates by the surrogate's distance to the threshold (rows that discriminate most per model call); or SDV GaussianCopula + CAG constraints + conditional sampling (*Later*) | Base rows |
+| G3 | Spec (+ reference sample, + model profile) | – | Ancestral sampling, optionally balanced per stratum; **boundary-aware oversampling**: `boundary.share` of rows are each the best of `pool` valid candidates by the surrogate's distance to the threshold (rows that discriminate most per model call); in `reference_sample` mode the mapped fields' tables and empirical quantiles are fitted from the approved public dataset (§ 2a) | Base rows |
 | G4 | Hard rules | – | Vectorised check; resample violating node up to k times; drop the rest; Z3 to construct exact boundary rows | Valid rows + reject log |
 | G5 | Surface fields | Short free text only (CV summary, chat utterance), batched, structured output, row as input | Faker/Mimesis with locale from row (e.g. nationality → locale); names from curated per-group lists | Full rows |
 | G6 | Template | Attack/persona utterances for `llm_chat` | Twins, perturbations, boundaries (section 3) | Test dataset(s) |
 | G7 | Rows + spec + `training-data.md` stats | – (LLM may *explain* a failed gate) | Gates below | Gate report |
 | G8 | All of the above | Plain-language limitations | Counts, hashes, metrics | `DataCard.yaml` |
+
+## 2a. Public data first (`find_public_data`)
+
+User decision: **before generating dummy data, look for public datasets that match the case exactly**, then
+generate synthetic data with the public data as the reference where it fits, zero-shot from the dictionary
+otherwise. Pipeline order:
+
+```text
+profile_model → find_public_data (+ HITL pick) → plan_scenarios → … → draft_spec (reference_sample | zero_shot)
+  → generate → analyze
+```
+
+| Step | Where | What |
+| --- | --- | --- |
+| Search | agents service, `harness/tools/public_datasets` (pure Python + httpx, no LLM) | Queries from the system card (Annex III point, purpose) and the plugin's `data-dictionary.yaml` (fields, protected/proxy, label) → OpenML, UCI, Hugging Face, optional Firecrawl (Kaggle, data.europa.eu, Zenodo, data.gov) |
+| Score | same, deterministic | `0.30 schema + 0.15 protected/proxy + 0.15 label + 0.10 relevance + 0.10 task + 0.05 size + 0.10 licence + 0.05 recency`; per candidate the column mapping (name/synonym similarity × type fit; `bin` for numeric age → bands, `value_map` for categories; coded values without a map count half), gaps, flags. Licence allow-list CC0 / CC-BY(-SA) / ODbL / ODC-By / PDDL / MIT / Apache-2.0; NC = score halved and not fetchable; unknown = `licence_unclear` |
+| Explain | optional Gemini (`GOOGLE_API_KEY`) | Adds `llm_rank` and a one-line note per candidate; never changes the score |
+| HITL | audit artifact `public_dataset_candidates` (`name` = plugin) | `data` = the candidates JSON (`candidates`, `candidates_full`, `recommendation`). The human **approves** it and may set `data.selected` to one id. A rejection, or a `zero_shot` recommendation (no fetchable candidate ≥ 0.5), means zero-shot |
+| Fetch | `fetch_public_dataset` | Only for an approved artifact (and the selected id). Row cap 5,000, byte cap 20 MB (cut at a row), PII columns dropped (names, e-mails, phones, addresses…) and recorded, stored through `PUT /internal/audits/{id}/datasets/public/{slug}/{file}`: `data.csv`, `mapping.yaml`, `datasheet.md` (source, licence, citation, columns, mapping, representation of protected groups, known biases, who approved), `source.json` |
+| Fit | sandbox, synthkit `generation.mode: reference_sample` | Below |
+
+**`reference_sample` fit** (synthkit `reference.py`, deterministic, numpy/pandas only): `mapping.yaml` renames and
+recodes the reference to our fields (value maps, age → band bins, optional `scale`). For each mapped field, in
+DAG order, categories get P(field | mapped category parents) by counting (Laplace α 0.5; cells under 20 rows
+fall back to the marginal) and numbers get empirical quantiles (`dist: empirical`, per parent cell when big
+enough). A field is **not** fitted (kept zero-shot, reason recorded) when its column is missing, under 50 % of
+its values map, or over 20 % of its numbers fall outside the dictionary range (a semantic or unit mismatch, e.g.
+credit-g's `installment_commitment` 1-4 class vs our `debt_to_income` ratio). Unmapped fields keep their
+dictionary definition and still condition on the fitted ones; hard rules, strata, boundary sampling, twins and
+edge cases run unchanged. The Data Card gets `generation.method: reference_sample`, a `reference` block (source,
+licence, sha256, fitted vs zero-shot fields, fit report, dropped PII columns, reference label rate,
+`realism_vs_reference`) and `reference_data: public:<licence>`; the realism gate compares the base rows with the
+reference as well as with `population.stats`.
+
+Live run on the seed cases (2026-11-14; Firecrawl skipped, no key on this machine):
+
+| Case | Top candidates (score) | Result |
+| --- | --- | --- |
+| SYS-002 credit | OpenML `credit-g` 0.75 (CC-BY-4.0, mirrored from UCI), UCI Statlog German Credit 0.74 (coded values: needs a value map), HF credit-scoring-training-dataset 0.55 | `reference_sample` from `openml:31`: sex, age_band, loan_amount, loan_term_months fitted; `debt_to_income` refused (range mismatch); TV/KS vs reference 0.95-1.0; the stated 46 % women vs 31 % in credit-g is flagged by the realism gate |
+| SYS-003 benefits | UCI Census Income 0.63, UCI Adult 0.60, HF census-income 0.60 | Sex, age, nationality (native-country) and employment status map; household fields stay zero-shot |
+| SYS-001 hiring | best 0.38 (HF recruitment profiles) | No good match: `zero_shot` recommended |
 
 ### Why profile the model first (P0)
 
@@ -104,7 +150,7 @@ written to `output/`, logged with the run and cited by the Data Card (`inputs_us
 
 | Access type | Input form | Base generation | Notes |
 | --- | --- | --- | --- |
-| `mlflow_model` | DataFrame matching the MLflow signature | DAG sampler (or SDV if `reference_sample`) | Check signature vs dictionary at G2; mismatch = ask the engineer |
+| `mlflow_model` | DataFrame matching the MLflow signature | DAG sampler (fitted to a public reference in `reference_sample` mode) | Check signature vs dictionary at G2; mismatch = ask the engineer |
 | `rest` | JSON body per `io.input_schema` / `example_input` | Same rows, rendered to JSON by a field mapping; validate with JSON Schema | Respect `limits` (rps, `max_requests`) when sizing N; cache responses by input hash |
 | `llm_chat` | Conversations (single or multi-turn) | Coverage grid persona × intent × attack/edge, LLM writes turns with structured output | Twins by template name/pronoun/dialect swap; judge per rubric (below) |
 | `batch_file` | File in the target's format (CSV/JSONL) | As `mlflow_model`, written to file; one file per test | Hash the file into the Data Card |
@@ -255,7 +301,7 @@ inputs_used:                        # files read, with versions (pins replay)
   - {path: /systems/SYS-001/plugins/ranker/data/training-data.md, version: 1}
 memory_applied: [MEM-0057]
 generation:
-  method: dag_sampler               # dag_sampler | sdv_gaussian_copula | llm_text | template
+  method: dag_sampler               # dag_sampler | reference_sample | llm_text | template
   generator_version: synth 0.1.0
   seed: 1729
   spec: spec/TS-004.generation.yaml
@@ -299,7 +345,7 @@ storage: {mlflow_dataset: mlflow-dataset://…, sha256: …}
 | sdmetrics | Realism metrics (TVComplement, KSComplement, quality report) | MIT | Stable | **MVP** |
 | allpairspy | Pairwise coverage of persona/edge factors | MIT | Stable, small | **MVP** |
 | z3-solver | Boundary rows that still satisfy all other rules; repair | MIT | Stable | Later (MVP: closed-form boundaries) |
-| SDV (GaussianCopula, CTGAN, TVAE, CAG constraints) | Base population from a reference sample | **BSL 1.1** (check terms; some constraints are Enterprise-only) | Stable | Later |
+| SDV (GaussianCopula, CTGAN, TVAE, CAG constraints) | Base population from a reference sample | **BSL 1.1** (check terms; some constraints are Enterprise-only) | Stable | Not used: `reference_sample` fits the DAG itself (numpy/pandas) |
 | synthcity | Alternative generators incl. DP and fairness-aware | Apache-2.0 | Research-grade | Later |
 | smartnoise-synth | DP synthesizers (MST, AIM) when a real sample is used | MIT | Stable | Later |
 | Mimesis | Faster Faker alternative, more locales | MIT | Stable | Later |

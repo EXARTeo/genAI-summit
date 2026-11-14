@@ -137,7 +137,7 @@ scenarios:
   protected_attributes: [sex, age_band, nationality]
   known_proxies: [postcode_region, career_gap_months]
   training_data: data/training-data.md
-  reference_sample: mlflow-dataset://cv-sample-v1      # optional, for SDV
+  reference_sample: datasets/public/<slug>/data.csv    # optional: an approved public dataset (find_public_data)
   data_policy: synthetic_only                          # never send real personal data
   generation: {mode: zero_shot, seed: 42, min_per_cell: 50, n_max: 5000}   # zero_shot | reference_sample
   metamorphic_relations:                               # optional: "if input changes like X, output must Y"
@@ -156,6 +156,7 @@ How the agent uses a plugin:
 | Step | Reads from the plugin |
 | --- | --- |
 | `plan_tests` | `placement` (test the stage alone, the whole chain, or both), `expected_behaviour`, `README.md`, `docs/` → which requirements apply and which templates fit |
+| `find_public_data` | `system-card.yaml` + `data/data-dictionary.yaml` (fields, protected/proxy, label) → public datasets scored against the dictionary (OpenML, UCI, Hugging Face, Firecrawl); artifact `public_dataset_candidates` → **human picks one** → `datasets/public/<slug>/` (`data.csv`, `mapping.yaml`, `datasheet.md`) in the system folder, the only folder path an agent writes ([synthetic-data.md § 2a](synthetic-data.md#2a-public-data-first-find_public_data)). Order: `profile_model` → `find_public_data` → `plan_scenarios` → … → `draft_spec` (`reference_sample` or `zero_shot`) → `generate` → `analyze` |
 | `generate_data` | `data/data-dictionary.yaml`, `data/training-data.md`, `example_input`, `scenarios.*`, memory → the LLM drafts a **GenerationSpec** (marginals, causal graph, rules; every item tagged `dictionary \| training_doc \| memory \| llm_assumption`); deterministic code samples, enforces rules and builds counterfactual twins; 5 gates (schema, rules, realism, coverage, privacy) → dataset + `DataCard.yaml` ([synthetic-data.md](synthetic-data.md)) |
 | `execute` | `access.type` picks the sandbox adapter (MLflow load, HTTP, LLM chat, batch, dataset-only); `limits` set rate and volume |
 | `analyse` / `critic` | `io.output` to read results; `must` / `must_not` as checks; `known_limitations` and the training-data description as counter-evidence ("synthetic population differs from training data") |

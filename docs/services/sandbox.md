@@ -68,7 +68,8 @@ plugin.yaml + data-dictionary.yaml (+ sample.csv)
   1. synthkit profile          → model-profile.json        understand the model first
   2. agent drafts scenarios.yaml (LLM, agents service)
      synthkit scenarios-check  → scenario-analysis.json/.md gaps ranked by the profile
-  3. agent drafts generation-spec.yaml (LLM), human may edit
+  2b. (agents service) find_public_data → human picks one → datasets/public/<slug>/{data.csv,mapping.yaml}
+  3. agent drafts generation-spec.yaml (LLM), human may edit; generation.mode reference_sample | zero_shot
      synthkit generate --seed N → dataset.csv/.parquet + DataCard.yaml
   4. synthkit analyze          → dataset-analysis.json/.md shown at the HITL dataset audit
   5. approve → execute the tests on the dataset (twins paired by _twin_of)
@@ -145,6 +146,24 @@ dictionary, overrides fields (each override has a `provenance`, default `llm_ass
 
 The same spec and seed always produce the same bytes. The tests check this.
 
+**Reference mode.** With
+
+```yaml
+generation:
+  mode: reference_sample                       # default zero_shot (unchanged)
+  reference: datasets/public/openml-31-credit-g/data.csv
+  mapping: datasets/public/openml-31-credit-g/mapping.yaml   # default: next to data.csv
+```
+
+`load_spec` maps the public sample onto the dictionary and refits every mapped field before compiling
+(`synthkit/reference.py`): categorical tables P(field | mapped category parents) with Laplace smoothing and a
+`default` marginal, numeric fields as `dist: empirical` quantiles. Fields whose column is missing, mostly
+unmappable or mostly outside the dictionary range stay zero-shot (reason in the Data Card). Rules, strata,
+boundary, twins and edge cases are unchanged. The Data Card records the reference (source, licence, sha256,
+fitted and zero-shot fields, fit report, dropped PII columns, label rate, `realism_vs_reference`); the spec hash
+includes the reference sha256. No SDV (BSL licence). The sandbox never downloads anything: the agents service
+puts the files in `input/`. Design: [synthetic-data.md § 2a](../architecture/synthetic-data.md#2a-public-data-first-find_public_data).
+
 ### `synthkit analyze`
 
 | Gate | Pass / warn / fail |
@@ -153,7 +172,7 @@ The same spec and seed always produce the same bytes. The tests check this.
 | business_rules | hard rules at 100 % on base rows, or fail; soft rules within tolerance, or warn |
 | realism | TV/KS complement ≥ 0.8 against a dictionary-only reference population, and `population.stats` within tolerance. Otherwise warn; balanced strata warn by design |
 | coverage | every cell ≥ `min_per_cell`, or fail |
-| privacy | no email/phone/IBAN/ID/card patterns and no copies of a reference sample, or fail; duplicate base rows over 5 % warn |
+| privacy | no email/phone/IBAN/ID/card patterns and no copies of a reference sample (`--sample`, or the `reference_sample` data when it covers every feature), or fail; duplicate base rows over 5 % warn |
 
 The analysis also reports diversity (unique rows, normalised entropy), informativeness (the share near the
 boundary by the surrogate) and twin validity per mode.
