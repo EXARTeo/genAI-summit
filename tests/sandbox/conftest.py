@@ -23,7 +23,8 @@ from sklearn.preprocessing import OneHotEncoder
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVICE_ROOT = REPO_ROOT / "product" / "sandbox"
 SYNTHKIT_ROOT = SERVICE_ROOT / "synthkit"
-for root in (SERVICE_ROOT, SYNTHKIT_ROOT):
+SHARED_ROOT = REPO_ROOT / "product" / "shared" / "modelaccess"
+for root in (SERVICE_ROOT, SYNTHKIT_ROOT, SHARED_ROOT):
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
 

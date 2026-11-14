@@ -17,8 +17,11 @@ from httpx import ASGITransport, AsyncClient
 
 # tests/model_gateway/ -> repo root -> product/model-gateway (the service's import root).
 SERVICE_ROOT = Path(__file__).resolve().parents[2] / "product" / "model-gateway"
-if str(SERVICE_ROOT) not in sys.path:
-    sys.path.insert(0, str(SERVICE_ROOT))
+# The shared plugin access layer (installed in the image; on the path for a bare venv).
+SHARED_ROOT = SERVICE_ROOT.parent / "shared" / "modelaccess"
+for root in (SERVICE_ROOT, SHARED_ROOT):
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
 
 TOKEN = "test-gateway-token"  # noqa: S105 - test-only token
 

@@ -1,11 +1,15 @@
 """Reach the model under test, by the plugin's ``access.type``.
 
-* ``mlflow_model``: ``mlflow.pyfunc.load_model(access.uri)`` (MLflow over
-  ``MLFLOW_TRACKING_URI``); the input signature comes from the model metadata.
-* ``rest``: ``POST {"inputs": [rows]}`` to ``access.url`` (a path is joined to
-  ``MODEL_GATEWAY_URL``) with ``Authorization: Bearer $MODEL_GATEWAY_TOKEN`` (or the
-  env var named by ``access.auth.token_env``); ``access.limits.rps`` and
-  ``max_requests`` are respected, 429 is retried after ``Retry-After``.
+The plugin access layer is shared with run-tests and the model gateway
+(``product/shared/modelaccess``):
+
+* ``mlflow_model``: ``modelaccess.mlflow_models.load_mlflow_model(access.uri)``
+  (local MLflow over ``MLFLOW_TRACKING_URI``); signature, registry version and run
+  lineage come from the registry.
+* ``rest``: ``POST {"inputs": [rows]}`` through ``modelaccess.rest.RestClient``
+  (``access.url``, a path joins ``MODEL_GATEWAY_URL``; bearer from the env var named
+  by ``auth.secret_ref: env://NAME`` / ``auth.token_env``, default
+  ``MODEL_GATEWAY_TOKEN``; ``limits.rps``/``max_requests``; 429 retried).
 * ``pickle``: a cloudpickled estimator/callable file (tests, or a model handed in
   as a file). ``predict_proba`` wins over ``predict``.
 
@@ -17,7 +21,6 @@ decision (from ``io.output.label_field`` when the model returns one, else
 from __future__ import annotations
 
 import math
-import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -27,10 +30,17 @@ import cloudpickle
 import httpx
 import numpy as np
 import pandas as pd
+from modelaccess.mlflow_models import load_mlflow_model
+from modelaccess.plugin import AccessError, access_config, resolve_url
+from modelaccess.rest import EndpointError, RestClient
 
 
 class TargetError(RuntimeError):
     """The model could not be reached or answered with something unreadable."""
+
+
+class TargetRejected(TargetError):
+    """The endpoint refused the input with a 4xx (a graceful rejection, not a crash)."""
 
 
 def _jsonable(value: Any) -> Any:
@@ -60,6 +70,8 @@ class Target:
         self.name = name
         self.kind = kind
         self._predict = predict
+        self.predict_raw: Callable[[pd.DataFrame], Any] = predict
+        self.metadata: dict[str, Any] = {}
         self.input_columns = input_columns
         self.input_types = input_types or {}
         self.output = output or {}
@@ -152,22 +164,23 @@ def _cast_for_signature(frame: pd.DataFrame, types: dict[str, str]) -> pd.DataFr
 
 
 def mlflow_target(uri: str, output: dict) -> Target:
-    # Imported here: mlflow is heavy and only this adapter needs it.
-    import mlflow.pyfunc  # noqa: PLC0415
-
-    model = mlflow.pyfunc.load_model(uri)
-    columns, types = None, {}
-    schema = model.metadata.get_input_schema() if model.metadata else None
-    if schema is not None and schema.has_input_names():
-        columns = schema.input_names()
-        types = {c.name: str(c.type).split(".")[-1].lower() for c in schema.inputs}
+    handle = load_mlflow_model(uri)
+    columns = [c.name for c in handle.input_columns] if handle.input_columns else None
+    types = handle.input_types
 
     def predict(chunk: pd.DataFrame) -> Any:
-        return model.predict(_cast_for_signature(chunk, types))
+        return handle.predict(_cast_for_signature(chunk, types))
 
-    return Target(
+    def predict_raw(chunk: pd.DataFrame) -> Any:
+        # No casting: edge-case rows go in as they are (null stays null).
+        return handle.predict(chunk)
+
+    target = Target(
         uri, "mlflow_model", predict, input_columns=columns, input_types=types, output=output
     )
+    target.predict_raw = predict_raw
+    target.metadata = {"name": handle.name, "version": handle.version, **handle.metadata}
+    return target
 
 
 def rest_target(
@@ -177,45 +190,27 @@ def rest_target(
     url: str | None = None,
     transport: httpx.BaseTransport | None = None,
 ) -> Target:
-    target_url = url or access.get("url") or ""
-    if target_url.startswith("/"):
-        base = os.environ.get("MODEL_GATEWAY_URL", "http://model-gateway:8000")
-        target_url = base.rstrip("/") + target_url
-    if not target_url:
-        raise TargetError("rest access needs access.url")
-    token_env = (access.get("auth") or {}).get("token_env", "MODEL_GATEWAY_TOKEN")
-    token = os.environ.get(token_env, "")
-    limits = access.get("limits") or {}
-    rps = float(limits.get("rps") or 0)
-    max_requests = int(limits.get("max_requests") or 0)
-    timeout = float(limits.get("timeout_s") or 30)
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-    client = httpx.Client(timeout=timeout, transport=transport)
-    state = {"last": 0.0, "sent": 0}
+    try:
+        config = access_config({"access": access}, override_type="rest")
+        client = RestClient(config, url=resolve_url(url) if url else None, transport=transport)
+    except (AccessError, EndpointError) as exc:
+        raise TargetError(str(exc)) from exc
 
     def predict(chunk: pd.DataFrame) -> Any:
-        for _attempt in range(4):
-            if max_requests and state["sent"] >= max_requests:
-                raise TargetError(f"max_requests ({max_requests}) reached")
-            if rps > 0:
-                wait = state["last"] + 1.0 / rps - time.monotonic()
-                if wait > 0:
-                    time.sleep(wait)
-            state["last"] = time.monotonic()
-            state["sent"] += 1
-            resp = client.post(target_url, json={"inputs": rows_for_json(chunk)}, headers=headers)
-            if resp.status_code == 429:
-                time.sleep(min(float(resp.headers.get("Retry-After", "1")), 30.0))
-                continue
-            if resp.status_code != 200:
-                raise TargetError(f"HTTP {resp.status_code}: {resp.text[:300]}")
-            body = resp.json()
-            return body.get("predictions", body) if isinstance(body, dict) else body
-        raise TargetError("rate limited (429) after retries")
+        try:
+            resp = client.post({"inputs": rows_for_json(chunk)})
+        except EndpointError as exc:
+            raise TargetError(str(exc)) from exc
+        if 400 <= resp.status_code < 500:
+            raise TargetRejected(f"HTTP {resp.status_code}: {resp.text[:300]}")
+        if resp.status_code != 200:
+            raise TargetError(f"HTTP {resp.status_code}: {resp.text[:300]}")
+        body = resp.json()
+        return body.get("predictions", body) if isinstance(body, dict) else body
 
-    return Target(
-        target_url, "rest", predict, output=output, batch_size=int(access.get("batch_size", 100))
-    )
+    target = Target(client.url, "rest", predict, output=output, batch_size=config.batch_size)
+    target.predict_raw = predict
+    return target
 
 
 def pickle_target(path: Path, output: dict, input_columns: list[str] | None = None) -> Target:
@@ -232,7 +227,9 @@ def pickle_target(path: Path, output: dict, input_columns: list[str] | None = No
             return model.predict(chunk)
         return model(chunk)
 
-    return Target(str(path), "pickle", predict, input_columns=columns, output=output)
+    target = Target(str(path), "pickle", predict, input_columns=columns, output=output)
+    target.predict_raw = model.predict if hasattr(model, "predict") else model
+    return target
 
 
 def load_target(
@@ -252,4 +249,9 @@ def load_target(
         return mlflow_target(model_uri or access.get("uri", ""), output)
     if kind == "rest":
         return rest_target(access, output, url=url)
-    raise TargetError(f"access.type {kind!r} is not supported by synthkit (mlflow_model, rest)")
+    if kind == "pickle":
+        return pickle_target(Path(access.get("uri", "")), output, input_columns)
+    raise TargetError(
+        f"access.type {kind!r} is not supported here (mlflow_model, rest, pickle; "
+        "llm_chat targets are tested by run-tests' chat probes)"
+    )

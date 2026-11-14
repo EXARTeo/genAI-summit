@@ -13,9 +13,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-import mlflow
-import mlflow.pyfunc
-from mlflow.tracking import MlflowClient
+from modelaccess.mlflow_models import InputColumn, load_mlflow_model
 from starlette.concurrency import run_in_threadpool
 
 from core.logging import get_logger
@@ -42,15 +40,6 @@ class ModelUnavailableError(Exception):
     """A served model could not be loaded right now (503)."""
 
 
-@dataclass(frozen=True, slots=True)
-class InputColumn:
-    """One column of a model's input signature, reduced to what validation needs."""
-
-    name: str
-    type: str  # MLflow DataType name: string, long, integer, double, float, boolean, ...
-    required: bool = True
-
-
 @dataclass(slots=True)
 class LoadedModel:
     name: str
@@ -64,32 +53,20 @@ class ModelLoader(Protocol):
     def load(self, name: str) -> LoadedModel: ...
 
 
-def _input_columns(pyfunc_model: Any) -> list[InputColumn] | None:
-    schema = pyfunc_model.metadata.get_input_schema()
-    if schema is None or not schema.has_input_names():
-        return None
-    columns: list[InputColumn] = []
-    for spec in schema.inputs:
-        type_name = getattr(getattr(spec, "type", None), "name", None) or str(spec.type)
-        columns.append(
-            InputColumn(name=spec.name, type=type_name, required=getattr(spec, "required", True))
-        )
-    return columns
-
-
 class MlflowModelLoader:
-    """Loads ``models:/<name>@<alias>`` and resolves the alias to a registry version."""
+    """Loads ``models:/<name>@<alias>`` through the shared access layer (registry version
+    resolved from the alias)."""
 
     def load(self, name: str) -> LoadedModel:
         alias = settings.mlflow.model_alias
-        mlflow.set_tracking_uri(settings.mlflow.tracking_uri)
-        version = MlflowClient().get_model_version_by_alias(name, alias)
-        pyfunc_model = mlflow.pyfunc.load_model(f"models:/{name}@{alias}")
+        handle = load_mlflow_model(
+            f"models:/{name}@{alias}", tracking_uri=settings.mlflow.tracking_uri
+        )
         return LoadedModel(
             name=name,
-            version=str(version.version),
-            model=pyfunc_model,
-            input_columns=_input_columns(pyfunc_model),
+            version=str(handle.version),
+            model=handle.model,
+            input_columns=handle.input_columns,
         )
 
 

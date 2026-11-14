@@ -333,6 +333,8 @@ services:
   model-gateway: # 8000, published on 8200 for the demo
     build:
       context: ./model-gateway
+      additional_contexts:
+        shared: ./shared   # modelaccess: the plugin access layer shared with the sandbox
     # The seed models (MLflow, alias `champion`) behind production-style REST
     # endpoints, plus the SIMULATED SYS-004 chatbot (docs/services/model-gateway.md).
     # Models load lazily: calls answer 503 until MLflow has them.
@@ -372,6 +374,8 @@ services:
   sandbox_runner: # 8090, not published
     build:
       context: ./sandbox
+      additional_contexts:
+        shared: ./shared   # modelaccess: the plugin access layer shared with the model gateway
     # Runs the agents' `execute` commands (POST /v1/exec) in a throwaway workdir
     # under time/memory/output/disk limits; ships synthkit (profile → generate →
     # analyze) and the ML stack (docs/services/sandbox.md). No internet: it

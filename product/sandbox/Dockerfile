@@ -15,6 +15,12 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # synthkit: the deterministic synthetic-data engine, as `synthkit` on PATH.
+# modelaccess: the plugin access layer (mlflow_model / rest / llm_chat + RunLogger),
+# one source shared by the sandbox (synthkit, run-tests) and the model gateway.
+# Comes from the compose build context `shared` (product/shared).
+COPY --from=shared modelaccess/ /opt/modelaccess/
+RUN pip install --no-deps /opt/modelaccess
+
 COPY synthkit/ /opt/synthkit/
 RUN pip install --no-deps /opt/synthkit
 
