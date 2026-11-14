@@ -225,7 +225,27 @@
   }
 }
 
+/* Sidebar labels as the rail opens (magenticx's sidebar-reveal): they wait for the
+   width to get going, then fade in from a hair to the left. Replays every time a
+   label goes from display:none to shown. The icons never move (see surfaces.css). */
+.sidebar-reveal {
+  animation: sidebar-reveal 0.2s ease-out 0.1s both;
+}
+@keyframes sidebar-reveal {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .sidebar-reveal {
+    animation: none;
+  }
   *,
   *::before,
   *::after {

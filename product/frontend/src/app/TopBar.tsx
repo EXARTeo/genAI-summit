@@ -1,15 +1,25 @@
 import { Menu, Search } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useUiStore } from '@/shared/stores/ui';
 import { IconButton } from '@/shared/ui';
+import { NAV_ITEMS } from './nav';
 import { ThemeToggle } from './ThemeToggle';
 
-const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+function useSectionLabel(): string {
+  const { pathname } = useLocation();
+  const item =
+    NAV_ITEMS.find((i) => i.to !== '/' && (pathname === i.to || pathname.startsWith(`${i.to}/`))) ??
+    (pathname === '/' ? NAV_ITEMS.find((i) => i.to === '/') : undefined);
+  return item?.label ?? '';
+}
 
+/** The main card's header: it scrolls with nothing, sticks to the card's top edge. */
 export function TopBar() {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
+  const section = useSectionLabel();
   return (
-    <header className="sticky top-0 z-30 flex h-[var(--topbar-height)] items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md lg:px-6">
+    <header className="sticky top-0 z-30 flex h-[var(--topbar-height)] shrink-0 items-center gap-2 bg-[color-mix(in_srgb,var(--shell-card)_85%,transparent)] px-3 backdrop-blur-md lg:px-6">
       <IconButton
         label="Open menu"
         icon={<Menu />}
@@ -17,18 +27,15 @@ export function TopBar() {
         className="lg:hidden"
         onClick={() => setMobileNavOpen(true)}
       />
-      <button
-        type="button"
-        onClick={() => setCommandOpen(true)}
-        className="group flex h-8 w-full max-w-xs items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-sm text-muted transition-colors hover:border-text/20 hover:text-text"
-      >
-        <Search className="size-3.5" />
-        <span className="flex-1 text-left">Search or jump to…</span>
-        <kbd className="hidden rounded border border-border bg-surface-muted px-1 font-sans text-2xs sm:inline">
-          {isMac ? '⌘' : 'Ctrl'} K
-        </kbd>
-      </button>
+      <span className="truncate text-sm font-medium text-muted">{section}</span>
       <div className="ml-auto flex items-center gap-1">
+        <IconButton
+          label="Search or jump to"
+          icon={<Search />}
+          tooltip={false}
+          className="lg:hidden"
+          onClick={() => setCommandOpen(true)}
+        />
         <ThemeToggle />
       </div>
     </header>

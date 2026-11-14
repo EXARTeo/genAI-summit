@@ -58,6 +58,17 @@ the UI shows files (system folders, business rules) and audit artifacts only.
 | `/chat` | Placeholder (composer shown disabled) |
 | `*` | 404 (also `/memory` and `/settings`, which were removed) |
 
+## App shell (`src/app`)
+
+Modelled on magenticx's `agentic_ui` (`src/app/WorkspaceShell.tsx`, `src/features/chat/components/ChatSidebar.tsx`, `src/shared/ui/sidebar.tsx`).
+
+- **Frame + card**: the whole viewport is a tinted frame (`--shell-frame`: zinc-100 mixed with the border colour in light, near-black in dark). The sidebar rail sits directly on it (no border, no own background); the main content is a rounded card beside it (`--shell-card` = `background`, `--shell-card-radius` 1.75rem, 12 px margin top/right/bottom, `border-border/60`, soft drop shadow `--shell-card-shadow`). Below `lg` the card is full-bleed. The card is the scroll container: the `TopBar` (section label, theme toggle; menu + search buttons on mobile) sticks to its top edge, and sticky page elements stick inside it. Main keeps `px-4 py-6 lg:px-8 lg:py-8`; a full-height page (chat) bleeds with matching negative margins and sizes itself `h-[calc(var(--shell-viewport)-var(--topbar-height))]` (`--shell-viewport` = the card's inner height: `100dvh` below `lg`, minus the 12 px margins and border above).
+- **Rail**: 16rem open, 4rem collapsed (`--sidebar-width[-collapsed]`), width transition 200 ms linear. Every row is `h-9 rounded-xl px-1.5` with a `size-9` icon box and 18 px icons, rows stacked with no gap; that constant lead centres each icon in the collapsed rail, so **icons stay pinned in place** while only the width animates. Labels are unmounted when collapsed and fade in on expand (`.sidebar-reveal`, 0.2 s after a 0.1 s delay). Icons grow 10 % on hover; hover/press use `--hover-surface[-strong]` (text at 6 / 10 %).
+- **Active ("pinned") entry**: a soft pill in the accent colour, `bg-primary/10` + inset 1 px ring `primary/16`, behind a teal icon and medium-weight label; it glides between entries (framer `layoutId`, 220 ms ease-out tween, position only, no spring; instant under reduced motion).
+- **Raised card**: the top action (Search, ⌘K) is a card on the frame (`border-border/70`, card colour, `shadow-sm`, `h-10`, 1 px border + `px-[5px]` keep the same 6 px lead); collapsed, it flattens to a plain icon row.
+- **Brand row**: logo + name; when collapsed, hovering the logo swaps it for the expand icon (click expands); when open the collapse button sits at the right.
+- **Feature slot**: `src/app/sidebarSlot.tsx`. A feature renders `<SidebarExtra>…</SidebarExtra>` anywhere in its page tree and the content is portalled into the scrollable region below the nav (the mobile drawer while open, else the rail; hidden while collapsed). Intended for the chat's conversation list on `/chat` routes.
+
 ## Design rules
 
 Reference quality: Linear, Vercel, Raycast. Calm, information-first.

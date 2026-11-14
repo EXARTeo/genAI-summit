@@ -53,6 +53,26 @@ const SHOTS = [
   ['regulation-sources', '/regulation?tab=sources'],
   ['chat', '/chat'],
   ['not-found', '/nope'],
+  // Last: they change shell state (persisted collapse) for the rest of the context.
+  [
+    'shell-drawer',
+    '/audits',
+    async (page) => {
+      if (!(await page.getByRole('button', { name: 'Open menu' }).isVisible())) return;
+      await page.getByRole('button', { name: 'Open menu' }).click();
+      await page.waitForTimeout(600);
+    },
+  ],
+  [
+    'shell-collapsed',
+    '/audits',
+    async (page) => {
+      await page.keyboard.press('Escape');
+      if (!(await page.getByRole('button', { name: 'Collapse sidebar' }).isVisible())) return;
+      await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+      await page.waitForTimeout(600);
+    },
+  ],
 ];
 
 async function main() {

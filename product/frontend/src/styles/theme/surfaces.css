@@ -1,15 +1,38 @@
 /* Derived, non-brand values built only from the generated tokens (tokens.css). */
 :root {
   --radius: 0.625rem;
-  --sidebar-width: 14rem;
-  --sidebar-width-collapsed: 3.75rem;
+  /* Sidebar rail (magenticx geometry): a 2.25rem icon box behind a 0.875rem lead
+     (rail padding 0.5rem + row padding 0.375rem) centres exactly in the 4rem
+     collapsed rail, so every icon stays pinned at the same x while the width animates. */
+  --sidebar-width: 16rem;
+  --sidebar-width-collapsed: 4rem;
   --topbar-height: 3.25rem;
   --content-max: 1280px;
+  /* App frame: the sidebar sits on this tint; the main content floats beside it
+     as a rounded card (--shell-card). */
+  --shell-frame: color-mix(in srgb, var(--color-surface-muted) 70%, var(--color-border));
+  --shell-card: var(--color-background);
+  --shell-card-radius: 1.75rem;
+  --shell-card-shadow: 0 12px 40px -16px rgb(0 0 0 / 0.22);
+  /* Inner height of the main card: full-height pages (chat) use
+     calc(var(--shell-viewport) - var(--topbar-height)). The lg card has a 12 px margin
+     top and bottom and a 1 px border. */
+  --shell-viewport: 100dvh;
+  /* Neutral hover surfaces for rows that sit on the frame. */
+  --hover-surface: rgb(var(--rgb-text) / 0.06);
+  --hover-surface-strong: rgb(var(--rgb-text) / 0.1);
   /* Hairline used for raised surfaces instead of heavy shadows. */
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 1px rgb(0 0 0 / 0.02);
   --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
 }
+@media (min-width: 1024px) {
+  :root {
+    --shell-viewport: calc(100dvh - 1.5rem - 2px);
+  }
+}
 :root[data-theme='dark'] {
+  --shell-frame: color-mix(in srgb, var(--color-background) 40%, #000);
+  --shell-card-shadow: 0 12px 40px -16px rgb(0 0 0 / 0.7);
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.4);
 }

@@ -27,7 +27,11 @@ function PageFallback() {
   );
 }
 
-/** App frame: sidebar + top bar + animated page outlet + palette + toasts. */
+/**
+ * App frame (magenticx WorkspaceShell): the sidebar rail sits on a tinted frame and
+ * the main content floats beside it as a rounded card (full-bleed below lg). The card
+ * is the scroll container: the top bar sticks to its top edge and pages scroll inside.
+ */
 export function WorkspaceShell() {
   const location = useLocation();
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
@@ -36,21 +40,28 @@ export function WorkspaceShell() {
   const sectionKey = location.pathname.split('/').slice(0, 3).join('/');
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-svh overflow-hidden bg-[var(--shell-frame)]">
       <Sidebar />
 
       <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
-          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-border bg-surface data-[state=open]:animate-[sheet-in-left_260ms_cubic-bezier(0.16,1,0.3,1)] lg:hidden">
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] bg-[var(--shell-frame)] shadow-pop data-[state=open]:animate-[sheet-in-left_260ms_cubic-bezier(0.16,1,0.3,1)] lg:hidden">
             <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">Main navigation</DialogPrimitive.Description>
-            <SidebarContent collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
+            <SidebarContent
+              collapsed={false}
+              layoutGroup="drawer"
+              onNavigate={() => setMobileNavOpen(false)}
+            />
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        data-testid="main-card"
+        className="relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--shell-card)] lg:my-3 lg:mr-3 lg:rounded-[var(--shell-card-radius)] lg:border lg:border-border/60 lg:shadow-[var(--shell-card-shadow)]"
+      >
         <TopBar />
         <main className="mx-auto w-full max-w-content flex-1 px-4 py-6 lg:px-8 lg:py-8">
           <ErrorBoundary resetKey={location.pathname}>
