@@ -3,6 +3,8 @@ audits / artifacts / approvals, the internal API and migrations 0003 / 0004."""
 
 from __future__ import annotations
 
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -14,13 +16,17 @@ from sqlalchemy import select
 
 from core.database import (
     AttachmentTable,
+    AuditTable,
     BlobTable,
     ConversationTable,
     MessageTable,
+    SystemTable,
     WorkspaceEventTable,
     WorkspaceFileTable,
 )
 from core.settings import settings
+from schema.audits import AuditIn
+from utils.audits import create_audit
 
 SERVICE_ROOT = Path(__file__).resolve().parents[2] / "mnamon" / "backend"
 
@@ -236,6 +242,27 @@ async def _audit(client) -> dict:
     response = await client.post("/v1/systems/SYS-001/audits", json={"data": {"kb_version": "k1"}})
     assert response.status_code == 201, response.text
     return response.json()
+
+
+async def test_audit_ids_are_readable_and_never_collide(client, session_factory):
+    audit = await _audit(client)
+    assert re.fullmatch(r"SYS-001-\d{8}-\d{4}(-\d+)?", audit["id"]), audit["id"]
+    assert (await client.get(f"/v1/audits/{audit['id']}")).status_code == 200
+    now = datetime(2026, 11, 15, 9, 30, tzinfo=UTC)
+    async with session_factory() as db:
+        system = await db.get(SystemTable, "SYS-001")
+        ids = [(await create_audit(db, system, AuditIn(), "test", now=now)).id for _ in range(3)]
+        await db.commit()
+    assert ids == ["SYS-001-20261115-0930", "SYS-001-20261115-0930-2", "SYS-001-20261115-0930-3"]
+
+
+async def test_an_old_uuid_audit_still_works(client, session_factory):
+    await _system(client)
+    async with session_factory() as db:
+        db.add(AuditTable(id="0b9f6c1e-2d4a-4c1b-9a51-3f0e8d7c6b5a", system_id="SYS-001"))
+        await db.commit()
+    got = await client.get("/v1/audits/0b9f6c1e-2d4a-4c1b-9a51-3f0e8d7c6b5a")
+    assert got.status_code == 200 and got.json()["systemId"] == "SYS-001"
 
 
 async def test_audit_locks_the_dossier_and_lists(client):

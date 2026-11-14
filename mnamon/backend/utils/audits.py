@@ -8,10 +8,16 @@ versions. Every human decision is an ``approvals`` row with its reason
 (``reason_category`` + ``comment``). The pipeline hands a rejection's reason to
 the next agent, which records the lesson in the agents service's per-system
 memory; the backend writes no memory itself.
+
+An audit's id is readable, ``<SYSTEM_ID>-<YYYYMMDD>-<HHMM>`` in UTC (e.g.
+``SYS-002-20261115-0730``), with ``-2``, ``-3``, ... on a collision; it is the
+primary key and the id in every URL. Audits created before kept their uuid.
 """
 
+from datetime import UTC, datetime
+
 from fastapi import HTTPException
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import ApprovalTable, AuditArtifactTable, AuditTable, SystemTable
@@ -41,17 +47,47 @@ _DECISION_STATUS = {
 }
 
 
+async def readable_audit_id(db: AsyncSession, system_id: str, now: datetime | None = None) -> str:
+    """``<SYSTEM_ID>-<YYYYMMDD>-<HHMM>`` (UTC), plus ``-2``, ``-3``, ... when already taken."""
+    base = f"{system_id}-{(now or datetime.now(UTC)):%Y%m%d-%H%M}"
+    taken = set(
+        (
+            await db.scalars(
+                select(AuditTable.id).where(
+                    or_(AuditTable.id == base, AuditTable.id.like(f"{base}-%"))
+                )
+            )
+        ).all()
+    )
+    if base not in taken:
+        return base
+    n = 2
+    while f"{base}-{n}" in taken:
+        n += 1
+    return f"{base}-{n}"
+
+
 async def create_audit(
-    db: AsyncSession, system: SystemTable, payload: AuditIn, actor: str
+    db: AsyncSession,
+    system: SystemTable,
+    payload: AuditIn,
+    actor: str,
+    *,
+    now: datetime | None = None,
 ) -> AuditTable:
-    """A new audit that locks the system folder's current ``dossier_version``."""
+    """A new audit (readable id) that locks the system folder's current ``dossier_version``."""
     data = {
         "dossier_version": await dossier_version(db, system_namespace(system.id)),
         "plugin_ids": await plugin_ids(db, system.id),
         **payload.data,
     }
     audit = AuditTable(
-        system_id=system.id, stage=payload.stage, status="open", created_by=actor, data=data
+        id=await readable_audit_id(db, system.id, now),
+        system_id=system.id,
+        stage=payload.stage,
+        status="open",
+        created_by=actor,
+        data=data,
     )
     db.add(audit)
     await db.flush()

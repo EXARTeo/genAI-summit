@@ -530,6 +530,8 @@ class AuditTable(Base):
 
     __tablename__ = "audits"
 
+    # utils/audits.py sets a readable ``<SYSTEM_ID>-<YYYYMMDD>-<HHMM>``; the uuid
+    # default only covers rows made elsewhere (and every audit created before).
     id = Column(String, primary_key=True, default=gen_uuid)
     system_id = Column(
         String, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False, index=True
