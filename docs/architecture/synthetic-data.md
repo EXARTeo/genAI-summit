@@ -1,6 +1,8 @@
 # Synthetic test data
 
-> Status: **design, not built yet** (researched 2026-11-14). Extends `generate_data` in the
+> Status: **MVP built** in `synthkit` inside the sandbox runner ([sandbox.md](../services/sandbox.md)): profiling,
+> DAG sampler, safe rules, twins, edge cases, perturbations, boundary-aware sampling, five gates, Data Card.
+> The sections below marked *Later* are not built yet. Extends `generate_data` in the
 > [engineer pipeline](README.md#engineer-pipeline-pdf-125) and the plugin files in
 > [agent-context.md § 3](agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do).
 
@@ -34,12 +36,17 @@ Why not the alternatives alone:
 ## 2. Generation pipeline
 
 ```text
+P0 profile model    code → model-profile.json (synthkit profile): signature, output, sensitivity,
+                           monotonicity, decision boundary + surrogate, which protected/proxy fields move it
+P1 scenarios        LLM  → scenarios.yaml, checked by code (synthkit scenarios-check) against plugin + profile
 plan_tests (one TestSpec per test)
  → generate_data, per TestSpec:
-   G0 read context      plugin.yaml, data-dictionary.yaml, training-data.md, example_input, scenarios, memory
+   G0 read context      plugin.yaml, data-dictionary.yaml, training-data.md, example_input, scenarios, memory,
+                        model-profile.json
    G1 draft spec   LLM  → GenerationSpec (YAML, validated against its JSON Schema)          cites files + MEM ids
    G2 compile      code → DAG sampler + rule checker + value sources; reject unknown fields/ops
-   G3 base sample  code → N rows from DAG (or SDV+CAG if reference_sample); seed fixed
+   G3 base sample  code → N rows from DAG (or SDV+CAG if reference_sample); seed fixed;
+                          boundary-aware: a share of rows picked near the threshold via the profile's surrogate
    G4 enforce      code → hard rules: repair (resample offending node) → reject; Z3 for boundary rows
    G5 surface      code → Faker/Mimesis/LLM-text fields (names, CV text) conditioned on the row
    G6 transform    code → template-specific: twins, perturbations, boundaries, attack prompts
@@ -51,15 +58,27 @@ plan_tests (one TestSpec per test)
 
 | Step | Reads | LLM does | Deterministic code does | Output |
 | --- | --- | --- | --- | --- |
+| P0 | `plugin.yaml` (`access`, `io`), `data-dictionary.yaml`, optional `sample.csv` | – | ~256 valid probe rows (half DAG samples, half Latin hypercube with hard rules enforced) → model calls (rate-limited for REST) → sensitivity (one-at-a-time + permutation), monotonicity vs `monotone`, boundary band + linear surrogate on logit(score), positive rate per group, proxy association, notes | `model-profile.json` |
+| P1 | Plugin, memory, profile | Draft `scenarios.yaml` (requirement, target, template, data needs, expected behaviour) | Completeness, unknown fields, coverage of protected/proxies/monotone/edge cases, missing cases ranked by the profile | `scenario-analysis.json/.md` |
 | G0 | `plugin.yaml` (`io`, `expected_behaviour`, `scenarios`, `placement`), `data/*`, `/memory/systems/<id>/`, top `/memory/org/` | – | Load, pin versions, log reads | Run context |
 | G1 | Context + TestSpec (template, metric, groups, N) | Infer missing marginals/conditionals from `training-data.md`; propose personas, edge cases, inter-field rules; mark each with `provenance: dictionary \| training_doc \| memory \| llm_assumption` | Validate spec against JSON Schema; refuse fields not in the dictionary | `GenerationSpec` |
 | G2 | Spec | – | Topological sort of DAG; parse rules with a safe expression evaluator (no `eval`) | Compiled sampler |
-| G3 | Spec (+ reference sample) | – | Ancestral sampling; or SDV GaussianCopula + CAG constraints + conditional sampling | Base rows |
+| G3 | Spec (+ reference sample, + model profile) | – | Ancestral sampling, optionally balanced per stratum; **boundary-aware oversampling**: `boundary.share` of rows are each the best of `pool` valid candidates by the surrogate's distance to the threshold (rows that discriminate most per model call); or SDV GaussianCopula + CAG constraints + conditional sampling (*Later*) | Base rows |
 | G4 | Hard rules | – | Vectorised check; resample violating node up to k times; drop the rest; Z3 to construct exact boundary rows | Valid rows + reject log |
 | G5 | Surface fields | Short free text only (CV summary, chat utterance), batched, structured output, row as input | Faker/Mimesis with locale from row (e.g. nationality → locale); names from curated per-group lists | Full rows |
 | G6 | Template | Attack/persona utterances for `llm_chat` | Twins, perturbations, boundaries (section 3) | Test dataset(s) |
 | G7 | Rows + spec + `training-data.md` stats | – (LLM may *explain* a failed gate) | Gates below | Gate report |
 | G8 | All of the above | Plain-language limitations | Counts, hashes, metrics | `DataCard.yaml` |
+
+### Why profile the model first (P0)
+
+Test data is only useful if it can move the model's decision. Before any spec is drafted, `synthkit profile`
+shows what the model really uses. For SYS-001 the model never sees `sex` or `nationality`, so attribute-only
+twins would show nothing. `postcode_region` and `career_gap_months` do move the output, and the profile says
+so in its notes. The scenarios and spec then ask for causal and proxy-only twins. The boundary estimate makes
+the dataset informative: rows far from the threshold rarely flip, so a share of the base rows is chosen near
+it (G3), and `analyze` reports that share as *informativeness*. The profile is evidence too: it is
+written to `output/`, logged with the run and cited by the Data Card (`inputs_used`).
 
 ### Validation gates
 
