@@ -21,11 +21,20 @@ from schema.audits import (
     ArtifactIn,
     ArtifactOut,
     AuditDetail,
+    AuditIn,
     AuditOut,
     AuditPatch,
 )
 from schema.systems import FileContentOut, FileOut, SystemOut
-from utils.audits import audit_detail, create_artifact, get_audit_or_404, patch_audit
+from utils.audit_pipeline import start_pipeline
+from utils.audits import (
+    audit_detail,
+    create_artifact,
+    create_audit,
+    get_audit_or_404,
+    impact_index,
+    patch_audit,
+)
 from utils.telegram_gates import on_artifact_created, on_audit_patched
 from utils.workspace import (
     file_content_out,
@@ -152,3 +161,30 @@ async def internal_artifact(
         version=artifact.version,
     )
     return ArtifactOut.model_validate(artifact)
+
+
+@router.get("/impact-index", summary="Per system: the latest audit's findings and tests")
+async def internal_impact_index(db: Db) -> list[dict]:
+    """What the agents' change judge matches a RegChange against (cross-system, read-only)."""
+    return await impact_index(db)
+
+
+@router.post(
+    "/systems/{system_id}/audits",
+    response_model=AuditOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="A new audit started by an agent (the change judge's re-run)",
+)
+async def internal_start_audit(
+    system_id: str,
+    payload: AuditIn,
+    db: Db,
+    agent: Annotated[str | None, Header(alias="X-Agent-Name")] = None,
+) -> AuditOut:
+    system = await get_system_or_404(db, system_id)
+    audit = await create_audit(db, system, payload, _actor(agent))
+    await db.commit()
+    await db.refresh(audit)
+    logger.info("internal_audit_created", "Agent started an audit", audit_id=audit.id)
+    await start_pipeline(audit)
+    return AuditOut.model_validate(audit)

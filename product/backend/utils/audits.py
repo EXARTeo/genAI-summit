@@ -58,6 +58,50 @@ async def create_audit(
     return audit
 
 
+async def impact_index(db: AsyncSession) -> list[dict]:
+    """Per system, the evidence of its latest audit with findings (else its latest audit).
+
+    What the agents' impact index matches a RegChange against: live findings
+    (requirement, verdict, cited provisions), test results and the requirements
+    the audit's context listed. No LLM, no scoring here.
+    """
+    systems = list((await db.scalars(select(SystemTable).order_by(SystemTable.id))).all())
+    out = []
+    for system in systems:
+        audits = await list_audits(db, system.id)
+        chosen, live = None, []
+        for audit in audits:  # newest first
+            arts = await list_artifacts(db, audit.id, live_only=True)
+            if chosen is None:
+                chosen, live = audit, arts
+            if any(a.kind == "finding" for a in arts):
+                chosen, live = audit, arts
+                break
+        findings = [{**(a.data or {}), "id": a.name} for a in live if a.kind == "finding"]
+        tests = [
+            t
+            for a in live
+            if a.kind == "test_result"
+            for t in (a.data or {}).get("tests") or []
+            if isinstance(t, dict)
+        ]
+        context = next((a.data or {} for a in live if a.kind == "context"), {})
+        out.append(
+            {
+                "system_id": system.id,
+                "name": system.name,
+                "audit_id": chosen.id if chosen else None,
+                "kb_version": (chosen.data or {}).get("kb_version") if chosen else None,
+                "findings": findings,
+                "tests": tests,
+                "requirements": [
+                    r.get("id") for r in context.get("requirements") or [] if isinstance(r, dict)
+                ],
+            }
+        )
+    return out
+
+
 async def get_audit_or_404(db: AsyncSession, audit_id: str) -> AuditTable:
     audit = await db.get(AuditTable, audit_id)
     if audit is None:

@@ -34,6 +34,7 @@ os.environ.setdefault("APP_ENV", "test")
 _BOOTSTRAP_DB = (Path(tempfile.gettempdir()) / "pytest-bootstrap-backend.db").as_posix()
 os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{_BOOTSTRAP_DB}")
 os.environ.setdefault("AGENTS_SERVICE_URL", "http://agents.test")
+os.environ.setdefault("AUDIT_PIPELINE_AUTOSTART", "false")  # tests turn it on with a mock transport
 os.environ.setdefault("LANGFUSE_PUBLIC_KEY", "")
 os.environ.setdefault("LANGFUSE_SECRET_KEY", "")
 # Rate limits run for real against fakeredis. The suite shares one client id

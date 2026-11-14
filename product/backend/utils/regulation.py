@@ -334,6 +334,31 @@ async def store_notified_change(db: AsyncSession, payload: dict[str, Any]) -> Re
     return row
 
 
+async def store_judgement(
+    db: AsyncSession, change_id: str, affected: list[dict[str, Any]], decided_by: str
+) -> RegulationChangeTable:
+    """The agents' change judge writes its per-system decisions (``judge`` becomes ``done``).
+
+    A human override (``humanDecision``) already on a system survives a re-judge.
+    """
+    row = await _row(db, change_id)
+    previous = {a.get("systemId"): a for a in (row.data or {}).get("affected") or []}
+    merged = []
+    for entry in affected:
+        old = previous.get(entry.get("systemId")) or {}
+        keep = {k: old[k] for k in ("humanDecision", "decidedBy") if k in old and old.get(k)}
+        merged.append({**entry, "judgedBy": decided_by, **keep})
+    row.data = {
+        **(row.data or {}),
+        "affected": merged,
+        "judge": "done",
+        "judgedBy": decided_by,
+        "judgedAt": datetime.now(UTC).isoformat(),
+    }
+    await db.flush()
+    return row
+
+
 async def decide_change(
     db: AsyncSession, change_id: str, status: str, actor: str, reason: str | None = None
 ) -> dict[str, Any]:

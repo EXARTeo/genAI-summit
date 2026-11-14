@@ -119,6 +119,8 @@ class UpstreamSettings(BaseSettings):
 
     # The agents service: runs the agents and streams AG-UI events back.
     agents_service_url: str = Field("http://agents:8003", validation_alias="AGENTS_SERVICE_URL")
+    # A new audit starts its pipeline on the agents service (POST /audits/{id}/run).
+    audit_pipeline_autostart: bool = Field(True, validation_alias="AUDIT_PIPELINE_AUTOSTART")
     # Optional shared secret sent to the agents service as X-Internal-Service-Secret.
     agents_service_secret: SecretStr = Field(
         default_factory=lambda: SecretStr(""), validation_alias="AGENTS_SERVICE_SECRET"

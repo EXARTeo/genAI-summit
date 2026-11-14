@@ -1,4 +1,10 @@
-"""Forward a human gate decision to the agents service's audit pipeline.
+"""Start an audit's pipeline on the agents service, and forward human gate decisions to it.
+
+``start_pipeline``: a new audit (``POST /v1/systems/{id}/audits``, or the change
+judge's re-run through ``POST /internal/systems/{id}/audits``) calls
+``POST {AGENTS_SERVICE_URL}/audits/{id}/run`` (202, the pipeline runs in the
+background there). Off with ``AUDIT_PIPELINE_AUTOSTART=false`` or an audit
+created with ``data.autostart: false``.
 
 The pipeline (agents service, ``pipeline/graph.py``) pauses at each gate on a
 LangGraph ``interrupt()``; ``POST {AGENTS_SERVICE_URL}/audits/{id}/resume``
@@ -25,6 +31,37 @@ PIPELINE_GATES = frozenset({"public_data", "scenarios", "datasets"})
 
 #: A test seam: tests swap in an ``httpx.MockTransport``.
 transport: httpx.AsyncBaseTransport | None = None
+
+
+async def _post(path: str, body: dict[str, Any]) -> int | None:
+    url = f"{settings.upstream.agents_service_url.rstrip('/')}{path}"
+    try:
+        async with httpx.AsyncClient(
+            timeout=settings.http.agents_timeout, transport=transport
+        ) as client:
+            response = await client.post(url, json=body, headers=internal_headers())
+    except httpx.HTTPError:
+        return None
+    return response.status_code
+
+
+async def start_pipeline(audit: AuditTable) -> str:
+    """``started``, ``skipped`` (off), ``http_<code>`` or ``failed``; never raises."""
+    data = audit.data or {}
+    if not settings.upstream.audit_pipeline_autostart or data.get("autostart") is False:
+        return "skipped"
+    code = await _post(
+        f"/audits/{audit.id}/run",
+        {"system_id": audit.system_id, "trigger": data.get("trigger") or "manual"},
+    )
+    outcome = "failed" if code is None else ("started" if code < 300 else f"http_{code}")
+    logger.info(
+        "audit_pipeline_start",
+        "Audit pipeline start requested",
+        audit_id=audit.id,
+        outcome=outcome,
+    )
+    return outcome
 
 
 def resume_body(audit: AuditTable, approval: ApprovalTable) -> dict[str, Any]:

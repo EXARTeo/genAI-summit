@@ -26,6 +26,7 @@ from schema.systems import (
     SystemOut,
     SystemPatch,
 )
+from utils.audit_pipeline import start_pipeline
 from utils.audits import create_audit
 from utils.systems import (
     actor_for,
@@ -131,6 +132,8 @@ async def start_audit(
     await db.commit()
     await db.refresh(audit)
     logger.info("audit_created", "Audit created", system_id=system_id, audit_id=audit.id)
+    # The agents service runs the pipeline in the background (best effort, never fails this).
+    await start_pipeline(audit)
     return AuditOut.model_validate(audit)
 
 

@@ -113,3 +113,15 @@ class RegChangeNotifyIn(BaseModel):
     change_types: dict[str, Any] | None = None
     impacted_requirements: list[dict[str, Any]] | None = None
     items: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class JudgementIn(BaseModel):
+    """``PUT /internal/regulation/changes/{id}/judgement``: the agents' change judge result.
+
+    ``affected`` entries are ``AffectedSystemOut``-shaped (``systemId``, ``systemName``,
+    ``path``, ``findings``, ``decision``, ``confidence``, ``reasoning``, ``rerunAuditId``)
+    plus ``counterArgument``, ``auditId``, ``artifactId``, ``decidedBy``.
+    """
+
+    affected: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+    decidedBy: str = Field("gemini", max_length=64)  # noqa: N815
