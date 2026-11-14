@@ -99,6 +99,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       REDIS_PASSWORD: ${REDIS_PASSWORD:-app-dev-redis}
       AGENTS_SERVICE_URL: ${AGENTS_SERVICE_URL:-http://agents:8003}
+      # A new audit starts its pipeline on the agents service (POST /audits/{id}/run).
+      AUDIT_PIPELINE_AUTOSTART: ${AUDIT_PIPELINE_AUTOSTART:-true}
       # Background-task consumers (mirror, wake-ups, reconcile loop).
       ASYNC_TASKS_ENABLED: ${ASYNC_TASKS_ENABLED:-true}
       AGENTS_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
@@ -179,7 +181,7 @@ services:
   agents: # 8003, not published
     build:
       context: ./agents
-    # Runs the agents (OpenAI) and streams AG-UI to the backend
+    # Runs the agents (Gemini) and the audit + impact pipelines, streams AG-UI to the backend
     # (docs/contracts/agents-contract.md). Creates the `agent_runtime` database on the
     # product Postgres at start: checkpoints, conversation files, task rows.
     environment:
@@ -189,6 +191,18 @@ services:
       LOG_REDACTION_SECRET: ${LOG_REDACTION_SECRET:-genai-summit-dev-log-redaction}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_MODEL_REASONING: ${GEMINI_MODEL_REASONING:-}
+      # Deterministic stub model for dry runs and demos without a key (never calls Google).
+      AGENTS_FAKE_LLM: ${AGENTS_FAKE_LLM:-false}
+      # The audit pipeline (pipeline/): reg-memory lookups, redo budgets, the change judge.
+      REG_MEMORY_URL: ${REG_MEMORY_URL:-http://reg-memory:8010}
+      REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:-genai-summit-dev-reg-memory}
+      PIPELINE_MAX_REDOS: ${PIPELINE_MAX_REDOS:-3}
+      PIPELINE_MAX_AUTO_REDOS: ${PIPELINE_MAX_AUTO_REDOS:-1}
+      PIPELINE_PUBLIC_DATA_ENABLED: ${PIPELINE_PUBLIC_DATA_ENABLED:-true}
+      CHANGE_JUDGE_MODEL: ${CHANGE_JUDGE_MODEL:-gemini}
+      OUMI_API_KEY: ${OUMI_API_KEY:-}
+      OUMI_BASE_URL: ${OUMI_BASE_URL:-}
       # Public dataset discovery (harness/tools/public_datasets): optional web
       # search, and the backend's internal API that stores an approved dataset.
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
@@ -230,7 +244,7 @@ services:
     restart: unless-stopped
     networks:
       - backend
-      - edge        # OpenAI API
+      - edge        # Gemini API, public dataset catalogues
       - langfuse
       - mcp_net
       - sandbox_net
