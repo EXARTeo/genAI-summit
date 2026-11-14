@@ -35,17 +35,22 @@ foreach ($service in 'backend', 'agents', 'reg-memory', 'model-gateway', 'mlflow
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-# Validate every docker compose file, with its sibling .env.example if present
+# Frontend: typecheck, lint, format, tests, build (needs Node 20+).
+Write-Host '==> frontend checks'
+Push-Location productrontend
+try {
+    foreach ($npmArgs in @(@('ci'), @('run', 'typecheck'), @('run', 'lint'), @('run', 'format:check'), @('test'), @('run', 'build'))) {
+        & npm @npmArgs
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+} finally { Pop-Location }
+
+# Validate every docker compose file with the repo's single .env.example
 $composeFiles = Get-ChildItem -Recurse -File -Include 'docker-compose*.yml', 'docker-compose*.yaml', 'compose*.yml', 'compose*.yaml' |
     Where-Object { $_.FullName -notmatch '[\\/]\.venv[\\/]' }
 foreach ($file in $composeFiles) {
     Write-Host "==> docker compose config: $($file.FullName)"
-    $envFile = Join-Path $file.DirectoryName '.env.example'
-    if (Test-Path $envFile) {
-        docker compose -f $file.FullName --env-file $envFile config --quiet
-    } else {
-        docker compose -f $file.FullName config --quiet
-    }
+    docker compose -f $file.FullName --env-file .env.example config --quiet
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

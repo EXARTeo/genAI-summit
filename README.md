@@ -18,8 +18,8 @@ uv sync                     # installs the repo tooling (ruff, pytest, pre-commi
 Run the product (backend + Postgres + Redis + Langfuse; see [product/README.md](product/README.md)):
 
 ```bash
-cp product/.env.example product/.env   # optional: dev defaults are built in
-docker compose -f product/docker-compose.yaml up -d --build
+cp .env.example .env        # the ONE env file (optional: dev defaults are built in)
+./scripts/stack.sh up       # Windows: .\scripts\stack.ps1 up (uses WSL Docker if needed)
 ```
 
 Backend: <http://localhost:8100>. Langfuse: <http://localhost:3400> (dev login `admin@example.com` / `genai-summit-dev-1`).
@@ -36,7 +36,7 @@ Or run the setup script for the tooling steps above:
 | Task | Command |
 | --- | --- |
 | Run all checks (lint, format, tests, compose config) | `./scripts/check.sh` or `.\scripts\check.ps1` |
-| Tests | `uv run pytest` |
+| Tests | `uv run python -m pytest` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Install git hooks | `uv run pre-commit install` |

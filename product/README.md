@@ -5,10 +5,10 @@ The product stack (placeholder name until the branding is chosen): the backend w
 ## Run
 
 ```bash
-cp product/.env.example product/.env       # optional: every variable has a dev default
-docker compose -f product/docker-compose.yaml up -d --build
-docker compose -f product/docker-compose.yaml ps        # all services (healthy)
-docker compose -f product/docker-compose.yaml down      # add -v to wipe the data
+cp .env.example .env        # repo root: the ONE env file (optional: dev defaults built in)
+./scripts/stack.sh up       # Windows: .\scripts\stack.ps1 up
+./scripts/stack.sh ps       # all services (healthy)
+./scripts/stack.sh down     # add -v to wipe the data
 ```
 
 First start takes about a minute: Langfuse runs its Postgres and ClickHouse migrations, then creates the org, project, API keys and login user.
@@ -67,4 +67,4 @@ Design choices:
 
 ## Configuration
 
-Every variable is listed in [`.env.example`](.env.example) with its dev default. For anything shared, generate real secrets with `openssl rand -hex 32`. Database, ClickHouse, Redis and MinIO passwords are baked into the volumes on first start: change them before the first `up`, or recreate the volumes.
+Every variable is listed in the repo's single [`.env.example`](../.env.example) with its dev default. For anything shared, generate real secrets with `openssl rand -hex 32`. Database, ClickHouse, Redis and MinIO passwords are baked into the volumes on first start: change them before the first `up`, or recreate the volumes.

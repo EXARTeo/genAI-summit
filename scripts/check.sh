@@ -28,16 +28,15 @@ for service in backend agents reg-memory model-gateway mlflow-seed sandbox; do
   "$python" -m pytest "tests/${service//-/_}" -q
 done
 
-# Validate every docker compose file, with its sibling .env.example if present
+# Frontend: typecheck, lint, format, tests, build (needs Node 20+).
+echo "==> frontend checks"
+(cd product/frontend && npm ci && npm run typecheck && npm run lint && npm run format:check && npm test && npm run build)
+
+# Validate every docker compose file with the repo's single .env.example
 find . -path ./.venv -prune -o \( -name 'docker-compose*.y*ml' -o -name 'compose*.y*ml' \) -print |
   while read -r f; do
     echo "==> docker compose config: $f"
-    env_file="$(dirname "$f")/.env.example"
-    if [ -f "$env_file" ]; then
-      docker compose -f "$f" --env-file "$env_file" config --quiet
-    else
-      docker compose -f "$f" config --quiet
-    fi
+    docker compose -f "$f" --env-file .env.example config --quiet
   done
 
 echo "All checks passed."

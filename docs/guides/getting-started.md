@@ -27,12 +27,12 @@ All configuration comes from environment variables, loaded from `.env` locally. 
 
 ## Run
 
-The product's services run with Docker Compose from the product folder (`product/` until it is named). Its variables are in [`product/.env.example`](../../product/.env.example) (copy to `product/.env`); services and ports in [product/README.md](../../product/README.md).
+The product's services run with Docker Compose from the product folder (`product/` until it is named). Its variables are in the same single [`.env.example`](../../.env.example) at the repo root (one `.env` for everything, sections per service, sponsor keys at the top); services and ports in [product/README.md](../../product/README.md).
 
 ```bash
-docker compose -f product/docker-compose.yaml up -d --build
-docker compose -f product/docker-compose.yaml logs -f
-docker compose -f product/docker-compose.yaml down
+./scripts/stack.sh up       # Windows: .\scripts\stack.ps1 up (WSL Docker if needed)
+./scripts/stack.sh logs -f
+./scripts/stack.sh down
 ```
 
 ## Verify

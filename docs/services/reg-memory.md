@@ -127,7 +127,7 @@ later provision diffs and `kb_version`.
 
 `engine.ingest` runs extract and diff after the download. Run the CLIs from `product/reg-memory/`
 (`.venv\Scripts\python -m engine.ingest`) or inside the container
-(`docker compose -f product/docker-compose.yaml exec reg-memory python -m engine.ingest`).
+(`./scripts/stack.sh exec reg-memory python -m engine.ingest`).
 
 ## API
 

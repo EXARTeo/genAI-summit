@@ -135,6 +135,27 @@ jobs:
       # No MLflow server: small builds plus a sqlite store in tmp_path.
       - run: product/mlflow-seed/.venv/bin/python -m pytest tests/mlflow_seed
 
+  frontend:
+    name: frontend checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: product/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: product/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
   compose:
     name: Validate docker compose
     runs-on: ubuntu-latest
@@ -148,14 +169,9 @@ jobs:
             echo "No compose files yet; skipping."
             exit 0
           fi
-          # A sibling .env.example, when present, supplies the variables.
+          # The repo's single .env.example supplies the variables.
           for f in $files; do
             echo "::group::$f"
-            env_file="$(dirname "$f")/.env.example"
-            if [ -f "$env_file" ]; then
-              docker compose -f "$f" --env-file "$env_file" config --quiet
-            else
-              docker compose -f "$f" config --quiet
-            fi
+            docker compose -f "$f" --env-file .env.example config --quiet
             echo "::endgroup::"
           done
