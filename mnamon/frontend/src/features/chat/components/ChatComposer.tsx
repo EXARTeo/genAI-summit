@@ -1,17 +1,27 @@
 /**
  * The composer (magenticx `ChatInputBar.tsx` + `ComposerPanel.tsx` + `SlashCommandMenu.tsx`):
- * an auto-growing textarea (Enter sends, Shift+Enter breaks the line), files by button, paste or
- * drop (with read progress and a preview on click), the slash-command menu, the "Discussing"
- * chip for a chat about a system or audit, the agent picker for a new chat, and Send / Stop.
+ * one rounded card with an auto-growing textarea ("Message Copilot…"; Enter sends, Shift+Enter
+ * breaks the line), files by "+", paste or drop (with read progress and a preview on click), the
+ * slash-command menu, the "Discussing" chip for a chat about a system or audit, and one round
+ * action button: Send, Stop while the agent answers, or Queue when something is typed meanwhile.
+ * magenticx's travelling glow border is left out (no glows here): a hairline that firms up on
+ * focus instead. The agent picker lives in the chat header.
  */
-import { ArrowUp, Bot, ChevronDown, Loader2, Paperclip, Square, Target, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { ArrowUp, Loader2, Plus, Square, Target, X } from 'lucide-react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import { cn } from '@/shared/lib/utils';
-import { DropdownMenu, IconButton, Tooltip } from '@/shared/ui';
+import { Tooltip } from '@/shared/ui';
 import type { Composer } from '../hooks/useComposer';
 import { formatBytes, previewKind } from '../lib/attachments';
 import { matchCommands, type SlashCommand } from '../lib/slashCommands';
-import type { AgentManifest } from '../lib/types';
 import { useChatUi } from './chatContext';
 import { fileIconFor } from './message_parts/MessageAttachments';
 
@@ -19,6 +29,11 @@ export interface ComposerSubject {
   label: string;
   /** Only a new chat can drop its subject. */
   onClear?: () => void;
+}
+
+export interface ChatComposerHandle {
+  focus: () => void;
+  openFiles: () => void;
 }
 
 interface ChatComposerProps {
@@ -29,31 +44,34 @@ interface ChatComposerProps {
   running: boolean;
   sending: boolean;
   hasConversation: boolean;
+  /** Names the agent in the placeholder ("Message Copilot…"). */
+  agentName?: string | null;
   placeholder?: string;
   subject?: ComposerSubject | null;
-  agents?: AgentManifest[];
-  agent?: AgentManifest | null;
-  onAgentChange?: (agent: AgentManifest) => void;
   queued?: string | null;
   autoFocus?: boolean;
 }
 
-export function ChatComposer({
-  composer,
-  onSubmit,
-  onStop,
-  onCommand,
-  running,
-  sending,
-  hasConversation,
-  placeholder = 'Ask about a system, a finding or an article…',
-  subject,
-  agents = [],
-  agent,
-  onAgentChange,
-  queued,
-  autoFocus,
-}: ChatComposerProps) {
+const ROUND_TOOL =
+  'grid size-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-hover hover:text-text active:bg-hover-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
+export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(function ChatComposer(
+  {
+    composer,
+    onSubmit,
+    onStop,
+    onCommand,
+    running,
+    sending,
+    hasConversation,
+    agentName,
+    placeholder,
+    subject,
+    queued,
+    autoFocus,
+  },
+  ref,
+) {
   const { openPreview } = useChatUi();
   const { draft, setDraft, attachments, addFiles, remove, canSend } = composer;
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -61,6 +79,15 @@ export function ChatComposer({
   const commands = useMemo(() => matchCommands(draft, hasConversation), [draft, hasConversation]);
   const [highlight, setHighlight] = useState(0);
   useEffect(() => setHighlight(0), [commands?.length]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => textarea.current?.focus(),
+      openFiles: () => fileInput.current?.click(),
+    }),
+    [],
+  );
 
   // Auto-grow up to ~10 lines.
   useEffect(() => {
@@ -73,6 +100,12 @@ export function ChatComposer({
   useEffect(() => {
     if (autoFocus) textarea.current?.focus();
   }, [autoFocus]);
+
+  const hasDraft = draft.trim().length > 0 || attachments.length > 0;
+  // While the agent answers, a typed draft is queued (sent when the answer ends); with no
+  // draft the button stops the answer.
+  const queueOnSend = running && hasDraft;
+  const action: 'send' | 'queue' | 'stop' = queueOnSend ? 'queue' : running ? 'stop' : 'send';
 
   const pick = (c: SlashCommand) => {
     if (c.arg) setDraft(`/${c.name} `);
@@ -96,6 +129,8 @@ export function ChatComposer({
         return;
       }
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         setDraft('');
         return;
       }
@@ -106,7 +141,7 @@ export function ChatComposer({
     }
   };
 
-  const showAgentPicker = !hasConversation && agents.length > 1 && agent && onAgentChange;
+  const text = placeholder ?? (agentName ? `Message ${agentName}…` : 'Type a message…');
 
   return (
     <div className="relative">
@@ -141,21 +176,21 @@ export function ChatComposer({
       )}
 
       {queued && (
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-muted">
+        <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs text-muted">
           <Loader2 className="size-3 animate-spin" /> Queued: “{queued.slice(0, 80)}” is sent when the answer
           ends
         </div>
       )}
 
       <div
-        className={cn(
-          'rounded-2xl border border-border bg-surface shadow-card transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15',
-        )}
+        data-composer
+        data-busy={running || undefined}
+        className="rounded-[1.75rem] border border-border bg-surface shadow-card transition-[border-color,box-shadow] duration-150 focus-within:border-primary/35 focus-within:ring-[3px] focus-within:ring-primary/[0.07]"
       >
         {(subject || attachments.length > 0) && (
-          <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
+          <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3">
             {subject && (
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 py-0.5 pl-1.5 pr-1 text-xs text-primary">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 py-0.5 pl-2 pr-1 text-xs text-primary">
                 <Target className="size-3" />
                 <span>
                   Discussing: <span className="font-medium">{subject.label}</span>
@@ -165,7 +200,7 @@ export function ChatComposer({
                     type="button"
                     onClick={subject.onClear}
                     aria-label="Stop discussing this"
-                    className="grid size-4 place-items-center rounded hover:bg-primary/15"
+                    className="grid size-4 place-items-center rounded-full hover:bg-primary/15"
                   >
                     <X className="size-3" />
                   </button>
@@ -178,7 +213,7 @@ export function ChatComposer({
               return (
                 <span
                   key={a.key}
-                  className="group relative inline-flex max-w-[14rem] items-center gap-1.5 overflow-hidden rounded-md border border-border bg-surface-muted py-1 pl-1.5 pr-1 text-xs"
+                  className="group relative inline-flex max-w-[14rem] items-center gap-1.5 overflow-hidden rounded-lg border border-border bg-surface-muted py-1 pl-1.5 pr-1 text-xs"
                 >
                   <button
                     type="button"
@@ -230,12 +265,13 @@ export function ChatComposer({
               addFiles(files);
             }
           }}
-          placeholder={placeholder}
+          placeholder={text}
           aria-label="Message"
-          className="block max-h-60 min-h-[44px] w-full resize-none bg-transparent px-4 pb-1 pt-3 text-sm leading-6 outline-none placeholder:text-muted"
+          aria-expanded={commands && commands.length > 0 ? true : undefined}
+          className="block max-h-60 min-h-[48px] w-full resize-none bg-transparent px-5 pb-1 pt-3.5 text-base outline-none placeholder:text-muted"
         />
 
-        <div className="flex items-center gap-1 px-2 pb-2">
+        <div className="flex items-center gap-2 px-3 pb-3">
           <input
             ref={fileInput}
             type="file"
@@ -246,71 +282,46 @@ export function ChatComposer({
               e.target.value = '';
             }}
           />
-          <IconButton
-            label="Attach files"
-            icon={<Paperclip />}
-            size="icon-sm"
-            onClick={() => fileInput.current?.click()}
-          />
-          {showAgentPicker && (
-            <DropdownMenu
-              align="start"
-              trigger={
-                <button
-                  type="button"
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-xs text-muted transition-colors hover:bg-surface-muted hover:text-text"
-                >
-                  <Bot className="size-3.5" />
-                  {agent.name}
-                  <ChevronDown className="size-3" />
-                </button>
-              }
-              items={agents.map((a) => ({
-                label: (
-                  <span className="flex flex-col">
-                    <span>{a.name}</span>
-                    {a.description && <span className="text-2xs text-muted">{a.description}</span>}
-                  </span>
-                ),
-                checked: a.slug === agent.slug,
-                onSelect: () => onAgentChange(a),
-              }))}
-            />
-          )}
-          {!showAgentPicker && agent && (
-            <span className="inline-flex h-7 items-center gap-1.5 px-2 text-xs text-muted">
-              <Bot className="size-3.5" />
-              {agent.name}
-            </span>
-          )}
-          <span className="ml-auto hidden text-2xs text-muted sm:inline">
-            <kbd className="font-sans">/</kbd> commands · <kbd className="font-sans">Shift ⏎</kbd> new line
-          </span>
-          {running ? (
-            <Tooltip content="Stop (Esc)">
-              <button
-                type="button"
-                onClick={onStop}
-                aria-label="Stop"
-                className="ml-2 grid size-8 place-items-center rounded-lg bg-text text-background transition-opacity hover:opacity-90"
-              >
-                <Square className="size-3 fill-current" />
-              </button>
-            </Tooltip>
-          ) : null}
-          {(!running || draft.trim()) && (
+          <Tooltip content="Attach files (Alt+A)">
             <button
               type="button"
-              onClick={onSubmit}
-              disabled={!canSend || sending}
-              aria-label={running ? 'Queue message' : 'Send'}
-              className="ml-1 grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 disabled:bg-surface-muted disabled:text-muted"
+              aria-label="Attach files"
+              onClick={() => fileInput.current?.click()}
+              className={ROUND_TOOL}
             >
-              {sending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+              <Plus className="size-5" />
             </button>
-          )}
+          </Tooltip>
+          <div className="ml-auto">
+            <Tooltip
+              content={
+                action === 'stop' ? 'Stop (Esc)' : action === 'queue' ? 'Send when the answer ends' : 'Send'
+              }
+            >
+              <button
+                type="button"
+                onClick={action === 'stop' ? onStop : onSubmit}
+                disabled={action !== 'stop' && (!canSend || sending)}
+                aria-label={action === 'stop' ? 'Stop' : action === 'queue' ? 'Queue message' : 'Send'}
+                className={cn(
+                  'grid size-9 place-items-center rounded-full transition-[background-color,color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                  action === 'stop'
+                    ? 'bg-text text-background hover:opacity-90'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-surface-muted disabled:text-muted',
+                )}
+              >
+                {sending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : action === 'stop' ? (
+                  <Square className="size-3.5 fill-current" />
+                ) : (
+                  <ArrowUp className="size-[18px]" />
+                )}
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+});

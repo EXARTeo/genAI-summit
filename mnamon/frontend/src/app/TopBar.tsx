@@ -1,9 +1,11 @@
 import { Menu, Search } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { cn } from '@/shared/lib/utils';
 import { useUiStore } from '@/shared/stores/ui';
 import { IconButton } from '@/shared/ui';
 import { NAV_ITEMS } from './nav';
 import { ThemeToggle } from './ThemeToggle';
+import { TopbarSlotTarget, useTopbarFilled } from './topbarSlot';
 
 function useSectionLabel(): string {
   const { pathname } = useLocation();
@@ -13,11 +15,16 @@ function useSectionLabel(): string {
   return item?.label ?? '';
 }
 
-/** The main card's header: it scrolls with nothing, sticks to the card's top edge. */
+/**
+ * The main card's header: it scrolls with nothing, sticks to the card's top edge. A page can
+ * put its own header row in it (`TopbarExtra`, e.g. the chat's agent picker and actions); that
+ * replaces the section label and the mobile search button.
+ */
 export function TopBar() {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const section = useSectionLabel();
+  const filled = useTopbarFilled();
   return (
     <header className="sticky top-0 z-30 flex h-topbar shrink-0 items-center gap-2 bg-topbar px-3 backdrop-blur-md lg:px-6">
       <IconButton
@@ -27,13 +34,14 @@ export function TopBar() {
         className="lg:hidden"
         onClick={() => setMobileNavOpen(true)}
       />
-      <span className="truncate text-sm font-medium text-muted">{section}</span>
+      {!filled && <span className="truncate text-sm font-medium text-muted">{section}</span>}
+      <TopbarSlotTarget className={cn('min-w-0 flex-1 items-center', filled ? 'flex' : 'hidden')} />
       <div className="ml-auto flex items-center gap-1">
         <IconButton
           label="Search or jump to"
           icon={<Search />}
           tooltip={false}
-          className="lg:hidden"
+          className={cn('lg:hidden', filled && 'hidden')}
           onClick={() => setCommandOpen(true)}
         />
         <ThemeToggle />

@@ -55,6 +55,26 @@ describe('ChatComposer', () => {
     expect(onStop).toHaveBeenCalled();
   });
 
+  it('names the agent in the placeholder; Stop turns into Queue once something is typed', () => {
+    const { result, onStop, onSubmit, rerender } = setup({ agentName: 'Copilot', running: true });
+    expect(screen.getByPlaceholderText('Message Copilot…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
+    act(() => result.current.setDraft('And Art. 10?'));
+    rerender({ agentName: 'Copilot', running: true });
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it('Escape clears a slash command being typed', () => {
+    const { result, rerender } = setup();
+    act(() => result.current.setDraft('/re'));
+    rerender();
+    fireEvent.keyDown(screen.getByLabelText('Message'), { key: 'Escape' });
+    expect(result.current.draft).toBe('');
+  });
+
   it('reads an attached file and can remove it', async () => {
     const { result, rerender } = setup();
     await act(async () => {

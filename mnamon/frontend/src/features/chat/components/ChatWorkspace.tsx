@@ -1,25 +1,38 @@
 /**
- * The chat page (magenticx `pages/ChatView.tsx` + `app/WorkspaceShell` chat wiring): conversation
- * list, header, messages, and the composer slot, which a pending approval or the agent's questions
- * take over. Files can be dropped anywhere on the page. Shortcuts: Esc stops the answer,
- * Ctrl/⌘+Shift+O starts a new chat, Ctrl/⌘+Shift+S focuses the chat search.
+ * The chat page (magenticx `pages/ChatView.tsx` + `app/WorkspaceShell` chat wiring): the header
+ * (agent picker, subject, actions; the page puts it in the app's top bar), messages, and the
+ * composer slot, which a pending approval or the agent's questions take over. A new chat is the
+ * greeting with the composer centred. Files can be dropped anywhere on the page.
+ * Shortcuts: Esc stops the answer, Ctrl/⌘+Shift+O starts a new chat, Ctrl/⌘+Shift+S focuses the
+ * chat search, Alt+L focuses the composer, Alt+A attaches files, Alt+G opens the agent picker.
  */
-import { Archive, MoreHorizontal, Pin, PinOff, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type DragEvent,
+  type ReactNode,
+} from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useHotkey } from '@/shared/hooks/useHotkey';
 import { cn } from '@/shared/lib/utils';
-import { DropdownMenu, ErrorState, IconButton, Skeleton, toast } from '@/shared/ui';
+import { ErrorState, LogoMark, Skeleton, toast } from '@/shared/ui';
 import { useChat } from '../hooks/useChat';
 import { useComposer } from '../hooks/useComposer';
 import { useAgents, useChatSubject, useConversationActions } from '../hooks/useConversations';
 import { chatRoutes } from '../lib/routes';
 import { parseCommand, type SlashCommand } from '../lib/slashCommands';
 import type { AgentManifest } from '../lib/types';
+import type { AgentPickerHandle } from './AgentPicker';
 import { AskUserTakeover } from './AskUserTakeover';
 import { AttachmentPreview } from './AttachmentPreview';
 import { ChatBody } from './ChatBody';
-import { ChatComposer } from './ChatComposer';
+import { ChatComposer, type ChatComposerHandle } from './ChatComposer';
+import { ChatHeader } from './ChatHeader';
 import { ChatUiContext, type PreviewTarget } from './chatContext';
 import { HitlTakeover } from './HitlTakeover';
 
@@ -29,7 +42,60 @@ const SUGGESTIONS = [
   'Ask me to clarify before you review a system',
 ];
 
-export function ChatWorkspace({ conversationId }: { conversationId: string | null }) {
+/** The new chat's greeting, rotated like magenticx's welcome quotes ({agent} = the agent's name). */
+export const GREETINGS = [
+  'Ready when you are.',
+  'What should we look into?',
+  'Ask {agent} anything about your systems.',
+  'Which finding should we dig into?',
+  'Drop a file or paste a screenshot to start.',
+  'Check a system against the AI Act.',
+];
+const GREETING_MS = 8000;
+
+export const CHAT_DISCLAIMER = 'Agents can be wrong. Check the evidence before you act on it.';
+
+function Greeting({ text }: { text: string }) {
+  const reduce = useReducedMotion();
+  return (
+    <div className="flex h-16 flex-col justify-center md:h-[4.5rem]">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.h2
+          key={text}
+          initial={{ opacity: 0, y: reduce ? 0 : 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: reduce ? 0 : -4 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="text-balance text-xl font-bold tracking-tight md:text-2xl"
+        >
+          {text}
+        </motion.h2>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function useRotatingGreeting(active: boolean, agentName: string) {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * GREETINGS.length));
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(
+      () => setIndex((i) => (i + 1 + Math.floor(Math.random() * (GREETINGS.length - 1))) % GREETINGS.length),
+      GREETING_MS,
+    );
+    return () => clearInterval(id);
+  }, [active]);
+  return GREETINGS[index].replace('{agent}', agentName);
+}
+
+export function ChatWorkspace({
+  conversationId,
+  HeaderSlot,
+}: {
+  conversationId: string | null;
+  /** Where the header goes (the page passes the app's top-bar slot); inline when left out. */
+  HeaderSlot?: ComponentType<{ children: ReactNode }>;
+}) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const agents = useAgents();
@@ -38,23 +104,41 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
   const [dragging, setDragging] = useState(false);
   const composer = useComposer();
   const actions = useConversationActions();
+  const composerRef = useRef<ChatComposerHandle>(null);
+  const pickerRef = useRef<AgentPickerHandle>(null);
 
   const querySubject = { systemId: params.get('system'), auditId: params.get('audit') };
   const agentList = useMemo(() => agents.data ?? [], [agents.data]);
+  const picked = agentList.find((a) => a.slug === agentSlug) ?? null;
+  const defaultAgent = agentList.find((a) => a.default) ?? agentList[0] ?? null;
 
-  // The chat's own agent and subject once it exists; the picker and the URL before that.
-  const chatAgentPlaceholder: AgentManifest | null =
-    agentList.find((a) => a.slug === agentSlug) ?? agentList.find((a) => a.default) ?? agentList[0] ?? null;
-  const chat = useChat(conversationId, { agent: chatAgentPlaceholder, subject: querySubject });
+  // A new chat goes to the picked (else the default) agent; an open one keeps its own agent
+  // unless one is picked in the header.
+  const chat = useChat(conversationId, {
+    agent: conversationId ? picked : (picked ?? defaultAgent),
+    subject: querySubject,
+  });
   const detail = chat.detail;
   const subjectIds = detail ? { systemId: detail.systemId, auditId: detail.auditId } : querySubject;
   const subject = useChatSubject(subjectIds.systemId, subjectIds.auditId);
-  const agent: AgentManifest | null = detail
-    ? (agentList.find((a) => a.slug === (agentSlug ?? detail.agentSlug)) ?? {
-        slug: detail.agentSlug,
-        name: detail.agentName ?? detail.agentSlug,
-      })
-    : chatAgentPlaceholder;
+  const detailSlug = detail?.agentSlug;
+  const detailName = detail?.agentName;
+  const chatAgent = useMemo<AgentManifest | null>(
+    () =>
+      detailSlug
+        ? (agentList.find((a) => a.slug === detailSlug) ?? {
+            slug: detailSlug,
+            name: detailName ?? detailSlug,
+          })
+        : null,
+    [agentList, detailSlug, detailName],
+  );
+  const agent = picked ?? chatAgent ?? defaultAgent;
+  const pickerAgents = useMemo(
+    () =>
+      chatAgent && !agentList.some((a) => a.slug === chatAgent.slug) ? [...agentList, chatAgent] : agentList,
+    [agentList, chatAgent],
+  );
 
   useEffect(() => {
     setAgentSlug(null);
@@ -65,7 +149,7 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
   const subjectLabel = useMemo(() => {
     if (!subjectIds.systemId && !subjectIds.auditId) return null;
     const name = subject.data?.systemName ?? subjectIds.systemId ?? '';
-    return [name, subjectIds.auditId ? `audit ${subjectIds.auditId}` : null].filter(Boolean).join(' · ');
+    return [name, subjectIds.auditId ? 'audit' : null].filter(Boolean).join(' · ');
   }, [subject.data, subjectIds.systemId, subjectIds.auditId]);
 
   const runCommand = useCallback(
@@ -94,14 +178,17 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
           void chat.stop();
           return;
         case 'agent': {
-          const found = agentList.find((a) => a.slug === arg || a.name.toLowerCase() === arg.toLowerCase());
+          if (!arg) {
+            pickerRef.current?.open();
+            return;
+          }
+          const found = pickerAgents.find(
+            (a) => a.slug === arg || a.name.toLowerCase() === arg.toLowerCase(),
+          );
           if (found) {
             setAgentSlug(found.slug);
             toast.success(`Next message goes to ${found.name}`);
-          } else
-            toast.error(
-              arg ? `No agent called “${arg}”` : `Agents: ${agentList.map((a) => a.slug).join(', ')}`,
-            );
+          } else toast.error(`No agent called “${arg}”`);
           return;
         }
         case 'search':
@@ -110,7 +197,7 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
         default:
       }
     },
-    [detail, actions, navigate, chat, agentList],
+    [detail, actions, navigate, chat, pickerAgents],
   );
 
   const submit = useCallback(async () => {
@@ -131,6 +218,22 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
     () => document.querySelector<HTMLInputElement>('input[aria-label="Search chats"]')?.focus(),
     true,
   );
+  // magenticx's Alt shortcuts, matched on the physical key so other layouts work too.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const run = {
+        KeyL: () => composerRef.current?.focus(),
+        KeyA: () => composerRef.current?.openFiles(),
+        KeyG: () => pickerRef.current?.open(),
+      }[e.code];
+      if (!run) return;
+      e.preventDefault();
+      run();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -138,10 +241,20 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
     if (e.dataTransfer.files.length) composer.addFiles(e.dataTransfer.files);
   };
 
+  const empty = !conversationId;
+  const notFound = chat.conversation.isError;
+  const agentName = agent?.name ?? 'the agent';
+  const rotating = useRotatingGreeting(empty && !subjectLabel, agentName);
+  const greeting = subjectLabel ? `What about ${subject.data?.systemName ?? subjectLabel}?` : rotating;
+
   const pending = chat.pending[0] ?? null;
   const takeover = pending ? (
     pending.questions ? (
-      <AskUserTakeover approval={pending} onAnswer={(answers) => chat.answer(pending, answers)} />
+      <AskUserTakeover
+        approval={pending}
+        agentName={agent?.name}
+        onAnswer={(answers) => chat.answer(pending, answers)}
+      />
     ) : (
       <HitlTakeover
         approval={pending}
@@ -153,6 +266,7 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
 
   const composerEl = (
     <ChatComposer
+      ref={composerRef}
       composer={composer}
       onSubmit={() => void submit()}
       onStop={() => void chat.stop()}
@@ -160,21 +274,43 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
       running={Boolean(chat.activeRun)}
       sending={chat.sending}
       hasConversation={Boolean(detail)}
+      agentName={agent?.name}
       subject={
         subjectLabel
           ? { label: subjectLabel, onClear: detail ? undefined : () => setParams({}, { replace: true }) }
           : null
       }
-      agents={agentList}
-      agent={agent}
-      onAgentChange={(a) => setAgentSlug(a.slug)}
       queued={chat.queued}
       autoFocus
     />
   );
 
-  const empty = !conversationId;
-  const notFound = chat.conversation.isError;
+  const header = (
+    <ChatHeader
+      ref={pickerRef}
+      agents={pickerAgents}
+      agent={agent}
+      onAgentChange={(a) => setAgentSlug(a.slug)}
+      title={empty ? null : detail?.title}
+      subject={detail && subjectLabel ? { label: subjectLabel, systemId: subjectIds.systemId ?? null } : null}
+      conversation={
+        detail
+          ? {
+              pinned: detail.isPinned,
+              onPin: () => actions.pin.mutate({ id: detail.id, pinned: !detail.isPinned }),
+              onArchive: () =>
+                actions.archive.mutate(
+                  { id: detail.id, archived: true },
+                  { onSuccess: () => navigate(chatRoutes.root) },
+                ),
+              onDelete: () =>
+                actions.remove.mutate(detail.id, { onSuccess: () => navigate(chatRoutes.root) }),
+            }
+          : null
+      }
+      onNewChat={() => navigate(chatRoutes.root)}
+    />
+  );
 
   return (
     <ChatUiContext.Provider
@@ -185,6 +321,7 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
         openPreview: setPreview,
       }}
     >
+      {HeaderSlot ? <HeaderSlot>{header}</HeaderSlot> : null}
       <div
         className="-mx-4 -my-6 flex h-[calc(var(--shell-viewport)-var(--topbar-height))] lg:-mx-8 lg:-my-8"
         onDragOver={(e) => {
@@ -199,85 +336,38 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
         onDrop={onDrop}
       >
         <section className={cn('relative flex min-w-0 flex-1 flex-col', dragging && 'chat-drop')}>
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
-            <h1 className="min-w-0 truncate text-sm font-medium">
-              {empty ? 'New chat' : (detail?.title ?? (chat.conversation.isPending ? '' : 'Chat'))}
-            </h1>
-            {detail && subjectLabel && subjectIds.systemId && (
-              <Link
-                to={`/systems/${encodeURIComponent(subjectIds.systemId)}`}
-                className="hidden items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-muted hover:bg-surface-muted hover:text-text sm:inline-flex"
-              >
-                <Target className="size-3" /> {subjectLabel}
-              </Link>
-            )}
-            <div className="ml-auto flex items-center gap-1">
-              {detail && (
-                <DropdownMenu
-                  trigger={<IconButton label="Chat options" icon={<MoreHorizontal />} size="icon-sm" />}
-                  items={[
-                    {
-                      label: detail.isPinned ? 'Unpin' : 'Pin',
-                      icon: detail.isPinned ? <PinOff /> : <Pin />,
-                      onSelect: () => actions.pin.mutate({ id: detail.id, pinned: !detail.isPinned }),
-                    },
-                    {
-                      label: 'Archive',
-                      icon: <Archive />,
-                      onSelect: () =>
-                        actions.archive.mutate(
-                          { id: detail.id, archived: true },
-                          { onSuccess: () => navigate(chatRoutes.root) },
-                        ),
-                    },
-                    { type: 'separator' },
-                    {
-                      label: 'Delete',
-                      icon: <Trash2 />,
-                      danger: true,
-                      onSelect: () =>
-                        actions.remove.mutate(detail.id, { onSuccess: () => navigate(chatRoutes.root) }),
-                    },
-                  ]}
-                />
-              )}
-              <IconButton
-                label="New chat (Ctrl+Shift+O)"
-                icon={<Plus />}
-                size="icon-sm"
-                onClick={() => navigate(chatRoutes.root)}
-              />
-            </div>
-          </header>
+          {!HeaderSlot && <div className="flex h-12 shrink-0 items-center px-3">{header}</div>}
 
           {notFound ? (
             <div className="grid flex-1 place-items-center p-6">
               <ErrorState title="This chat is not available" error={chat.conversation.error} />
             </div>
           ) : empty ? (
-            <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-[10vh]">
-              <div className="w-full max-w-2xl space-y-6">
-                <div className="text-center">
-                  <div className="mx-auto mb-3 grid size-10 place-items-center rounded-xl border border-border bg-surface text-primary">
-                    <Sparkles className="size-4" />
-                  </div>
-                  <h2 className="text-xl font-semibold">
-                    {subjectLabel
-                      ? `What about ${subject.data?.systemName ?? subjectLabel}?`
-                      : 'What should we look into?'}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Every tool call, sub-agent and approval shows up as it happens, and is traced.
-                  </p>
+            <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-[6vh]">
+              <div className="w-full max-w-3xl">
+                <div className="mb-4 text-center md:mb-6">
+                  <LogoMark
+                    className="mx-auto mb-2 size-14 md:size-16 [@media(max-height:640px)]:hidden"
+                    title=""
+                  />
+                  <Greeting text={greeting} />
+                  {agent?.description && (
+                    <p className="mx-auto max-w-md text-sm text-muted md:text-base [@media(max-height:560px)]:hidden">
+                      {agent.description}
+                    </p>
+                  )}
                 </div>
                 {composerEl}
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       type="button"
-                      onClick={() => composer.setDraft(s)}
-                      className="rounded-lg border border-border bg-surface p-3 text-left text-xs text-muted transition-colors hover:border-primary/40 hover:text-text"
+                      onClick={() => {
+                        composer.setDraft(s);
+                        composerRef.current?.focus();
+                      }}
+                      className="rounded-full border border-border px-3.5 py-1.5 text-xs text-muted transition-colors hover:border-primary/40 hover:bg-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     >
                       {s}
                     </button>
@@ -286,7 +376,7 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
               </div>
             </div>
           ) : chat.conversation.isPending ? (
-            <div className="mx-auto w-full max-w-3xl space-y-6 px-4 pt-8">
+            <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 pt-8">
               <Skeleton className="ml-auto h-10 w-2/3 rounded-2xl" />
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-24 w-full" />
@@ -294,13 +384,14 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
           ) : (
             <>
               <ChatBody chat={chat} />
-              <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-                {takeover ?? composerEl}
-                <p className="mt-1.5 text-center text-2xs text-muted">
-                  Agents can be wrong. Check the evidence before you act on it.
-                </p>
-              </div>
+              <div className="mx-auto w-full max-w-3xl px-4">{takeover ?? composerEl}</div>
             </>
+          )}
+
+          {!notFound && (
+            <p className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-3 pt-2.5 text-center text-xs text-muted">
+              {CHAT_DISCLAIMER}
+            </p>
           )}
 
           {dragging && (
