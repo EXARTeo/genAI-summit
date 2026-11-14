@@ -104,7 +104,8 @@ services:
       # Background-task consumers (mirror, wake-ups, reconcile loop).
       ASYNC_TASKS_ENABLED: ${ASYNC_TASKS_ENABLED:-true}
       AGENTS_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      # The browser's origin (the frontend's nginx proxies /api); the WebSocket check reads it too.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173}
       # Traces go to langfuse-web over the `langfuse` network.
       LANGFUSE_HOST: ${LANGFUSE_HOST:-http://langfuse-web:3000}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-genai-summit-dev}
