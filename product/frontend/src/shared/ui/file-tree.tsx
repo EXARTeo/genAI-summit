@@ -53,7 +53,10 @@ export interface FileTreeProps {
 export function FileTree({ entries, selected, onSelect, defaultExpanded, className }: FileTreeProps) {
   const tree = useMemo(() => buildTree(entries), [entries]);
   const [open, setOpen] = useState<Set<string>>(
-    () => new Set(defaultExpanded ?? [...tree.children.values()].filter((n) => n.children.size).map((n) => n.path)),
+    () =>
+      new Set(
+        defaultExpanded ?? [...tree.children.values()].filter((n) => n.children.size).map((n) => n.path),
+      ),
   );
   const toggle = (p: string) =>
     setOpen((s) => {
@@ -86,7 +89,9 @@ export function FileTree({ entries, selected, onSelect, defaultExpanded, classNa
           >
             {isFolder ? (
               <>
-                <ChevronRight className={cn('!size-3.5 text-muted transition-transform', isOpen && 'rotate-90')} />
+                <ChevronRight
+                  className={cn('!size-3.5 text-muted transition-transform', isOpen && 'rotate-90')}
+                />
                 {isOpen ? <FolderOpen className="text-primary/80" /> : <Folder className="text-primary/80" />}
               </>
             ) : (

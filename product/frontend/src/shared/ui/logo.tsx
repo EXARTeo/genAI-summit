@@ -12,7 +12,10 @@ export function LogoMark({ className, title = PRODUCT_NAME }: { className?: stri
           <stop offset="1" stopColor="rgb(var(--rgb-accent))" />
         </linearGradient>
       </defs>
-      <path d="M32 4 54 12v18c0 14.5-9.4 25.6-22 30C19.4 55.6 10 44.5 10 30V12L32 4Z" fill="url(#logo-grad)" />
+      <path
+        d="M32 4 54 12v18c0 14.5-9.4 25.6-22 30C19.4 55.6 10 44.5 10 30V12L32 4Z"
+        fill="url(#logo-grad)"
+      />
       <path
         d="m22 32 7 7 13-15"
         fill="none"

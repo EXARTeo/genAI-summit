@@ -52,9 +52,7 @@ export function Dialog({
         >
           <Header title={title} description={description} />
           <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5">{children}</div>
-          {footer && (
-            <div className="flex justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>
-          )}
+          {footer && <div className="flex justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -96,9 +94,7 @@ export function Sheet({
         >
           <Header title={title} description={description} />
           <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">{children}</div>
-          {footer && (
-            <div className="flex justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>
-          )}
+          {footer && <div className="flex justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -111,7 +107,9 @@ function Header({ title, description }: { title: ReactNode; description?: ReactN
       <div className="min-w-0 flex-1">
         <DialogPrimitive.Title className="text-lg font-semibold leading-tight">{title}</DialogPrimitive.Title>
         {description ? (
-          <DialogPrimitive.Description className="mt-1 text-sm text-muted">{description}</DialogPrimitive.Description>
+          <DialogPrimitive.Description className="mt-1 text-sm text-muted">
+            {description}
+          </DialogPrimitive.Description>
         ) : (
           <DialogPrimitive.Description className="sr-only">{title}</DialogPrimitive.Description>
         )}

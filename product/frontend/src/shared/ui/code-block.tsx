@@ -31,7 +31,12 @@ function highlightYamlLine(line: string): ReactNode {
   const m = /^(\s*-?\s*)([\w.\-"' ]+?)(:)(\s|$)(.*)$/.exec(code);
   const parts: ReactNode[] = [];
   if (m) {
-    parts.push(m[1], <span className={TOKEN.key}>{m[2]}</span>, <span className={TOKEN.punct}>{m[3]}</span>, m[4]);
+    parts.push(
+      m[1],
+      <span className={TOKEN.key}>{m[2]}</span>,
+      <span className={TOKEN.punct}>{m[3]}</span>,
+      m[4],
+    );
     parts.push(highlightScalar(m[5]));
   } else {
     parts.push(highlightScalar(code));
@@ -78,7 +83,8 @@ export function CodeBlock({
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const lines = useMemo(() => code.replace(/\n$/, '').split('\n'), [code]);
-  const render = language === 'yaml' ? highlightYamlLine : language === 'json' ? highlightJsonLine : (l: string) => l;
+  const render =
+    language === 'yaml' ? highlightYamlLine : language === 'json' ? highlightJsonLine : (l: string) => l;
 
   const copy = async () => {
     try {
@@ -109,7 +115,9 @@ export function CodeBlock({
           {lines.map((line, i) => (
             <div key={i} className="flex">
               {showLineNumbers && (
-                <span className="mr-4 inline-block w-8 shrink-0 select-none text-right text-muted/60">{i + 1}</span>
+                <span className="mr-4 inline-block w-8 shrink-0 select-none text-right text-muted/60">
+                  {i + 1}
+                </span>
               )}
               <span className="whitespace-pre">{render(line)}</span>
             </div>

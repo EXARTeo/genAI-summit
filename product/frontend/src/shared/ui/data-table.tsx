@@ -51,7 +51,8 @@ export function DataTable<T>({
     const col = columns.find((c) => c.id === sort.id);
     if (!col) return rows;
     const get =
-      col.sortValue ?? ((r: T) => (r as Record<string, unknown>)[col.id] as string | number | null | undefined);
+      col.sortValue ??
+      ((r: T) => (r as Record<string, unknown>)[col.id] as string | number | null | undefined);
     const out = [...rows].sort((a, b) => {
       const va = get(a);
       const vb = get(b);
@@ -140,7 +141,11 @@ export function DataTable<T>({
                         key={c.id}
                         className={cn(
                           'border-b border-border px-4 py-3 align-middle',
-                          c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left',
+                          c.align === 'right'
+                            ? 'text-right'
+                            : c.align === 'center'
+                              ? 'text-center'
+                              : 'text-left',
                           c.className,
                         )}
                       >

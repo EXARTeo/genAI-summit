@@ -46,7 +46,13 @@ export interface ErrorStateProps {
   compact?: boolean;
 }
 
-export function ErrorState({ title = 'Something went wrong', error, onRetry, className, compact }: ErrorStateProps) {
+export function ErrorState({
+  title = 'Something went wrong',
+  error,
+  onRetry,
+  className,
+  compact,
+}: ErrorStateProps) {
   const message =
     error instanceof ApiError
       ? error.isNotFound

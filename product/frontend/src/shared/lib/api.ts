@@ -17,7 +17,13 @@ export class ApiError extends Error {
   readonly details: unknown;
   readonly requestId: string | null;
 
-  constructor(opts: { status: number; code: string; message: string; details?: unknown; requestId?: string | null }) {
+  constructor(opts: {
+    status: number;
+    code: string;
+    message: string;
+    details?: unknown;
+    requestId?: string | null;
+  }) {
     super(opts.message);
     this.name = 'ApiError';
     this.status = opts.status;
@@ -113,9 +119,11 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
 
 export const api = {
   get: <T>(path: string, opts?: Omit<RequestOptions, 'body'>) => request<T>('GET', path, opts),
-  post: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>('POST', path, { ...opts, body }),
+  post: <T>(path: string, body?: unknown, opts?: RequestOptions) =>
+    request<T>('POST', path, { ...opts, body }),
   put: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>('PUT', path, { ...opts, body }),
-  patch: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>('PATCH', path, { ...opts, body }),
+  patch: <T>(path: string, body?: unknown, opts?: RequestOptions) =>
+    request<T>('PATCH', path, { ...opts, body }),
   delete: <T>(path: string, opts?: RequestOptions) => request<T>('DELETE', path, opts),
 };
 

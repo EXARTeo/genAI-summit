@@ -2,7 +2,14 @@
 export { Button, IconButton, buttonVariants, type ButtonProps, type IconButtonProps } from './button';
 export { Card, CardHeader, CardContent, CardFooter, type CardProps, type CardHeaderProps } from './card';
 export { GlowCard, type GlowCardProps } from './glow-card';
-export { Badge, StatusPill, badgeVariants, type BadgeProps, type BadgeTone, type StatusPillProps } from './badge';
+export {
+  Badge,
+  StatusPill,
+  badgeVariants,
+  type BadgeProps,
+  type BadgeTone,
+  type StatusPillProps,
+} from './badge';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 export { Dialog, Sheet, DialogClose, type DialogProps, type SheetProps } from './dialog';
 export { DropdownMenu, type DropdownItem, type DropdownMenuProps } from './dropdown-menu';

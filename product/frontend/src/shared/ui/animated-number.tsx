@@ -44,7 +44,10 @@ export function AnimatedNumber({
 
   const text = format ? format(display) : display.toFixed(decimals);
   return (
-    <span className={cn('tabular-nums', className)} aria-label={`${prefix}${format ? format(value) : value.toFixed(decimals)}${suffix}`}>
+    <span
+      className={cn('tabular-nums', className)}
+      aria-label={`${prefix}${format ? format(value) : value.toFixed(decimals)}${suffix}`}
+    >
       {prefix}
       {text}
       {suffix}

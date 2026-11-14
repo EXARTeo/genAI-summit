@@ -113,8 +113,7 @@
 
 /* AgentThinking orb */
 .agent-orb {
-  background:
-    radial-gradient(circle at 30% 30%, rgb(var(--rgb-accent) / 0.95), transparent 60%),
+  background: radial-gradient(circle at 30% 30%, rgb(var(--rgb-accent) / 0.95), transparent 60%),
     radial-gradient(circle at 70% 70%, rgb(var(--rgb-primary) / 0.95), transparent 65%),
     rgb(var(--rgb-primary) / 0.5);
   animation:

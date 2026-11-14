@@ -25,7 +25,14 @@ const COLOR: Record<string, string> = {
 
 let gradientSeq = 0;
 
-export function ProgressRing({ value, size = 56, stroke = 5, tone = 'gradient', label, className }: ProgressRingProps) {
+export function ProgressRing({
+  value,
+  size = 56,
+  stroke = 5,
+  tone = 'gradient',
+  label,
+  className,
+}: ProgressRingProps) {
   const v = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -48,7 +55,14 @@ export function ProgressRing({ value, size = 56, stroke = 5, tone = 'gradient', 
             </linearGradient>
           </defs>
         )}
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--rgb-border))" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="rgb(var(--rgb-border))"
+          strokeWidth={stroke}
+        />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -63,7 +77,9 @@ export function ProgressRing({ value, size = 56, stroke = 5, tone = 'gradient', 
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         />
       </svg>
-      <span className="absolute text-xs font-semibold tabular-nums">{label ?? `${Math.round(v * 100)}%`}</span>
+      <span className="absolute text-xs font-semibold tabular-nums">
+        {label ?? `${Math.round(v * 100)}%`}
+      </span>
     </div>
   );
 }

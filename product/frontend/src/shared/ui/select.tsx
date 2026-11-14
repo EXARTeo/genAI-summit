@@ -34,7 +34,12 @@ export function Select({
   ...aria
 }: SelectProps) {
   return (
-    <SelectPrimitive.Root value={value} defaultValue={defaultValue} onValueChange={onValueChange} disabled={disabled}>
+    <SelectPrimitive.Root
+      value={value}
+      defaultValue={defaultValue}
+      onValueChange={onValueChange}
+      disabled={disabled}
+    >
       <SelectPrimitive.Trigger
         id={id}
         aria-label={aria['aria-label']}
@@ -61,7 +66,7 @@ export function Select({
                 key={o.value}
                 value={o.value}
                 disabled={o.disabled}
-                className="relative flex cursor-default select-none flex-col rounded-md py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-surface-muted"
+                className="relative flex cursor-default select-none flex-col rounded-md py-1.5 pl-8 pr-2 text-sm outline-none data-[highlighted]:bg-surface-muted data-[disabled]:opacity-50"
               >
                 <SelectPrimitive.ItemIndicator className="absolute left-2 top-2">
                   <Check className="size-4 text-primary" />

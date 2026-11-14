@@ -1,3 +1,5 @@
 dist
 node_modules
 src/styles/theme/tokens.css
+src/shared/lib/mocks/fixtures/seed-cases.json
+package-lock.json

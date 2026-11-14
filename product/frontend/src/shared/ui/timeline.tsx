@@ -32,7 +32,12 @@ const DOT: Record<BadgeTone, string> = {
 /** Vertical activity feed (audit ledger, file events, agent actions). */
 export function Timeline({ items, className }: { items: TimelineItem[]; className?: string }) {
   return (
-    <motion.ol variants={staggerList()} initial="initial" animate="animate" className={cn('relative', className)}>
+    <motion.ol
+      variants={staggerList()}
+      initial="initial"
+      animate="animate"
+      className={cn('relative', className)}
+    >
       {items.map((it, i) => (
         <motion.li key={it.id} variants={listItem} className="relative flex gap-3 pb-5 last:pb-0">
           {i < items.length - 1 && (

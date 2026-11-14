@@ -26,7 +26,15 @@ export interface CardHeaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 't
   actions?: ReactNode;
 }
 
-export function CardHeader({ title, description, icon, actions, className, children, ...props }: CardHeaderProps) {
+export function CardHeader({
+  title,
+  description,
+  icon,
+  actions,
+  className,
+  children,
+  ...props
+}: CardHeaderProps) {
   return (
     <div className={cn('flex items-start gap-3 p-5 pb-3', className)} {...props}>
       {icon && (
