@@ -11,7 +11,8 @@ export function useMemoryLedger() {
 export function useMemoryAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; action: MemoryAction; reason: string }) => memoryApi.act(v.id, v.action, v.reason),
+    mutationFn: (v: { id: string; action: MemoryAction; reason: string }) =>
+      memoryApi.act(v.id, v.action, v.reason),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: memoryKeys.ledger });
     },

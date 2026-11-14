@@ -6,12 +6,15 @@ const ledger = buildMockMemory();
 
 describe('memory ledger', () => {
   it('filters by scope, status and text', () => {
-    expect(filterMemory(ledger, { scope: 'org', status: 'all', query: '' }).every((e) => e.scope === 'org')).toBe(true);
-    expect(filterMemory(ledger, { scope: 'all', status: 'stale', query: '' }).map((e) => e.id)).toEqual(['MEM-0021']);
-    expect(filterMemory(ledger, { scope: 'all', status: 'all', query: 'equal opportunity' }).map((e) => e.id)).toEqual([
-      'MEM-0042',
-      'MEM-0039',
+    expect(
+      filterMemory(ledger, { scope: 'org', status: 'all', query: '' }).every((e) => e.scope === 'org'),
+    ).toBe(true);
+    expect(filterMemory(ledger, { scope: 'all', status: 'stale', query: '' }).map((e) => e.id)).toEqual([
+      'MEM-0021',
     ]);
+    expect(
+      filterMemory(ledger, { scope: 'all', status: 'all', query: 'equal opportunity' }).map((e) => e.id),
+    ).toEqual(['MEM-0042', 'MEM-0039']);
   });
 
   it('labels scopes and lists them with org first', () => {

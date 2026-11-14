@@ -16,7 +16,10 @@ export const JUDGE: Record<JudgeDecision, { label: string; tone: Tone; rank: num
 };
 
 /** The decision that counts: the human override if any, else the judge's. */
-export function effectiveDecision(a: { decision: JudgeDecision; humanDecision?: JudgeDecision | null }): JudgeDecision {
+export function effectiveDecision(a: {
+  decision: JudgeDecision;
+  humanDecision?: JudgeDecision | null;
+}): JudgeDecision {
   return a.humanDecision ?? a.decision;
 }
 

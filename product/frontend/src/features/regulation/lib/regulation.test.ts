@@ -18,9 +18,9 @@ describe('regulation helpers', () => {
   });
 
   it('prefers the human override over the change judge', () => {
-    expect(effectiveDecision({ decision: 'new_tests_needed', humanDecision: 'reinterpret_existing_evidence' })).toBe(
-      'reinterpret_existing_evidence',
-    );
+    expect(
+      effectiveDecision({ decision: 'new_tests_needed', humanDecision: 'reinterpret_existing_evidence' }),
+    ).toBe('reinterpret_existing_evidence');
     expect(effectiveDecision({ decision: 'rerun_tests', humanDecision: null })).toBe('rerun_tests');
   });
 

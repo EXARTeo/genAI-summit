@@ -26,7 +26,15 @@ export function filterMemory(entries: MemoryEntry[], f: MemoryFilter): MemoryEnt
     .filter(
       (e) =>
         !q ||
-        [e.id, e.proposed, e.humanDecision, e.rationale, e.reasonCategory, e.appliesTo.requirement ?? '', e.appliesTo.step ?? '']
+        [
+          e.id,
+          e.proposed,
+          e.humanDecision,
+          e.rationale,
+          e.reasonCategory,
+          e.appliesTo.requirement ?? '',
+          e.appliesTo.step ?? '',
+        ]
           .join(' ')
           .toLowerCase()
           .includes(q),
@@ -43,7 +51,10 @@ export type MemoryAction = 'approve' | 'promote' | 'retire' | 'reactivate';
  * - active org entry → retire
  * - stale → reactivate after re-review, or retire
  */
-export function allowedActions(e: Pick<MemoryEntry, 'status' | 'scope'>, promotedAlready = false): MemoryAction[] {
+export function allowedActions(
+  e: Pick<MemoryEntry, 'status' | 'scope'>,
+  promotedAlready = false,
+): MemoryAction[] {
   switch (e.status) {
     case 'proposed':
       return ['approve', 'retire'];

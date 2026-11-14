@@ -13,5 +13,8 @@ export const regulationApi = {
   decideChange: (id: string, body: { status: 'accepted' | 'rejected' }) =>
     api.post<RegChange>(`/v1/regulation/changes/${encodeURIComponent(id)}/decision`, body),
   overrideJudge: (id: string, systemId: string, decision: JudgeDecision) =>
-    api.post<RegChange>(`/v1/regulation/changes/${encodeURIComponent(id)}/systems/${encodeURIComponent(systemId)}`, { decision }),
+    api.post<RegChange>(
+      `/v1/regulation/changes/${encodeURIComponent(id)}/systems/${encodeURIComponent(systemId)}`,
+      { decision },
+    ),
 };

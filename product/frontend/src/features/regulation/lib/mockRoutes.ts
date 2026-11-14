@@ -17,9 +17,14 @@ export const regulationRoutes: MockRoute[] = [
   {
     method: 'GET',
     path: '/v1/regulation/documents/:docId/text',
-    handler: ({ params, query }) => mockDocText(params.docId, query.get('version') ? Number(query.get('version')) : undefined),
+    handler: ({ params, query }) =>
+      mockDocText(params.docId, query.get('version') ? Number(query.get('version')) : undefined),
   },
-  { method: 'GET', path: '/v1/regulation/documents/:docId/diff', handler: ({ params }) => mockDocDiff(params.docId) },
+  {
+    method: 'GET',
+    path: '/v1/regulation/documents/:docId/diff',
+    handler: ({ params }) => mockDocDiff(params.docId),
+  },
   { method: 'GET', path: '/v1/regulation/changes', handler: () => db() },
   {
     method: 'POST',
@@ -36,7 +41,9 @@ export const regulationRoutes: MockRoute[] = [
     handler: ({ params, body }) => {
       const c = find(params.id);
       c.affected = c.affected.map((a) =>
-        a.systemId === params.systemId ? { ...a, humanDecision: (body as { decision: JudgeDecision }).decision } : a,
+        a.systemId === params.systemId
+          ? { ...a, humanDecision: (body as { decision: JudgeDecision }).decision }
+          : a,
       );
       return c;
     },

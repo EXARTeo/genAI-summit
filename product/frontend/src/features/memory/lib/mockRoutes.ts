@@ -49,7 +49,14 @@ export const memoryRoutes: MockRoute[] = [
             usageCount: 0,
             version: 1,
             createdAt: new Date().toISOString(),
-            history: [{ action: 'create', actor: 'engineer:you', at: new Date().toISOString(), reason: `Promoted from ${e.id}; waiting for the AI Officer` }],
+            history: [
+              {
+                action: 'create',
+                actor: 'engineer:you',
+                at: new Date().toISOString(),
+                reason: `Promoted from ${e.id}; waiting for the AI Officer`,
+              },
+            ],
           };
           log(e, 'promote', reason || `→ ${org.id}`);
           ledger = [org, ...db()];

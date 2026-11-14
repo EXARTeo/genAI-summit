@@ -13,7 +13,8 @@ export function buildMockMemory(): MemoryEntry[] {
       proposed: 'Primary metric: demographic parity',
       humanDecision: 'Primary metric: equal opportunity',
       reasonCategory: 'wrong_metric',
-      rationale: 'For shortlisting, qualified candidates must have equal chances; base rates differ by design.',
+      rationale:
+        'For shortlisting, qualified candidates must have equal chances; base rates differ by design.',
       author: 'engineer:alice',
       approvedBy: 'ai-officer:bob',
       promotedFrom: 'MEM-0039',
@@ -27,11 +28,40 @@ export function buildMockMemory(): MemoryEntry[] {
       lastUsedAt: '2026-11-14T18:05:30Z',
       createdAt: '2026-11-14T14:20:00Z',
       history: [
-        { action: 'create', actor: 'engineer:alice', at: '2026-11-14T14:20:00Z', reason: 'Promoted from MEM-0039', version: 1 },
-        { action: 'approve', actor: 'ai-officer:bob', at: '2026-11-14T14:31:00Z', reason: 'Regression check passed on SYS-001 and SYS-003 plans' },
-        { action: 'read', actor: 'agent:engineer-pipeline', at: '2026-11-14T15:02:40Z', runId: 'aud-sys001-r2', traceId: 'tr-sys001-r2-02' },
-        { action: 'read', actor: 'agent:engineer-pipeline', at: '2026-11-14T17:41:00Z', runId: 'aud-sys001-r3', traceId: 'tr-sys001-r3-02' },
-        { action: 'read', actor: 'agent:engineer-pipeline', at: '2026-11-14T18:05:30Z', runId: 'aud-sys002-r1', traceId: 'tr-sys002-r1-00' },
+        {
+          action: 'create',
+          actor: 'engineer:alice',
+          at: '2026-11-14T14:20:00Z',
+          reason: 'Promoted from MEM-0039',
+          version: 1,
+        },
+        {
+          action: 'approve',
+          actor: 'ai-officer:bob',
+          at: '2026-11-14T14:31:00Z',
+          reason: 'Regression check passed on SYS-001 and SYS-003 plans',
+        },
+        {
+          action: 'read',
+          actor: 'agent:engineer-pipeline',
+          at: '2026-11-14T15:02:40Z',
+          runId: 'aud-sys001-r2',
+          traceId: 'tr-sys001-r2-02',
+        },
+        {
+          action: 'read',
+          actor: 'agent:engineer-pipeline',
+          at: '2026-11-14T17:41:00Z',
+          runId: 'aud-sys001-r3',
+          traceId: 'tr-sys001-r3-02',
+        },
+        {
+          action: 'read',
+          actor: 'agent:engineer-pipeline',
+          at: '2026-11-14T18:05:30Z',
+          runId: 'aud-sys002-r1',
+          traceId: 'tr-sys002-r1-00',
+        },
       ],
     },
     {
@@ -55,9 +85,19 @@ export function buildMockMemory(): MemoryEntry[] {
       usageCount: 1,
       createdAt: '2026-11-14T14:02:00Z',
       history: [
-        { action: 'create', actor: 'engineer:alice', at: '2026-11-14T14:02:00Z', reason: 'Rejected TS-002 at the scenario gate (wrong_metric)' },
+        {
+          action: 'create',
+          actor: 'engineer:alice',
+          at: '2026-11-14T14:02:00Z',
+          reason: 'Rejected TS-002 at the scenario gate (wrong_metric)',
+        },
         { action: 'approve', actor: 'engineer:alice', at: '2026-11-14T14:02:10Z' },
-        { action: 'promote', actor: 'engineer:alice', at: '2026-11-14T14:20:00Z', reason: 'Applies to every hiring system → MEM-0042' },
+        {
+          action: 'promote',
+          actor: 'engineer:alice',
+          at: '2026-11-14T14:20:00Z',
+          reason: 'Applies to every hiring system → MEM-0042',
+        },
       ],
     },
     {
@@ -80,10 +120,27 @@ export function buildMockMemory(): MemoryEntry[] {
       lastUsedAt: '2026-11-14T17:44:00Z',
       createdAt: '2026-11-14T14:40:00Z',
       history: [
-        { action: 'create', actor: 'engineer:alice', at: '2026-11-14T14:40:00Z', reason: 'Dataset rejected at the dataset gate (unrealistic_data)', version: 1 },
+        {
+          action: 'create',
+          actor: 'engineer:alice',
+          at: '2026-11-14T14:40:00Z',
+          reason: 'Dataset rejected at the dataset gate (unrealistic_data)',
+          version: 1,
+        },
         { action: 'approve', actor: 'engineer:alice', at: '2026-11-14T14:40:20Z' },
-        { action: 'update', actor: 'engineer:alice', at: '2026-11-14T14:55:00Z', reason: 'Upper bound 65 → 67', version: 2 },
-        { action: 'read', actor: 'agent:engineer-pipeline', at: '2026-11-14T15:08:00Z', runId: 'aud-sys001-r2' },
+        {
+          action: 'update',
+          actor: 'engineer:alice',
+          at: '2026-11-14T14:55:00Z',
+          reason: 'Upper bound 65 → 67',
+          version: 2,
+        },
+        {
+          action: 'read',
+          actor: 'agent:engineer-pipeline',
+          at: '2026-11-14T15:08:00Z',
+          runId: 'aud-sys001-r2',
+        },
       ],
     },
     {
@@ -105,7 +162,12 @@ export function buildMockMemory(): MemoryEntry[] {
       usageCount: 2,
       createdAt: '2026-11-14T13:30:00Z',
       history: [
-        { action: 'create', actor: 'engineer:carol', at: '2026-11-14T13:30:00Z', reason: 'Finding overridden by a human' },
+        {
+          action: 'create',
+          actor: 'engineer:carol',
+          at: '2026-11-14T13:30:00Z',
+          reason: 'Finding overridden by a human',
+        },
         { action: 'approve', actor: 'ai-officer:bob', at: '2026-11-14T13:45:00Z' },
       ],
     },
@@ -127,7 +189,14 @@ export function buildMockMemory(): MemoryEntry[] {
       version: 1,
       usageCount: 0,
       createdAt: '2026-11-14T15:20:00Z',
-      history: [{ action: 'create', actor: 'agent:engineer-pipeline', at: '2026-11-14T15:20:00Z', reason: 'Proposal written to /memory/proposals/' }],
+      history: [
+        {
+          action: 'create',
+          actor: 'agent:engineer-pipeline',
+          at: '2026-11-14T15:20:00Z',
+          reason: 'Proposal written to /memory/proposals/',
+        },
+      ],
     },
     {
       id: 'MEM-0021',
@@ -150,7 +219,12 @@ export function buildMockMemory(): MemoryEntry[] {
       history: [
         { action: 'create', actor: 'ai-officer:bob', at: '2026-11-02T09:00:00Z' },
         { action: 'approve', actor: 'ai-officer:bob', at: '2026-11-02T09:00:00Z' },
-        { action: 'stale', actor: 'agent:change-judge', at: '2026-11-14T16:00:00Z', reason: 'RC-0006: Omnibus amends Art. 10(5); re-review' },
+        {
+          action: 'stale',
+          actor: 'agent:change-judge',
+          at: '2026-11-14T16:00:00Z',
+          reason: 'RC-0006: Omnibus amends Art. 10(5); re-review',
+        },
       ],
     },
     {
@@ -174,7 +248,12 @@ export function buildMockMemory(): MemoryEntry[] {
       history: [
         { action: 'create', actor: 'engineer:dimitris', at: '2026-11-03T11:00:00Z' },
         { action: 'approve', actor: 'engineer:dimitris', at: '2026-11-03T11:01:00Z' },
-        { action: 'retire', actor: 'engineer:dimitris', at: '2026-11-10T10:00:00Z', reason: 'Pre-filter replaced by a model' },
+        {
+          action: 'retire',
+          actor: 'engineer:dimitris',
+          at: '2026-11-10T10:00:00Z',
+          reason: 'Pre-filter replaced by a model',
+        },
       ],
     },
   ];

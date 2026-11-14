@@ -36,7 +36,8 @@ export function useRegChanges() {
 export function useDecideChange() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; status: 'accepted' | 'rejected' }) => regulationApi.decideChange(v.id, { status: v.status }),
+    mutationFn: (v: { id: string; status: 'accepted' | 'rejected' }) =>
+      regulationApi.decideChange(v.id, { status: v.status }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: regKeys.changes }),
   });
 }

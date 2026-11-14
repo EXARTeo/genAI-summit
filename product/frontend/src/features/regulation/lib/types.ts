@@ -50,7 +50,11 @@ export interface DocDiff {
   unified: string;
 }
 
-export type JudgeDecision = 'no_impact' | 'reinterpret_existing_evidence' | 'rerun_tests' | 'new_tests_needed';
+export type JudgeDecision =
+  | 'no_impact'
+  | 'reinterpret_existing_evidence'
+  | 'rerun_tests'
+  | 'new_tests_needed';
 export type ChangeType = 'editorial' | 'clarification' | 'scope_change' | 'new_obligation' | 'repeal';
 
 export interface AffectedSystem {
