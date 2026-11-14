@@ -2,20 +2,19 @@
 
 The single source of truth for the product's identity. Everything else (the frontend, the presentations, the docs) reads from here instead of copying colours or names.
 
-> **Status:** working brand. `name` is **AI Act Copilot** (TODO: confirm or rename) and the palette is an
-> "AI governance / trust" look (ink/indigo base, teal accent, amber for human approvals).
->
-> **TODO(brand): replace placeholder logo.** `logo/logo.svg` (shield + check) is a placeholder; the frontend
-> copies it in `product/frontend/public/favicon.svg` and `product/frontend/src/shared/ui/logo.tsx`. The PNGs
-> (`logo-on-light.png`, `logo-on-dark.png`, `icon.png`) do not exist yet, so decks show a text wordmark.
+> **Brand:** **Mnamon** (Greek *μνάμων*, "the one who remembers": the agent keeps the memory of every audit),
+> the product is the *AI Act Governance Copilot*. Logo and palette come from the design sheets in
+> [`source/`](source/) (`logo-a-plus-c.pdf`, `color-palette.pdf`): an ink/parchment base, **terra** (Praxis,
+> calls to action) and **lex** (the law, second accent). See [guidelines.md](guidelines.md).
 
 ## Files
 
 | Path | What it is |
 | --- | --- |
-| [`brand.json`](brand.json) | Name, tagline, colour tokens (light + dark), fonts and logo paths |
+| [`brand.json`](brand.json) | Name, product, tagline, colour tokens (light + dark), fonts and logo paths |
 | [`guidelines.md`](guidelines.md) | How to use the brand: voice, colour roles, logo rules |
 | `logo/` | Logo files (see [logo/README.md](logo/README.md)) |
+| `source/` | The designer's sheets the brand is taken from (logo lockups, palette); read-only references |
 | `fonts/` | Font licences and download links (see [fonts/README.md](fonts/README.md)) |
 | [`export_tokens.py`](export_tokens.py) | Generates `dist/tokens.css` (CSS variables) from `brand.json` |
 
@@ -38,6 +37,8 @@ Colours are **semantic**: code and slides ask for `primary` or `muted`, never a 
 | `accent_foreground` | Text on top of `accent` |
 | `success`, `danger`, `info` | Semantic states (supports compliance, gap, info) |
 | `warning`, `warning_foreground` | Human-in-the-loop: approvals, needs-review, inconclusive |
+| `success_foreground`, `danger_foreground`, `info_foreground` | Text on top of the state colours |
+| `logo_lex`, `logo_terra` | The two halves of the logo mark (lex-deep/terra-mark on light, lex/terra on dark) |
 
 ## Generate CSS variables
 
@@ -59,5 +60,4 @@ That second command is all the frontend needs: every colour in the app (light + 
 `tokens.css` through `src/styles/theme/semantic.css` → `shape.css` → `components.css`, and no component
 hard-codes a colour. Radii, shadows and component looks are not brand keys; change them in those files (see
 "Theming" in [docs/services/frontend.md](../docs/services/frontend.md)). Optional extra colour keys:
-`success_foreground`, `danger_foreground`, `info_foreground`, `chart_1`..`chart_5` (white text and
-primary/info/warning/success/danger series otherwise).
+`chart_1`..`chart_5` (primary/info/warning/success/danger series otherwise).
