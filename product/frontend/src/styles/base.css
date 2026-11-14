@@ -1,0 +1,61 @@
+*,
+*::before,
+*::after {
+  border-color: rgb(var(--rgb-border));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  background-image: var(--backdrop-glow);
+  background-attachment: fixed;
+  color: var(--color-text);
+  font-family: var(--font-body), 'Inter Variable', system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading), 'Inter Variable', system-ui, sans-serif;
+  letter-spacing: -0.015em;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono), 'JetBrains Mono Variable', ui-monospace, monospace;
+}
+
+::selection {
+  background: rgb(var(--rgb-primary) / 0.22);
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--rgb-ring));
+  outline-offset: 2px;
+}
+
+/* Smooth theme switches without animating on first paint. */
+html.theme-transition,
+html.theme-transition * {
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease !important;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

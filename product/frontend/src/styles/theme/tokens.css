@@ -1,0 +1,114 @@
+/* Generated from branding/brand.json by branding/export_tokens.py. Do not edit. */
+
+:root {
+  --color-background: #F6F7FB;
+  --rgb-background: 246 247 251;
+  --color-surface: #FFFFFF;
+  --rgb-surface: 255 255 255;
+  --color-surface-muted: #EEF0F7;
+  --rgb-surface-muted: 238 240 247;
+  --color-text: #0B1026;
+  --rgb-text: 11 16 38;
+  --color-muted: #5A6385;
+  --rgb-muted: 90 99 133;
+  --color-border: #DDE1EE;
+  --rgb-border: 221 225 238;
+  --color-ring: #6D68F2;
+  --rgb-ring: 109 104 242;
+  --color-primary: #3B37C8;
+  --rgb-primary: 59 55 200;
+  --color-primary-foreground: #FFFFFF;
+  --rgb-primary-foreground: 255 255 255;
+  --color-accent: #0A93A6;
+  --rgb-accent: 10 147 166;
+  --color-accent-foreground: #FFFFFF;
+  --rgb-accent-foreground: 255 255 255;
+  --color-success: #13865A;
+  --rgb-success: 19 134 90;
+  --color-warning: #B86E00;
+  --rgb-warning: 184 110 0;
+  --color-warning-foreground: #FFFFFF;
+  --rgb-warning-foreground: 255 255 255;
+  --color-danger: #CC3346;
+  --rgb-danger: 204 51 70;
+  --color-info: #2E69DB;
+  --rgb-info: 46 105 219;
+  --font-heading: 'Inter';
+  --font-body: 'Inter';
+  --font-mono: 'JetBrains Mono';
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-background: #070A17;
+    --rgb-background: 7 10 23;
+    --color-surface: #0E1327;
+    --rgb-surface: 14 19 39;
+    --color-surface-muted: #161C35;
+    --rgb-surface-muted: 22 28 53;
+    --color-text: #E7EAF6;
+    --rgb-text: 231 234 246;
+    --color-muted: #8D96B8;
+    --rgb-muted: 141 150 184;
+    --color-border: #232B4A;
+    --rgb-border: 35 43 74;
+    --color-ring: #8B87FF;
+    --rgb-ring: 139 135 255;
+    --color-primary: #8B87FF;
+    --rgb-primary: 139 135 255;
+    --color-primary-foreground: #0A0C1C;
+    --rgb-primary-foreground: 10 12 28;
+    --color-accent: #2EDCE6;
+    --rgb-accent: 46 220 230;
+    --color-accent-foreground: #04161A;
+    --rgb-accent-foreground: 4 22 26;
+    --color-success: #34D399;
+    --rgb-success: 52 211 153;
+    --color-warning: #FBBF24;
+    --rgb-warning: 251 191 36;
+    --color-warning-foreground: #1A1203;
+    --rgb-warning-foreground: 26 18 3;
+    --color-danger: #F87171;
+    --rgb-danger: 248 113 113;
+    --color-info: #60A5FA;
+    --rgb-info: 96 165 250;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-background: #070A17;
+  --rgb-background: 7 10 23;
+  --color-surface: #0E1327;
+  --rgb-surface: 14 19 39;
+  --color-surface-muted: #161C35;
+  --rgb-surface-muted: 22 28 53;
+  --color-text: #E7EAF6;
+  --rgb-text: 231 234 246;
+  --color-muted: #8D96B8;
+  --rgb-muted: 141 150 184;
+  --color-border: #232B4A;
+  --rgb-border: 35 43 74;
+  --color-ring: #8B87FF;
+  --rgb-ring: 139 135 255;
+  --color-primary: #8B87FF;
+  --rgb-primary: 139 135 255;
+  --color-primary-foreground: #0A0C1C;
+  --rgb-primary-foreground: 10 12 28;
+  --color-accent: #2EDCE6;
+  --rgb-accent: 46 220 230;
+  --color-accent-foreground: #04161A;
+  --rgb-accent-foreground: 4 22 26;
+  --color-success: #34D399;
+  --rgb-success: 52 211 153;
+  --color-warning: #FBBF24;
+  --rgb-warning: 251 191 36;
+  --color-warning-foreground: #1A1203;
+  --rgb-warning-foreground: 26 18 3;
+  --color-danger: #F87171;
+  --rgb-danger: 248 113 113;
+  --color-info: #60A5FA;
+  --rgb-info: 96 165 250;
+  color-scheme: dark;
+}
