@@ -1,0 +1,38 @@
+id: SYS-001.cv-parser
+system: SYS-001
+name: CV parser
+card_version: 1
+
+placement:
+  kind: pipeline_stage
+  position: 1 of 3
+  upstream: []
+  downstream: [SYS-001.cv-ranker]
+  pipeline_summary: "CV parser → ranker → recruiter reviews the shortlist"
+  end_to_end_entry: SYS-001.cv-parser
+
+access:
+  type: mlflow_model
+  uri: models:/sys-001-cv-parser@champion
+  # Alternative: the same model over REST through the model gateway.
+  # type: rest
+  # url: http://model-gateway:8000/v1/models/sys-001-cv-parser/predict
+  # method: POST
+  environment: staging
+  limits: {rps: 20, max_requests: 20000, timeout_s: 10}
+
+io:
+  input_schema: data/data-dictionary.yaml   # raw CV fields; also from_mlflow_signature
+  output: {type: table, columns_ref: ../cv-ranker/data/data-dictionary.yaml}
+
+expected_behaviour:
+  task: "Turn raw CV fields into the ranker's structured features"
+  must: ["same input → same output", "unknown postcode → region other", "missing career break → 0"]
+  must_not: ["drop applicants with unusual formats"]
+  known_limitations: ["skills are matched by exact keyword only"]
+
+scenarios:
+  edge_cases: [missing fields, unknown nationality code, malformed postcode]
+  protected_attributes: [sex, age_band, nationality]
+  data_policy: synthetic_only
+  generation: {mode: zero_shot, seed: 42}

@@ -1,0 +1,28 @@
+# Open obligations without evidence (filled in by the provider; the audit adds to it).
+system: SYS-001
+gaps:
+  - requirement: REQ.AIA.10.2.f.bias-examination
+    what: "No bias examination of the training data or of the model's outputs by group"
+    evidence_expected: per-group selection rates and error rates, proxy analysis
+    owner: Data team
+    due: 2026-12-31
+  - requirement: REQ.AIA.9.2.risk-management
+    what: "Risk register does not cover indirect discrimination or foreseeable misuse"
+    evidence_expected: updated risk-management-summary.md
+    owner: Head of Talent Acquisition
+    due: 2026-12-31
+  - requirement: REQ.AIA.13.3.b.performance-per-group
+    what: "Instructions for use give no performance figures per group of persons"
+    evidence_expected: per-group metrics in instructions-for-use.md
+    owner: Data team
+    due: 2027-01-31
+  - requirement: REQ.AIA.72.post-market-monitoring
+    what: "No post-market monitoring plan"
+    evidence_expected: monitoring plan with metrics and thresholds
+    owner: AI governance
+    due: 2027-02-28
+  - requirement: REQ.AIA.14.4.d.explanations-for-overseers
+    what: "Recruiters see the score but no reasons"
+    evidence_expected: reason codes in the ATS
+    owner: Product
+    due: 2027-03-31

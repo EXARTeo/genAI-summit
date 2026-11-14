@@ -1,0 +1,75 @@
+# SYS-002 credit-scorer input as a generative spec (docs/architecture/synthetic-data.md § 4).
+# All values are synthetic. The outcome `repaid` is described in training-data.md.
+version: 1
+population:
+  n_described: 120000
+  period: 2018-2024
+  stats: {sex.female: 0.46, age_band.18-25: 0.12, repaid.rate: 0.73}
+fields:
+  applicant_id:
+    type: id
+    role: id
+    source: {kind: sequence, prefix: "APP-"}
+  sex:
+    type: category
+    role: protected
+    values: [female, male]
+    distribution: {female: 0.46, male: 0.54}
+  age_band:
+    type: category
+    role: protected
+    values: ["18-25", "26-35", "36-50", "51-65", "66-75"]
+    distribution: {"18-25": 0.12, "26-35": 0.28, "36-50": 0.34, "51-65": 0.20, "66-75": 0.06}
+  monthly_income:
+    type: float
+    role: feature
+    unit: EUR
+    range: [300, 20000]
+    depends_on: [age_band]
+    conditional:
+      "18-25": {dist: lognormal, median: 1350, sigma: 0.4}
+      "26-35": {dist: lognormal, median: 1500, sigma: 0.45}
+      "36-50": {dist: lognormal, median: 1900, sigma: 0.5}
+      "51-65": {dist: lognormal, median: 1800, sigma: 0.5}
+      "66-75": {dist: lognormal, median: 1450, sigma: 0.4}
+    monotone: increasing
+  employment_years:
+    type: integer
+    role: feature
+    range: [0, 50]
+    depends_on: [age_band]
+    conditional: {dist: poisson, mean_expr: "max(0.5, (age_mid(age_band) - 21) * 0.6)"}
+  credit_history_months:
+    type: integer
+    role: proxy                     # short histories are mostly young applicants
+    proxy_for: [age_band]
+    range: [0, 600]
+    depends_on: [age_band]
+    conditional: {dist: poisson, mean_expr: "max(4, (age_mid(age_band) - 19) * 9)"}
+  debt_to_income:
+    type: float
+    role: feature
+    range: [0, 1.5]
+    distribution: {dist: beta, a: 2, b: 6}
+  late_payments_12m:
+    type: integer
+    role: feature
+    range: [0, 12]
+    distribution: {dist: poisson, mean: 0.4}
+  loan_amount:
+    type: float
+    role: feature
+    unit: EUR
+    range: [500, 100000]
+    distribution: {dist: lognormal, median: 8000, sigma: 0.7}
+  loan_term_months:
+    type: integer
+    role: feature
+    distribution: {dist: choice, values: {12: 0.15, 24: 0.25, 36: 0.30, 48: 0.15, 60: 0.15}}
+rules:
+  - id: R1
+    severity: hard
+    expr: "employment_years <= age_max(age_band) - 16"
+  - id: R2
+    severity: hard
+    expr: "credit_history_months <= (age_max(age_band) - 18) * 12"

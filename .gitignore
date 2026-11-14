@@ -63,3 +63,11 @@ Thumbs.db
 
 # --- Claude Code local settings ---
 .claude/settings.local.json
+
+# --- MLflow (product/mlflow-seed) ---
+# Case folders are source: their data/ dirs hold dictionaries, datasheets and samples.
+!product/mlflow-seed/cases/**/data/
+# Local MLflow stores and runs (never commit).
+mlruns/
+mlartifacts/
+product/mlflow-seed/.local/

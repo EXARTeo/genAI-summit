@@ -1,0 +1,16 @@
+# SYS-003: one pyfunc (eligibility rules + logistic regression) between the intake form and the queue.
+system: SYS-003
+components:
+  - id: SYS-003.intake-form
+    kind: upstream_system
+    note: online application form and caseworker data entry (no server-side validation)
+  - id: SYS-003.benefits-triage
+    plugin: plugins/benefits-triage
+    kind: rules_plus_ml
+    model: models:/sys-003-benefits-triage@champion
+  - id: SYS-003.caseworker-queue
+    kind: human_review
+edges:
+  - {from: SYS-003.intake-form, to: SYS-003.benefits-triage, data: "case row"}
+  - {from: SYS-003.benefits-triage, to: SYS-003.caseworker-queue, data: "eligible, triage, priority_score, estimated_benefit_eur"}
+end_to_end_entry: SYS-003.benefits-triage

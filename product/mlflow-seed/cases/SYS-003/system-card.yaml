@@ -1,0 +1,25 @@
+# SYS-003 system card (synthetic demo system; docs/architecture/agent-context.md § 2).
+id: SYS-003
+name: Benefits Eligibility Triage
+card_version: 1
+organisation: Municipality of Kallithea Social Services Unit (fictional deployment)
+provider: CivicLogic Software IKE (fictional)
+role: deployer                       # public authority deploying a third-party system
+risk_class: high_risk
+annex_basis: "Annex III 5(a)"        # eligibility for essential public assistance benefits
+intended_purpose: >-
+  Pre-check applications for the minimum-income benefit against the income rule, estimate the
+  monthly amount and order the caseworker queue (fast_track first). A caseworker decides every case.
+deployment: {status: pilot, countries: [GR], users: municipal caseworkers, since: 2026-02}
+affected_persons: benefit applicants and their households (often vulnerable persons)
+human_oversight: every case is decided by a caseworker; triage only orders the queue
+protected_attributes: [sex, age_band, nationality]
+known_proxies: []
+components: [SYS-003.benefits-triage]
+declared_metrics:
+  accuracy: ">= 0.85"
+org_thresholds:
+  selection_rate_ratio: ">= 0.80"
+  invalid_input_handling: "every invalid input rejected with an error"
+fria_required: true                  # Art. 27: public body deploying an Annex III 5(a) system
+provenance: declared_by_human

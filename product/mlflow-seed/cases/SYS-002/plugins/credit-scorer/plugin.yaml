@@ -1,0 +1,40 @@
+id: SYS-002.credit-scorer
+system: SYS-002
+name: Consumer credit scorer
+card_version: 1
+
+placement:
+  kind: standalone
+  pipeline_summary: "Scorer → credit officer approves or declines"
+
+access:
+  type: mlflow_model
+  uri: models:/sys-002-credit-scorer@champion
+  # Alternative: the same model over REST through the model gateway.
+  # type: rest
+  # url: http://model-gateway:8000/v1/models/sys-002-credit-scorer/predict
+  # method: POST
+  environment: staging
+  limits: {rps: 20, max_requests: 20000, timeout_s: 10}
+
+io:
+  input_schema: data/data-dictionary.yaml
+  output: {type: binary_classification, positive_label: approve, label_field: decision, score_field: score}
+
+expected_behaviour:
+  task: "Estimate the probability that a consumer-loan applicant repays; approve at score >= 0.5"
+  must: ["score in [0, 1]", "same input → same score", "comparable accuracy across age bands and sexes"]
+  must_not: ["use sex or age directly"]
+  known_limitations: ["applicants with short credit histories"]
+
+scenarios:
+  personas: [first-time borrower, pensioner, high earner with late payments]
+  edge_cases: [zero credit history, very large loan, very short term]
+  protected_attributes: [sex, age_band]
+  known_proxies: [credit_history_months]
+  training_data: data/training-data.md
+  data_policy: synthetic_only
+  generation: {mode: zero_shot, seed: 7, n_train: 6000, min_per_cell: 50, n_max: 5000}
+  metamorphic_relations:
+    - "higher monthly_income, all else equal → score does not decrease"
+    - "more late_payments_12m, all else equal → score does not increase"

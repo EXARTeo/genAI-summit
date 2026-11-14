@@ -1,0 +1,45 @@
+id: SYS-003.benefits-triage
+system: SYS-003
+name: Benefits eligibility triage
+card_version: 1
+
+placement:
+  kind: standalone
+  pipeline_summary: "Triage → caseworker queue (fast_track first) → caseworker decides"
+
+access:
+  type: mlflow_model
+  uri: models:/sys-003-benefits-triage@champion
+  # Alternative: the same model over REST through the model gateway.
+  # type: rest
+  # url: http://model-gateway:8000/v1/models/sys-003-benefits-triage/predict
+  # method: POST
+  environment: staging
+  limits: {rps: 20, max_requests: 20000, timeout_s: 10}
+
+io:
+  input_schema: data/data-dictionary.yaml
+  output:
+    type: table
+    columns:
+      eligible: "0/1, income rule"
+      triage: "fast_track | standard | not_eligible"
+      priority_score: "[0, 1], logistic regression"
+      estimated_benefit_eur: "monthly EUR, >= 0"
+
+expected_behaviour:
+  task: "Pre-check eligibility for the minimum-income benefit and order the caseworker queue"
+  must:
+    - "reject invalid input (household_size < 1, missing or negative income) with a clear error"
+    - "estimated_benefit_eur in [0, 3000]"
+    - "same input → same output"
+  must_not: ["deny a benefit without caseworker review"]
+  known_limitations: []
+
+scenarios:
+  personas: [single parent, pensioner, large family, person with disability]
+  edge_cases: [household_size 0, missing income, negative income, income above range, dependents > household]
+  protected_attributes: [sex, age_band, nationality]
+  training_data: data/training-data.md
+  data_policy: synthetic_only
+  generation: {mode: zero_shot, seed: 11, n_train: 4000, min_per_cell: 50, n_max: 5000}

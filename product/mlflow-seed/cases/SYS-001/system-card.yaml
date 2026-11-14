@@ -1,0 +1,24 @@
+# SYS-001 system card (synthetic demo system; docs/architecture/agent-context.md § 2).
+id: SYS-001
+name: CV Screener
+card_version: 1
+organisation: Example Recruiting S.A. (fictional)
+role: provider                       # AI Act role of the organisation for this system
+risk_class: high_risk
+annex_basis: "Annex III 4(a)"        # employment: recruitment and selection, CV filtering
+intended_purpose: >-
+  Rank applicants for software-engineering roles from their CVs and propose a shortlist.
+  A recruiter reviews every shortlist before anyone is contacted or rejected.
+deployment: {status: pilot, countries: [GR], users: in-house recruiters, since: 2025-03}
+affected_persons: job applicants (EU and non-EU nationals living in Greece)
+human_oversight: recruiter reviews every shortlist; no automatic rejection
+protected_attributes: [sex, age_band, nationality]
+known_proxies: []                    # the provider declared none (the audit should find two)
+components: [SYS-001.cv-parser, SYS-001.cv-ranker]
+declared_metrics:
+  accuracy_vs_history: ">= 0.65"
+org_thresholds:                      # the organisation's own fairness policy
+  selection_rate_ratio: ">= 0.80"    # four-fifths rule
+  equal_opportunity_gap: "<= 0.05"
+  counterfactual_flip_rate: "<= 0.02"
+provenance: declared_by_human

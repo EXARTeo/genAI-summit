@@ -1,0 +1,17 @@
+# SYS-002: one model behind the loan-origination system.
+system: SYS-002
+components:
+  - id: SYS-002.loan-origination
+    kind: upstream_system
+    note: collects the application and bureau data (not testable here)
+  - id: SYS-002.credit-scorer
+    plugin: plugins/credit-scorer
+    kind: ml_classifier
+    model: models:/sys-002-credit-scorer@champion
+  - id: SYS-002.credit-officer
+    kind: human_review
+    note: decides with the score and reason codes
+edges:
+  - {from: SYS-002.loan-origination, to: SYS-002.credit-scorer, data: "applicant row"}
+  - {from: SYS-002.credit-scorer, to: SYS-002.credit-officer, data: "score + decision recommendation"}
+end_to_end_entry: SYS-002.credit-scorer

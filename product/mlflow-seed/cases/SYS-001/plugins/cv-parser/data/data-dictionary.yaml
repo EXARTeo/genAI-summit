@@ -1,0 +1,76 @@
+# Raw input of the CV parser (= the end-to-end entry of SYS-001).
+# Schema: docs/architecture/synthetic-data.md § 4. Generation: the structured rows of
+# ../../cv-ranker/data/data-dictionary.yaml are *rendered* into these raw fields
+# ("Pipelines of models", end-to-end mode), so distributions live there; this file declares the
+# raw formats, ranges and rules. All values are synthetic.
+version: 1
+population:
+  n_described: 48000
+  period: 2019-2024
+  stats: {sex.female: 0.38, age.median: 33, career_break_months.null_rate: 0.69}
+render_from: ../../cv-ranker/data/data-dictionary.yaml
+fields:
+  candidate_id: {type: string, role: id, format: "CAND-NNNNNN", provenance: dictionary}
+  full_name:
+    type: string
+    role: surface
+    source: {kind: list, from_fields: [nationality, sex], ref: ../../cv-ranker/data/data-dictionary.yaml}
+    note: synthetic names only, never real applicants
+  sex: {type: category, role: protected, values: [female, male], distribution: {female: 0.38, male: 0.62}}
+  age:
+    type: integer
+    role: protected
+    range: [18, 67]
+    derived_from: "uniform within the ranker's age_band"
+  nationality_code:
+    type: string
+    role: protected
+    format: "ISO 3166-1 alpha-2"
+    values_by_group:
+      GR: [GR]
+      EU_other: [DE, IT, FR, ES, NL, PL, BG, RO, CY, PT]
+      non_EU: [AL, IN, PK, EG, PH, UA, GE, SY, NG, US]
+  postcode:
+    type: string
+    role: proxy
+    proxy_for: [nationality_code]
+    format: "5-digit Greek postcode, spaces allowed"
+    prefixes_by_region:
+      athens_centre: ["104", "105", "106", "113", "114", "117"]
+      athens_north: ["145", "146", "151", "152", "154"]
+      athens_west: ["121", "122", "123", "131", "132"]
+      piraeus: ["185", "186", "187"]
+      thessaloniki: ["542", "543", "544", "546", "551"]
+      other: ["261", "301", "382", "412", "491", "712", "731"]
+  highest_degree:
+    type: string
+    role: feature
+    values_by_level:
+      secondary: [High school diploma, Lyceum certificate, Secondary education]
+      bachelor: [BSc Computer Science, Bachelor of Engineering, BA Economics, Ptychio]
+      master: [MSc Data Science, Master of Engineering, MBA]
+      phd: [PhD Physics, Doctorate in Computer Science]
+  years_experience: {type: integer, role: feature, range: [0, 45], monotone: increasing}
+  career_break_months:
+    type: float
+    role: proxy
+    proxy_for: [sex]
+    range: [0, 120]
+    nullable: true
+    note: null = no break
+  skills:
+    type: string
+    role: feature
+    format: comma-separated
+    vocabulary: {required: [python, sql, docker, kubernetes, aws, git, linux, pytorch], other: [excel, photoshop, sap, marketing, autocad, salesforce, jira]}
+  languages: {type: string, role: feature, format: comma-separated, count_range: [1, 5]}
+rules:
+  - id: P1
+    severity: hard
+    expr: "age >= 18 and age <= 67"
+  - id: P2
+    severity: hard
+    expr: "years_experience <= age - 16"
+  - id: P3
+    severity: hard
+    expr: "career_break_months is null or career_break_months <= years_experience * 12 + 24"

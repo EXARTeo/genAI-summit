@@ -1,0 +1,77 @@
+# SYS-003 benefits-triage input as a generative spec (docs/architecture/synthetic-data.md § 4).
+# All values are synthetic. Ground truth `fast_track` is described in training-data.md.
+version: 1
+population:
+  n_described: 35000
+  period: 2021-2024
+  stats: {household_size.median: 3, disability.rate: 0.08, unemployed.rate: 0.30}
+fields:
+  case_id:
+    type: id
+    role: id
+    source: {kind: sequence, prefix: "CASE-"}
+  sex:
+    type: category
+    role: protected
+    values: [female, male]
+    distribution: {female: 0.55, male: 0.45}
+  age_band:
+    type: category
+    role: protected
+    values: ["18-29", "30-44", "45-64", "65-90"]
+    distribution: {"18-29": 0.20, "30-44": 0.35, "45-64": 0.30, "65-90": 0.15}
+  nationality:
+    type: category
+    role: protected
+    values: [GR, EU_other, non_EU]
+    distribution: {GR: 0.78, EU_other: 0.07, non_EU: 0.15}
+  employment_status:
+    type: category
+    role: feature
+    values: [employed, unemployed, self_employed, retired]
+    depends_on: [age_band]
+    conditional:
+      "65-90": {employed: 0.05, unemployed: 0.05, self_employed: 0.05, retired: 0.85}
+      default: {employed: 0.45, unemployed: 0.35, self_employed: 0.17, retired: 0.03}
+  household_size:
+    type: integer
+    role: feature
+    range: [1, 8]               # the model is never given anything else; 0 is invalid
+    distribution: {dist: choice, values: {1: 0.22, 2: 0.25, 3: 0.20, 4: 0.18, 5: 0.09, 6: 0.04, 7: 0.01, 8: 0.01}}
+  dependents_under_18:
+    type: integer
+    role: feature
+    range: [0, 7]
+    depends_on: [household_size]
+    conditional: {dist: poisson, mean_expr: "(household_size - 1) * 0.6"}
+  monthly_income:
+    type: float
+    role: feature
+    unit: EUR
+    range: [0, 6000]            # valid input range: non-negative, at most 6000
+    nullable: false
+    depends_on: [employment_status]
+    conditional:
+      employed: {dist: lognormal, median: 1300, sigma: 0.45}
+      unemployed: {dist: lognormal, median: 300, sigma: 0.7}
+      self_employed: {dist: lognormal, median: 1000, sigma: 0.6}
+      retired: {dist: lognormal, median: 750, sigma: 0.35}
+  disability:
+    type: boolean
+    role: feature
+    distribution: {dist: bernoulli, p: 0.08}
+  region:
+    type: category
+    role: feature
+    values: [attica, central_macedonia, crete, thessaly, other]
+    distribution: {attica: 0.40, central_macedonia: 0.18, crete: 0.07, thessaly: 0.07, other: 0.28}
+rules:
+  - id: R1
+    severity: hard
+    expr: "dependents_under_18 <= household_size - 1"
+  - id: R2
+    severity: hard
+    expr: "monthly_income >= 0 and monthly_income <= 6000"
+  - id: R3
+    severity: hard
+    expr: "household_size >= 1 and household_size <= 8"

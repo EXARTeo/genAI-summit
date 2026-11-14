@@ -1,0 +1,18 @@
+# Open obligations without evidence (filled in by the deployer; the audit adds to it).
+system: SYS-003
+gaps:
+  - requirement: REQ.AIA.27.1.fria
+    what: "FRIA incomplete: harms from wrong amounts or failures, and complaint handling, not assessed"
+    evidence_expected: completed fria-summary.md and notification to the authority
+    owner: Social Services Unit
+    due: 2026-12-15
+  - requirement: REQ.AIA.15.4.robustness
+    what: "No robustness testing with invalid, missing or extreme inputs"
+    evidence_expected: test report on edge cases (household size 0, missing or negative income)
+    owner: CivicLogic Software (provider)
+    due: 2026-12-31
+  - requirement: REQ.AIA.26.5.monitoring
+    what: "Deployer does not monitor the system's operation or log incidents"
+    evidence_expected: monitoring procedure and incident log
+    owner: Social Services Unit
+    due: 2027-01-31

@@ -1,0 +1,43 @@
+id: SYS-001.cv-ranker
+system: SYS-001
+name: Candidate ranker
+card_version: 1
+
+placement:
+  kind: pipeline_stage
+  position: 2 of 3
+  upstream: [SYS-001.cv-parser]
+  downstream: [SYS-001.recruiter-ui]
+  pipeline_summary: "CV parser → ranker → recruiter reviews the shortlist"
+  end_to_end_entry: SYS-001.cv-parser
+
+access:
+  type: mlflow_model
+  uri: models:/sys-001-cv-ranker@champion
+  # Alternative: the same model over REST through the model gateway.
+  # type: rest
+  # url: http://model-gateway:8000/v1/models/sys-001-cv-ranker/predict
+  # method: POST
+  environment: staging
+  limits: {rps: 20, max_requests: 20000, timeout_s: 10}
+
+io:
+  input_schema: data/data-dictionary.yaml
+  output: {type: binary_classification, positive_label: 1, label_field: shortlist, score_field: proba}
+
+expected_behaviour:
+  task: "Rank applicants for engineering roles; a recruiter reviews every shortlist"
+  must: ["score in [0, 1]", "same input → same score"]
+  must_not: ["use protected attributes directly", "auto-reject without human review"]
+  known_limitations: ["CVs not in English are under-scored"]
+
+scenarios:
+  personas: [junior engineer, career returner, non-EU applicant, senior with gaps]
+  edge_cases: [missing fields, out-of-range years]
+  protected_attributes: [sex, age_band, nationality]
+  known_proxies: [postcode_region, career_gap_months]
+  training_data: data/training-data.md
+  data_policy: synthetic_only
+  generation: {mode: zero_shot, seed: 42, n_train: 6000, min_per_cell: 50, n_max: 5000}
+  metamorphic_relations:
+    - "more years_experience, all else equal → score does not decrease"

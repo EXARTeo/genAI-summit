@@ -1,0 +1,31 @@
+candidate_id,full_name,sex,age,nationality_code,postcode,highest_degree,years_experience,career_break_months,skills,languages
+CAND-000001,Giorgos Dimitriou,male,25,GR,30129,BA Economics,4,,"linux, sql, docker, git, pytorch, autocad, marketing","Greek, French"
+CAND-000002,Yannis Antoniou,male,23,GR,54652,BA Economics,0,3.0,"docker, kubernetes, python, aws, salesforce, jira","French, Greek, English"
+CAND-000003,Nikos Georgiou,male,36,GR,14532,Bachelor of Engineering,8,,"kubernetes, pytorch, linux, excel, photoshop","French, Greek"
+CAND-000004,Ahmed Rahman,male,33,US,54698,PhD Physics,6,,"python, linux, docker, autocad, sap","Ukrainian, Greek"
+CAND-000005,Maria Konstantinou,female,20,GR,54213,BA Economics,0,,"docker, linux, kubernetes, salesforce, jira","French, Greek"
+CAND-000006,Nikos Georgiou,male,34,GR,12325,BSc Computer Science,2,,"git, aws, sql, kubernetes, salesforce, sap","Greek, French, English"
+CAND-000007,Giorgos Dimitriou,male,36,GR,15431,MBA,12,,"git, linux, pytorch, jira, marketing","English, French, Greek, German"
+CAND-000008,Omar Haddad,male,51,UA,18674,MBA,16,,"sql, aws, excel, autocad","Arabic, Albanian"
+CAND-000009,Maria Konstantinou,female,41,GR,14609,BSc Computer Science,25,17.0,"git, docker, pytorch, linux, autocad, salesforce",French
+CAND-000010,Kostas Mavridis,male,50,GR,15250,MSc Data Science,22,,"git, pytorch, docker, sql, python, autocad, sap","Greek, English"
+CAND-000011,Olena Kovalenko,female,37,SY,18677,BSc Computer Science,15,,"pytorch, kubernetes, aws, marketing, jira","English, Greek"
+CAND-000012,Kostas Mavridis,male,40,GR,12146,BSc Computer Science,12,,"python, git, pytorch, excel, salesforce","French, English"
+CAND-000013,Arben Hoxha,male,24,IN,13264,High school diploma,1,,"aws, sql, linux, docker, sap, salesforce","Ukrainian, Albanian, Hindi"
+CAND-000014,Kostas Mavridis,male,42,GR,54275,Bachelor of Engineering,12,,"docker, kubernetes, linux, aws, python, salesforce, sap","English, German, Greek"
+CAND-000015,Giorgos Dimitriou,male,19,GR,12221,Lyceum certificate,1,,"git, aws, linux, jira, sap",French
+CAND-000016,Katerina Vlachou,female,22,GR,14613,Lyceum certificate,1,12.0,"python, linux, sql, kubernetes, git, docker, aws, salesforce, jira",French
+CAND-000017,Ahmed Rahman,male,25,EG,18717,Lyceum certificate,3,,"docker, pytorch, sql, git, python, linux, aws, autocad, jira","Hindi, Greek, English"
+CAND-000018,Amina Haddad,female,48,GE,13134,MBA,32,,"docker, pytorch, linux, kubernetes, sql, sap, excel","English, Hindi"
+CAND-000019,Yannis Antoniou,male,42,GR,11727,MBA,17,,"python, kubernetes, git, pytorch, sql, jira, marketing","Greek, English, German"
+CAND-000020,Kostas Mavridis,male,48,GR,54477,BSc Computer Science,25,,"aws, docker, pytorch, sql, kubernetes, linux, git, marketing, salesforce","French, English"
+CAND-000021,Yannis Antoniou,male,59,GR,14593,Ptychio,33,,"kubernetes, sql, aws, docker, git, pytorch, jira, marketing","German, Greek"
+CAND-000022,Maria Konstantinou,female,54,GR,15255,Ptychio,22,,"docker, linux, autocad, photoshop","English, German"
+CAND-000023,Kostas Mavridis,male,18,GR,54221,High school diploma,0,,"python, git, sap, photoshop","German, English"
+CAND-000024,Giorgos Dimitriou,male,49,GR,54279,Ptychio,20,,"aws, git, linux, salesforce, photoshop","English, German"
+CAND-000025,Yannis Antoniou,male,46,GR,12317,High school diploma,24,,"docker, sql, kubernetes, git, aws, pytorch, python, marketing, sap",French
+CAND-000026,Sofia Alexiou,female,46,GR,18636,Secondary education,22,,"linux, pytorch, aws, python, kubernetes, sql, jira, salesforce","French, Greek"
+CAND-000027,Arben Hoxha,male,34,NG,71277,MBA,4,5.0,"python, docker, sql, aws, linux, salesforce, marketing","Albanian, Hindi, Arabic"
+CAND-000028,Maria Konstantinou,female,22,GR,14668,Lyceum certificate,0,20.0,"linux, sql, pytorch, aws, git, docker, python, sap, excel",French
+CAND-000029,Sofia Alexiou,female,50,GR,49122,MSc Data Science,14,39.0,"aws, python, docker, linux, salesforce, excel",English
+CAND-000030,Giorgos Dimitriou,male,26,GR,13171,BSc Computer Science,5,,"docker, sql, python, kubernetes, jira, sap","Greek, German"

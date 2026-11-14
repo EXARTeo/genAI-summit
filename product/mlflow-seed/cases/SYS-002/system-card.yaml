@@ -1,0 +1,25 @@
+# SYS-002 system card (synthetic demo system; docs/architecture/agent-context.md § 2).
+id: SYS-002
+name: Consumer Credit Scorer
+card_version: 1
+organisation: Aegean Consumer Finance S.A. (fictional)
+role: provider
+risk_class: high_risk
+annex_basis: "Annex III 5(b)"        # creditworthiness evaluation / credit scoring of natural persons
+intended_purpose: >-
+  Estimate the probability that an applicant for an unsecured consumer loan (EUR 500-100,000)
+  repays it. A credit officer sees the score and the reason codes and makes the final decision.
+deployment: {status: production, countries: [GR, CY], users: branch credit officers, since: 2024-06}
+affected_persons: consumer-loan applicants aged 18-75
+human_oversight: credit officer decides; scores below 0.5 are a recommendation to decline
+protected_attributes: [sex, age_band]
+known_proxies: [credit_history_months]
+components: [SYS-002.credit-scorer]
+declared_metrics:
+  accuracy: ">= 0.90"
+  roc_auc: ">= 0.93"
+org_thresholds:
+  selection_rate_ratio: ">= 0.80"
+  accuracy_gap: "<= 0.05"
+  equal_opportunity_gap: "<= 0.05"
+provenance: declared_by_human

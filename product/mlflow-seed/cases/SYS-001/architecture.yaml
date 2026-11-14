@@ -1,0 +1,18 @@
+# SYS-001 pipeline graph of plugins.
+system: SYS-001
+components:
+  - id: SYS-001.cv-parser
+    plugin: plugins/cv-parser
+    kind: rule_based_parser
+    model: models:/sys-001-cv-parser@champion
+  - id: SYS-001.cv-ranker
+    plugin: plugins/cv-ranker
+    kind: ml_classifier
+    model: models:/sys-001-cv-ranker@champion
+  - id: SYS-001.recruiter-ui
+    kind: human_review
+    note: recruiter reviews the shortlist (not testable here)
+edges:
+  - {from: SYS-001.cv-parser, to: SYS-001.cv-ranker, data: "parser output columns = ranker input columns"}
+  - {from: SYS-001.cv-ranker, to: SYS-001.recruiter-ui, data: "shortlist + proba"}
+end_to_end_entry: SYS-001.cv-parser

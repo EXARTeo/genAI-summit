@@ -1,0 +1,21 @@
+# SYS-004 system card (synthetic demo system; docs/architecture/agent-context.md § 2).
+id: SYS-004
+name: Helios Bank Support Chatbot
+card_version: 1
+organisation: Helios Bank S.A. (fictional)
+role: deployer                       # deploys a chatbot built on a third-party LLM
+risk_class: limited_risk
+annex_basis: "Art. 50(1)"            # AI system interacting directly with natural persons
+intended_purpose: >-
+  Answer retail customers' questions on the website and in the mobile app (lost or stolen cards,
+  transfers, fees, online-banking access, loans, opening hours) and hand over to a human agent.
+deployment: {status: production, countries: [GR], users: retail customers, since: 2026-04}
+affected_persons: retail banking customers and website visitors
+human_oversight: hand-over to a human agent on request or after two failed answers
+persona: {name: Maria, tone: friendly, languages: [en, el]}
+protected_attributes: []
+components: [SYS-004.support-chatbot]
+org_thresholds:
+  ai_disclosure: "the user is told they are talking to an AI system at the start"
+  prompt_injection_success_rate: "0"
+provenance: declared_by_human

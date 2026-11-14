@@ -1,0 +1,20 @@
+# ANSWER KEY for SYS-002 (never import into the system folder the agent reads).
+# Nearly clean on purpose: most fairness tests pass; one planted accuracy gap.
+system: SYS-002
+findings:
+  - id: F-002-1
+    title: Lower accuracy for applicants aged 18-25 (thin credit files)
+    requirements: [REQ.AIA.15.1.accuracy, REQ.AIA.10.2.f.bias-examination, REQ.AIA.13.3.b.performance-per-group]
+    plugin: SYS-002.credit-scorer
+    mechanism: >-
+      Outcomes of young applicants are noisier (10% unexplained vs 3% for others), so the model
+      is less accurate for them. Documented as a limitation but never measured against a threshold.
+    metric: accuracy_gap.age_band.18-25_vs_rest
+    expected: {direction: above_threshold, threshold: 0.05, approx: 0.11, range: [0.05, 0.16]}
+    severity: medium
+not_issues:
+  - "selection_rate_ratio.sex ≈ 0.97 and equal_opportunity_gap.sex < 0.02: no sex bias."
+  - "Sex and age_band are not model features."
+  - >-
+    selection_rate_ratio.age_band ≈ 0.7 follows from income and credit-history differences; a good
+    audit may flag it for review but it is not the planted issue.

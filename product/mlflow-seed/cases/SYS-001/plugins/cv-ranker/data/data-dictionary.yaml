@@ -1,0 +1,114 @@
+# SYS-001 cv-ranker input (= cv-parser output) as a generative spec.
+# Schema: docs/architecture/synthetic-data.md § 4. All values are synthetic.
+version: 2
+population:                         # stated in training-data.md; the realism gate compares against these
+  n_described: 48000
+  period: 2019-2024
+  stats: {sex.female: 0.38, years_experience.median: 7, nationality.non_EU: 0.12}
+fields:
+  candidate_id:
+    type: id
+    role: id
+    source: {kind: sequence, prefix: "CAND-"}
+  sex:
+    type: category
+    role: protected
+    values: [female, male]
+    distribution: {female: 0.38, male: 0.62}
+    provenance: training_doc
+  age_band:
+    type: category
+    role: protected
+    values: ["18-24", "25-34", "35-44", "45-54", "55-67"]
+    distribution: {"18-24": 0.14, "25-34": 0.41, "35-44": 0.27, "45-54": 0.13, "55-67": 0.05}
+    provenance: training_doc
+  nationality:
+    type: category
+    role: protected
+    values: [GR, EU_other, non_EU]
+    distribution: {GR: 0.80, EU_other: 0.08, non_EU: 0.12}
+    provenance: training_doc
+  postcode_region:
+    type: category
+    role: proxy
+    proxy_for: [nationality]
+    values: [athens_centre, athens_north, athens_west, piraeus, thessaloniki, other]
+    depends_on: [nationality]
+    conditional:                    # P(postcode_region | nationality)
+      GR:       {athens_centre: 0.15, athens_north: 0.30, athens_west: 0.15, piraeus: 0.10, thessaloniki: 0.20, other: 0.10}
+      EU_other: {athens_centre: 0.35, athens_north: 0.30, athens_west: 0.10, piraeus: 0.05, thessaloniki: 0.15, other: 0.05}
+      non_EU:   {athens_centre: 0.25, athens_north: 0.05, athens_west: 0.45, piraeus: 0.15, thessaloniki: 0.05, other: 0.05}
+    provenance: llm_assumption
+  education_level:
+    type: category
+    role: feature
+    values: [secondary, bachelor, master, phd]
+    depends_on: [age_band]
+    conditional:
+      "18-24": {secondary: 0.45, bachelor: 0.50, master: 0.05, phd: 0.00}
+      default: {secondary: 0.15, bachelor: 0.45, master: 0.32, phd: 0.08}
+  years_experience:
+    type: integer
+    role: feature
+    range: [0, 45]
+    depends_on: [age_band, education_level]
+    conditional: {dist: poisson, mean_expr: "max(0.5, (age_mid(age_band) - 23) * 0.75)"}
+    monotone: increasing            # more experience must not lower the score
+  career_gap_months:
+    type: integer
+    role: proxy
+    proxy_for: [sex, age_band]
+    range: [0, 120]
+    nullable: true                  # raw CV: null = no gap; the parser maps it to 0
+    depends_on: [sex]
+    conditional:
+      female: {dist: lognormal, p_zero: 0.50, median: 16, sigma: 0.6}
+      male:   {dist: lognormal, p_zero: 0.80, median: 8, sigma: 0.6}
+  skills_match:
+    type: float
+    role: feature
+    range: [0, 1]
+    distribution: {dist: beta, a: 4, b: 3}
+    meaning: share of the role's 8 required skills found in the CV (the parser quantises to 1/8)
+  languages:
+    type: integer
+    role: feature
+    range: [1, 5]
+    depends_on: [nationality]
+    conditional:
+      GR:       {dist: choice, values: {1: 0.15, 2: 0.60, 3: 0.20, 4: 0.05}}
+      EU_other: {dist: choice, values: {2: 0.30, 3: 0.50, 4: 0.20}}
+      non_EU:   {dist: choice, values: {2: 0.40, 3: 0.45, 4: 0.15}}
+  full_name:
+    type: string
+    role: surface                   # not a feature; used when rendering raw CVs end to end
+    depends_on: [nationality, sex]
+    source:
+      kind: list                    # curated synthetic names, never real applicants
+      from_fields: [nationality, sex]
+      lists:
+        GR|female: [Eleni Papadaki, Maria Konstantinou, Katerina Vlachou, Sofia Alexiou]
+        GR|male: [Nikos Georgiou, Giorgos Dimitriou, Yannis Antoniou, Kostas Mavridis]
+        EU_other|female: [Anna Schneider, Claire Martin, Marta Kowalska, Giulia Ferri]
+        EU_other|male: [Luca Bianchi, Javier Ortega, Pieter de Vries, Jonas Weber]
+        non_EU|female: [Priya Sharma, Maria Santos, Olena Kovalenko, Amina Haddad]
+        non_EU|male: [Arben Hoxha, Omar Haddad, Ahmed Rahman, Ravi Kumar]
+rules:
+  - id: R1
+    severity: hard
+    expr: "years_experience <= age_max(age_band) - 16"
+    why: "Nobody works before 16"
+  - id: R2
+    severity: hard
+    expr: "career_gap_months is null or career_gap_months <= years_experience * 12 + 24"
+  - id: R3
+    severity: hard
+    expr: "not (education_level == 'phd' and age_band == '18-24')"
+  - id: R4
+    severity: soft
+    tolerance: 0.05
+    expr: "not (education_level == 'secondary' and years_experience == 0 and age_band in ['45-54', '55-67'])"
+label_rule:                         # synthetic ground truth for equal opportunity / accuracy per group
+  name: qualified
+  expr: "years_experience >= 3 and education_level in ['bachelor', 'master', 'phd'] and skills_match >= 0.5"
+  provenance: declared_by_human

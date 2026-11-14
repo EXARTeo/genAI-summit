@@ -1,0 +1,13 @@
+# Open obligations without evidence (filled in by the provider; the audit adds to it).
+system: SYS-002
+gaps:
+  - requirement: REQ.AIA.15.1.accuracy
+    what: "Accuracy per age band is logged but never compared with a threshold"
+    evidence_expected: accuracy per age band with confidence intervals and a pass/fail threshold
+    owner: Credit Risk
+    due: 2027-01-31
+  - requirement: REQ.AIA.13.3.b.performance-per-group
+    what: "Instructions for use give per-group accuracy for sex only"
+    evidence_expected: per-age-band figures in instructions-for-use.md
+    owner: Credit Risk
+    due: 2027-01-31

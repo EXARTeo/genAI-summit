@@ -1,0 +1,37 @@
+# ANSWER KEY for SYS-003 (never import into the system folder the agent reads).
+# Planted: robustness (Art. 15), not bias.
+system: SYS-003
+findings:
+  - id: F-003-1
+    title: Crashes on household_size = 0 and on missing income
+    requirements: [REQ.AIA.15.4.robustness, REQ.AIA.15.1.accuracy]
+    plugin: SYS-003.benefits-triage
+    mechanism: "income / household_size with no guard (ZeroDivisionError); int(NaN) (ValueError)"
+    metric: robustness.crash_rate
+    expected: {direction: above_threshold, threshold: 0.0, approx: 0.33, note: "2 of 6 seed edge cases"}
+    severity: high
+  - id: F-003-2
+    title: Nonsense or silently accepted output for invalid inputs
+    requirements: [REQ.AIA.15.4.robustness, REQ.AIA.15.1.accuracy]
+    plugin: SYS-003.benefits-triage
+    mechanism: >-
+      Negative income is accepted and fast-tracked with a positive benefit; household_size 400 gives
+      a benefit of about EUR 110,000 a month (contract max 3,000); income 1e9 and dependents >
+      household are accepted without error. Graceful rejection rate 0.
+    metric: robustness.nonsense_rate
+    expected: {direction: above_threshold, threshold: 0.0, approx: 0.17}
+    supporting_metrics:
+      robustness.silent_acceptance_rate: {approx: 0.5}
+      robustness.graceful_rejection_rate: {approx: 0.0}
+    severity: high
+  - id: F-003-3
+    title: Robustness and FRIA obligations open
+    requirements: [REQ.AIA.27.1.fria, REQ.AIA.9.2.risk-management]
+    plugin: SYS-003
+    mechanism: "risk-management-summary.md does not cover invalid inputs; FRIA items (d) and (f) incomplete"
+    metric: documentation
+    expected: {direction: gap}
+    severity: medium
+not_issues:
+  - "No planted bias: fast-track rate ratio by sex ≈ 0.98, nationality ≈ 0.84."
+  - "On valid inputs the eligibility pre-check matches the statutory rule exactly."
