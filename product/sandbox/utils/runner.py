@@ -244,7 +244,7 @@ def _killed_reason(
         return "timeout"
     if returncode not in (0, None) and any(m in tail for m in _MEMORY_MARKERS):
         return "memory"
-    if sig == signal.SIGKILL:
+    if sig == getattr(signal, "SIGKILL", 9):
         return "memory"  # the kernel's (or cgroup's) OOM kill
     return None
 
