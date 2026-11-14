@@ -52,6 +52,26 @@ const SHOTS = [
   ['regulation', '/regulation'],
   ['regulation-sources', '/regulation?tab=sources'],
   ['chat', '/chat'],
+  ['chat-about-system', '/chat?system=SYS-001'],
+  ['chat-conversation', '/chat/conv-f001'],
+  [
+    'chat-attachments',
+    '/chat/conv-f001',
+    async (page) => {
+      await page.locator('[data-testid=chat-scroll]').evaluate((el) => (el.scrollTop = 0));
+      await page.waitForTimeout(300);
+    },
+  ],
+  [
+    'chat-preview',
+    '/chat/conv-f001',
+    async (page) => {
+      await page.locator('[data-testid=chat-scroll]').evaluate((el) => (el.scrollTop = 0));
+      await page.getByText('selection_rates.csv').first().click();
+      await page.waitForTimeout(900);
+    },
+  ],
+  ['chat-hitl', '/chat/conv-hitl'],
   ['not-found', '/nope'],
   // Last: they change shell state (persisted collapse) for the rest of the context.
   [

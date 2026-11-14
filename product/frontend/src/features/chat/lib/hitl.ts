@@ -146,5 +146,7 @@ export function toTitleCase(value?: string): string | undefined {
 export function approvalHeadline(actions: HitlActionRequest[]): string {
   if (actions.length > 1) return `The agent wants to run ${actions.length} actions`;
   const name = actions[0]?.toolName;
-  return name ? `The agent wants to run ${humanizeToolName(name).toLowerCase()}` : 'The agent needs your approval';
+  return name
+    ? `The agent wants to run ${humanizeToolName(name).toLowerCase()}`
+    : 'The agent needs your approval';
 }

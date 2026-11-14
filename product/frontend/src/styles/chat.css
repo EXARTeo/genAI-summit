@@ -1,0 +1,60 @@
+/* Chat: code highlighting (highlight.js classes on our tokens) and the code-block chrome. */
+.chat-code {
+  border: 1px solid rgb(var(--rgb-border));
+  border-radius: 0.625rem;
+  background: rgb(var(--rgb-surface-muted));
+  overflow: hidden;
+}
+.chat-code pre {
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.markdown .chat-code {
+  margin-top: 0.75em;
+}
+.hljs-comment,
+.hljs-quote {
+  color: rgb(var(--rgb-muted));
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-type {
+  color: rgb(var(--rgb-primary));
+}
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-addition {
+  color: rgb(var(--rgb-success));
+}
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet {
+  color: rgb(var(--rgb-warning));
+}
+.hljs-title,
+.hljs-section,
+.hljs-function .hljs-title {
+  color: rgb(var(--rgb-info));
+}
+.hljs-deletion {
+  color: rgb(var(--rgb-danger));
+}
+.hljs-meta,
+.hljs-variable,
+.hljs-params {
+  color: rgb(var(--rgb-text));
+}
+
+/* The composer's drop overlay: a dashed teal outline, no glow. */
+.chat-drop {
+  outline: 1.5px dashed rgb(var(--rgb-primary) / 0.6);
+  outline-offset: -6px;
+  background: rgb(var(--rgb-primary) / 0.04);
+}

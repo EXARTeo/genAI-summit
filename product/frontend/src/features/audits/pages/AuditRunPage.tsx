@@ -1,6 +1,7 @@
 import { Hand, Play, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { ApprovalDrawer } from '@/features/approvals/components/ApprovalDrawer';
 import { cn } from '@/shared/lib/utils';
 import { AnimatedNumber, Button, Card, ErrorState, PageHeader, Skeleton, StatusPill } from '@/shared/ui';
@@ -122,6 +123,7 @@ export function AuditRunPage() {
         actions={
           <>
             <TraceLink traceId={audit.data.traceId} label="Full trace" variant="button" />
+            <ChatAboutButton systemId={audit.systemId} auditId={audit.id} label="Chat about this audit" />
             {data?.status === 'done' &&
               (replaying ? (
                 <Button variant="secondary" leftIcon={<Square />} onClick={stop}>

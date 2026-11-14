@@ -1,6 +1,7 @@
 import { BookText, FolderTree, Puzzle, ScrollText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge, ErrorState, PageHeader, Skeleton, SkeletonText, StatusPill, Tabs } from '@/shared/ui';
+import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { useSystem } from '../hooks/useSystems';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
 import { riskMeta } from '../lib/styles';
@@ -49,6 +50,7 @@ export function SystemDetail() {
             <StatusPill status={system.status} />
           </>
         }
+        actions={<ChatAboutButton systemId={system.id} label="Chat about this system" />}
       />
       <Tabs value={active} onValueChange={(v) => navigate(systemRoutes.detail(system.id, v as SystemTab))}>
         <Tabs.List>
