@@ -57,16 +57,9 @@ def test_summaries_are_on_by_default(monkeypatch):
 
 
 def test_the_model_list_carries_each_models_facts(monkeypatch):
-    monkeypatch.delenv("AGENT_MODELS", raising=False)
-    models = AgentRegistrySettings().models
-    assert list(models) == [
-        "openai:gpt-6-luna",
-        "openai:gpt-5",
-        "openai:gpt-4o",
-        "openai:gpt-4o-mini",
-    ]
+    models = AgentRegistrySettings().models  # the suite's AGENT_MODELS (conftest)
     assert models["openai:gpt-6-luna"] == ModelInfo(reasoning=True, context_window=1_050_000)
-    assert models["openai:gpt-4o"].reasoning is False
+    assert models["google_genai:gemini-3.5-flash-lite"].reasoning is None
 
 
 def test_the_model_list_reads_json_from_the_env(monkeypatch):

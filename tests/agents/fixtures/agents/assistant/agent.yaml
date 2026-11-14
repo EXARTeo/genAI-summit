@@ -11,7 +11,7 @@ description: General-purpose agent for research, analysis, writing and files
 icon: Sparkles
 prompt: ./AGENT.md
 model:
-  main: openai:gpt-6-luna
+  main: google_genai:gemini-3.5-flash-lite
 all_mcp_tools: true
 tools: []          # the native builtins and every gateway tool; sub-agents inherit them
 subagents:

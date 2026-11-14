@@ -79,6 +79,7 @@ from harness.middlewares import (
     exclude_stock_summarization,
 )
 from harness.models import register_reasoning_summaries
+from harness.models.gemini import ensure_specs_configured
 from harness.prompt_engineering import (
     PromptContext,
     compose_system_prompt,
@@ -481,8 +482,11 @@ class DeepAgent(BaseAgent, ABC):
         """
         # Before anything resolves the model: the window rides the profile,
         # and so does a reasoning model's request for its reasoning summary.
+        specs = model_specs(model, subagents)
+        # A Gemini spec without a key stops here with a message the UI shows.
+        ensure_specs_configured(specs)
         self.register_model_windows()
-        register_reasoning_summaries(model_specs(model, subagents))
+        register_reasoning_summaries(specs)
         backend = self._build_composite_backend()
         resolved_tools = _unique_by_name([*self.tools, *self._builtin_tools()])
         # `is not None`, not truthiness: a spec that declares no gates passes

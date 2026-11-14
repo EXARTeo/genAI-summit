@@ -87,14 +87,86 @@ class AppSettings(BaseSettings):
 
 
 class ApiKeysSettings(BaseSettings):
+    """Provider keys. Google Gemini is the only LLM provider of the product."""
+
     model_config = _BASE_MODEL_CONFIG
 
-    openai: SecretStr = Field(default_factory=lambda: SecretStr(""))
+    google: SecretStr = Field(default_factory=lambda: SecretStr(""))
 
-    @field_validator("openai", mode="before")
+    @field_validator("google", mode="before")
     @classmethod
-    def _load_openai(cls, value: object) -> object:
-        return _secret_or_file(value, "OPENAI_API_KEY")
+    def _load_google(cls, value: object) -> object:
+        return _secret_or_file(value, "GOOGLE_API_KEY", "GEMINI_API_KEY")
+
+
+class GeminiSettings(BaseSettings):
+    """Model access (``harness/models/gemini.py``): Gemini through ``langchain-google-genai``.
+
+    ``GEMINI_MODEL`` runs every step by default; ``GEMINI_MODEL_REASONING`` (empty =
+    the default model) runs the judgement-heavy steps (planning, critic, change
+    judge). ``AGENTS_FAKE_LLM`` swaps every pipeline model for a deterministic stub
+    (dry runs and demos without a key); it never calls a provider.
+    """
+
+    model_config = _BASE_MODEL_CONFIG
+
+    model: str = Field("gemini-3.5-flash-lite", validation_alias="GEMINI_MODEL")
+    reasoning_model: str = Field("", validation_alias="GEMINI_MODEL_REASONING")
+    temperature: float | None = Field(None, ge=0, le=2, validation_alias="GEMINI_TEMPERATURE")
+    timeout_seconds: float = Field(120.0, gt=0, le=900, validation_alias="GEMINI_TIMEOUT_SECONDS")
+    max_retries: int = Field(2, ge=0, le=10, validation_alias="GEMINI_MAX_RETRIES")
+    fake_llm: bool = Field(False, validation_alias="AGENTS_FAKE_LLM")
+
+    @field_validator("model", "reasoning_model", mode="before")
+    @classmethod
+    def _strip_model(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class PipelineSettings(BaseSettings):
+    """The audit and impact pipelines (``pipeline/``): where they read and write.
+
+    The backend's internal API takes the same shared secret the backend sends
+    here (``INTERNAL_SERVICE_SECRET``); reg-memory has its own.
+    """
+
+    model_config = _BASE_MODEL_CONFIG
+
+    backend_internal_url: str = Field(
+        "http://backend:8000", validation_alias="BACKEND_INTERNAL_URL"
+    )
+    reg_memory_url: str = Field("http://reg-memory:8010", validation_alias="REG_MEMORY_URL")
+    reg_memory_secret: SecretStr = Field(default_factory=lambda: SecretStr(""))
+    # Redos of one step after human rejections before the audit stops as rejected.
+    max_redos: int = Field(3, ge=1, le=10, validation_alias="PIPELINE_MAX_REDOS")
+    # Automatic redos when a deterministic verifier fails a step's output
+    # (scenarios-check high gaps, invalid spec, failed dataset gate, ungrounded evidence).
+    max_auto_redos: int = Field(1, ge=0, le=3, validation_alias="PIPELINE_MAX_AUTO_REDOS")
+    seed: int = Field(42, validation_alias="PIPELINE_SEED")
+    sandbox_timeout_seconds: int = Field(
+        600, ge=30, le=900, validation_alias="PIPELINE_SANDBOX_TIMEOUT_SECONDS"
+    )
+    http_timeout_seconds: float = Field(
+        60.0, gt=0, validation_alias="PIPELINE_HTTP_TIMEOUT_SECONDS"
+    )
+    # Public dataset search reaches the internet; off = always zero-shot.
+    public_data_enabled: bool = Field(True, validation_alias="PIPELINE_PUBLIC_DATA_ENABLED")
+    # The change judge's decision model: gemini (default) or iris (Oumi, stub).
+    decision_model: str = Field(
+        "gemini", pattern=r"^(gemini|iris)$", validation_alias="CHANGE_JUDGE_MODEL"
+    )
+    oumi_api_key: SecretStr = Field(default_factory=lambda: SecretStr(""))
+    oumi_base_url: str = Field("", validation_alias="OUMI_BASE_URL")
+
+    @field_validator("reg_memory_secret", mode="before")
+    @classmethod
+    def _load_reg_memory_secret(cls, value: object) -> object:
+        return _secret_or_file(value, "REG_MEMORY_INTERNAL_SECRET")
+
+    @field_validator("oumi_api_key", mode="before")
+    @classmethod
+    def _load_oumi_key(cls, value: object) -> object:
+        return _secret_or_file(value, "OUMI_API_KEY")
 
 
 class McpSettings(BaseSettings):
@@ -214,8 +286,8 @@ class LoggingSettings(BaseSettings):
 class ModelInfo(BaseModel):
     """What the service knows about one model beyond the pinned LangChain's table.
 
-    A model newer than the pinned ``langchain-openai`` (``gpt-6-luna``) needs
-    its facts stated here; an older one falls back to LangChain's.
+    A model newer than the pinned provider package needs its facts stated
+    here; an older one falls back to LangChain's.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -238,10 +310,9 @@ class AgentRegistrySettings(BaseSettings):
     # Model facts, ``provider:model`` -> ModelInfo, as JSON in the env.
     models: Annotated[dict[str, ModelInfo], NoDecode] = Field(
         default_factory=lambda: {
-            "openai:gpt-6-luna": ModelInfo(reasoning=True, context_window=1_050_000),
-            "openai:gpt-5": ModelInfo(reasoning=True),
-            "openai:gpt-4o": ModelInfo(reasoning=False),
-            "openai:gpt-4o-mini": ModelInfo(reasoning=False),
+            "google_genai:gemini-3.5-flash-lite": ModelInfo(context_window=1_048_576),
+            "google_genai:gemini-3.5-flash": ModelInfo(context_window=1_048_576),
+            "google_genai:gemini-3.5-pro": ModelInfo(context_window=1_048_576),
         },
         validation_alias="AGENT_MODELS",
     )
@@ -476,6 +547,8 @@ class Settings(BaseSettings):
 
     app: AppSettings = Field(default_factory=AppSettings)
     api_keys: ApiKeysSettings = Field(default_factory=ApiKeysSettings)
+    gemini: GeminiSettings = Field(default_factory=GeminiSettings)
+    pipeline: PipelineSettings = Field(default_factory=PipelineSettings)
     mcp: McpSettings = Field(default_factory=McpSettings)
     tls: TlsSettings = Field(default_factory=TlsSettings)
     checkpointer: CheckpointerSettings = Field(default_factory=CheckpointerSettings)

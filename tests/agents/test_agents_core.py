@@ -298,18 +298,16 @@ def test_resolve_file_backed_secret_missing_returns_none(monkeypatch):
 
 def test_api_keys_settings_branches(monkeypatch):
     assert (
-        settings_module.ApiKeysSettings(openai=SecretStr("sk-direct")).openai.get_secret_value()
-        == "sk-direct"
+        settings_module.ApiKeysSettings(google=SecretStr("g-direct")).google.get_secret_value()
+        == "g-direct"
     )
+    assert settings_module.ApiKeysSettings(google="  g-key  ").google.get_secret_value() == "g-key"
+    # An empty value falls back to the environment (GOOGLE_API_KEY, then GEMINI_API_KEY).
+    monkeypatch.delenv("GOOGLE_API_KEY_FILE", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "from-env")
     assert (
-        settings_module.ApiKeysSettings(openai="  sk-openai  ").openai.get_secret_value()
-        == "sk-openai"
-    )
-    # An empty value falls back to the environment.
-    monkeypatch.delenv("OPENAI_API_KEY_FILE", raising=False)
-    monkeypatch.setenv("OPENAI_API_KEY", "from-env")
-    assert (
-        settings_module.ApiKeysSettings(openai=SecretStr("")).openai.get_secret_value()
+        settings_module.ApiKeysSettings(google=SecretStr("")).google.get_secret_value()
         == "from-env"
     )
 
@@ -439,10 +437,13 @@ def test_the_registry_defaults(monkeypatch):
     # service's own defaults are an empty definitions folder and no default.
     monkeypatch.delenv("AGENTS_DIR", raising=False)
     monkeypatch.delenv("DEFAULT_AGENT_SLUG", raising=False)
+    monkeypatch.delenv("AGENT_MODELS", raising=False)
     registry = settings_module.AgentRegistrySettings()
     assert registry.default_agent_slug is None
     assert registry.agents_dir == SERVICE_ROOT / "definitions"
-    assert registry.models["openai:gpt-6-luna"].context_window == 1_050_000
+    # Gemini only: the product's model facts.
+    assert all(spec.startswith("google_genai:") for spec in registry.models)
+    assert registry.models["google_genai:gemini-3.5-flash-lite"].context_window == 1_048_576
 
 
 def test_the_service_ships_no_agent_definition():

@@ -32,7 +32,17 @@ if str(SERVICE_ROOT) not in sys.path:
 
 # Settings are read at import time, so the environment is set before the app loads.
 os.environ.setdefault("APP_ENV", "test")
-os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
+os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")  # harness tests build openai:* offline
+os.environ.setdefault(
+    "GOOGLE_API_KEY", "test-google-key"
+)  # Gemini models build offline; no call is made
+# The harness tests reason about a model newer than the pinned langchain-openai;
+# the product's own defaults (Gemini) are pinned in test_agents_core.
+os.environ.setdefault(
+    "AGENT_MODELS",
+    '{"openai:gpt-6-luna": {"reasoning": true, "context_window": 1050000},'
+    ' "google_genai:gemini-3.5-flash-lite": {"context_window": 1048576}}',
+)
 os.environ.setdefault("INTERNAL_SERVICE_SECRET", "agents-test-secret")
 os.environ.setdefault("MCP_GATEWAY_URL", "")
 os.environ.setdefault("LANGFUSE_BASE_URL", "")

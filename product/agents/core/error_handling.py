@@ -97,6 +97,11 @@ class AgentStreamErrorHandler:
             agent_slug=agent_slug,
             exception_type=type(exc).__name__,
         )
+        # An error that carries its own user-facing text (a model without a
+        # key) says what to do; everything else stays generic.
+        own = getattr(exc, "public_message", None)
+        if isinstance(own, str) and own.strip():
+            public_message = own
         err = {"type": "RUN_ERROR", "message": public_message}
         return ("data: " + json.dumps(err) + "\n\n").encode("utf-8")
 

@@ -7,7 +7,8 @@ pydantic-settings==2.16.3
 httpx==0.28.1
 langchain==1.4.9
 langchain-core==1.7.6
-langchain-openai==1.3.2
+langchain-google-genai==4.4.3  # Gemini, the only LLM provider (harness/models/gemini.py)
+google-genai==3.3.0
 langchain-text-splitters==1.1.3  # not imported; pinned to avoid a vulnerable transitive release
 langgraph==1.2.20
 langgraph-prebuilt==1.1.0
@@ -28,6 +29,7 @@ langfuse==4.18.0  # traces to the self-hosted Langfuse; off unless LANGFUSE_BASE
 tzdata==2025.2  # IANA zones for LOG_TIMEZONE on a slim image without a system tz database
 
 # Tests (the suite lives in the repo's tests/agents/, outside the image)
+langchain-openai==1.3.2  # harness tests resolve openai:* specs offline; the product never calls OpenAI
 pytest==8.4.2
 pytest-asyncio==1.2.0
 pytest-timeout==2.4.0
