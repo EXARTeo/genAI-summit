@@ -16,6 +16,7 @@ import {
 } from '@/shared/ui';
 import { useFileEvents } from '../../hooks/useSystems';
 import type { System } from '../../lib/types';
+import { actorLabel } from '@/shared/lib/labels';
 
 function Pills({ items, tone }: { items?: string[]; tone?: 'warning' | 'primary' }) {
   if (!items?.length) return <span className="text-muted">None declared</span>;
@@ -100,7 +101,7 @@ export function OverviewTab({ system }: { system: System }) {
           <CardHeader
             icon={<Activity />}
             title="Last audit"
-            description={audit ? `${audit.id} · ${formatRelative(audit.at)}` : 'Never audited'}
+            description={audit ? `Started ${formatRelative(audit.at)}` : 'Never audited'}
           />
           <CardContent>
             {audit ? (
@@ -180,7 +181,7 @@ export function OverviewTab({ system }: { system: System }) {
                   id: String(e.id),
                   title: <span className="font-mono text-xs">{e.path}</span>,
                   description: `${e.action}${e.version ? ` v${e.version}` : ''}${e.reason ? ` · ${e.reason}` : ''}`,
-                  actor: e.actor,
+                  actor: actorLabel(e.actor),
                   at: e.at,
                   tone: e.actor.startsWith('agent') ? 'accent' : e.action === 'delete' ? 'danger' : 'primary',
                 }))}

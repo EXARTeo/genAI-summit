@@ -128,7 +128,6 @@ export function SourceDetail({
               <th className="pr-3">Fetched</th>
               <th className="pr-3">Status</th>
               <th className="pr-3">Size</th>
-              <th className="pr-3">sha256</th>
               <th>Changed sections</th>
             </tr>
           </thead>
@@ -151,7 +150,6 @@ export function SourceDetail({
                   />
                 </td>
                 <td className="pr-3">{formatBytes(v.bytes)}</td>
-                <td className="pr-3 font-mono text-muted">{v.sha256}</td>
                 <td>{v.diff?.changedSections.join(', ') ?? '–'}</td>
               </tr>
             ))}

@@ -9,6 +9,7 @@ import { StartAuditMenu } from '@/features/systems/components/StartAuditButton';
 import { TraceLink } from '../components/artifact_parts/common';
 import { useAudits } from '../hooks/useAudits';
 import { STAGES, progress, stageIndex, statusLabel } from '../lib/pipeline';
+import { auditLabel } from '@/shared/lib/labels';
 
 const GRID = 'md:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_140px_110px_16px]';
 
@@ -81,7 +82,7 @@ export function AuditsListPage() {
                         <span className="truncate text-sm text-muted">{a.data.title ?? 'Audit'}</span>
                       </div>
                       <div className="num mt-0.5 flex items-center gap-2 truncate text-2xs text-muted">
-                        <span className="font-mono">{a.id}</span>
+                        <span>{auditLabel(a)}</span>
                         {a.data.kbVersion && <span className="font-mono">kb {a.data.kbVersion}</span>}
                         <TraceLink traceId={a.data.traceId} label="trace" />
                       </div>

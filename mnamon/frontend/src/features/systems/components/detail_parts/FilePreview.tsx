@@ -14,6 +14,7 @@ import {
 } from '@/shared/ui';
 import { useFileVersions, useSystemFile } from '../../hooks/useSystems';
 import { languageFor } from '../../lib/styles';
+import { actorLabel } from '@/shared/lib/labels';
 
 function parseCsv(text: string): { header: string[]; rows: string[][] } {
   // Small CSV reader: quoted fields with commas, "" escapes. Enough for previews.
@@ -82,7 +83,7 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
             <Badge tone="primary">v{file.data.version}</Badge>
             <Badge>{formatBytes(file.data.size)}</Badge>
             <span className="text-xs text-muted">
-              by {file.data.createdBy} · {formatRelative(file.data.createdAt)}
+              by {actorLabel(file.data.createdBy)} · {formatRelative(file.data.createdAt)}
             </span>
           </>
         )}
@@ -131,7 +132,7 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
                   >
                     <span className="font-mono text-xs">v{v.version}</span>
                     {v.isCurrent && <Badge tone="success">current</Badge>}
-                    <span className="truncate text-muted">{v.createdBy}</span>
+                    <span className="truncate text-muted">{actorLabel(v.createdBy)}</span>
                     <span className="ml-auto text-xs text-muted">{formatRelative(v.createdAt)}</span>
                   </button>
                 </li>

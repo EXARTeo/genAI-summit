@@ -54,7 +54,7 @@ export function RegulationPage() {
               checkNow.mutate(undefined, {
                 onSuccess: (r) =>
                   toast.success('Regulation check started', {
-                    description: `${r?.check_id ? `Check ${r.check_id} ` : ''}${r?.status ?? 'queued'}; new changes appear in the inbox.`,
+                    description: `Status: ${r?.status ?? 'queued'}. New changes appear in the inbox.`,
                   }),
                 onError: (e) =>
                   toast.error('Could not start the check', { description: (e as Error).message }),
