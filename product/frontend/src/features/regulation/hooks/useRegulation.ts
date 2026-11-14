@@ -1,0 +1,51 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { regulationApi } from '../handlers/regulation';
+import type { JudgeDecision } from '../lib/types';
+
+export const regKeys = {
+  sources: ['regulation', 'sources'] as const,
+  text: (docId: string, version?: number) => ['regulation', 'text', docId, version ?? 'latest'] as const,
+  diff: (docId: string, from: number, to: number) => ['regulation', 'diff', docId, from, to] as const,
+  changes: ['regulation', 'changes'] as const,
+};
+
+export function useRegSources() {
+  return useQuery({ queryKey: regKeys.sources, queryFn: regulationApi.sources });
+}
+
+export function useDocText(docId: string | undefined, version?: number) {
+  return useQuery({
+    queryKey: regKeys.text(docId ?? '', version),
+    queryFn: () => regulationApi.text(docId!, version),
+    enabled: !!docId,
+  });
+}
+
+export function useDocDiff(docId: string | undefined, from: number, to: number) {
+  return useQuery({
+    queryKey: regKeys.diff(docId ?? '', from, to),
+    queryFn: () => regulationApi.diff(docId!, from, to),
+    enabled: !!docId && to > from,
+  });
+}
+
+export function useRegChanges() {
+  return useQuery({ queryKey: regKeys.changes, queryFn: regulationApi.changes });
+}
+
+export function useDecideChange() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; status: 'accepted' | 'rejected' }) => regulationApi.decideChange(v.id, { status: v.status }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: regKeys.changes }),
+  });
+}
+
+export function useOverrideJudge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; systemId: string; decision: JudgeDecision }) =>
+      regulationApi.overrideJudge(v.id, v.systemId, v.decision),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: regKeys.changes }),
+  });
+}
