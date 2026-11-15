@@ -137,9 +137,9 @@ def rule_verdict(rows: list[dict[str, Any]]) -> tuple[str, str]:
     """``(verdict, why)`` from the org thresholds the test rows were judged against."""
     if not rows:
         return "inconclusive", "no test of this obligation ran in this audit"
-    usable = [r for r in rows if r.get("status") != "error"]
+    usable = [r for r in rows if r.get("status") != "error" and r.get("value") is not None]
     if not usable:
-        return "inconclusive", "every test of this obligation errored"
+        return "inconclusive", "no test of this obligation produced a value"
     judged = [r for r in usable if (r.get("threshold") or {}).get("op") is not None]
     if not judged:
         names = ", ".join(sorted({str(r.get("metric")) for r in usable}))[:200]
