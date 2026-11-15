@@ -972,6 +972,28 @@ class AuditPipeline:
         self._finish("draft_spec")
         return {**out, "spec": spec_doc, "artifacts": {"generation_spec": art_id}}
 
+    def _fallback_spec(self, state: AuditState, problems: list[str]) -> dict[str, Any]:
+        draft = fakes.draft_spec(dict(state))
+        spec_yaml, code_fixes = normalise_spec(
+            draft.spec_yaml,
+            (state.get("files") or {}).get("data/data-dictionary.yaml"),
+            has_profile=bool(state.get("profile")),
+        )
+        parsed, spec_problems = parse_spec(spec_yaml)
+        return {
+            **draft.model_dump(mode="json"),
+            "spec_yaml": spec_yaml,
+            "yaml": spec_yaml,
+            "parsed": parsed,
+            "problems": spec_problems,
+            "code_fixes": code_fixes,
+            "seed": settings.pipeline.seed,
+            "fallback": True,
+            "fallback_reason": problems[:3],
+            "rationale": "The drafted spec stayed invalid after the automatic redo; code built "
+            "this spec from the data dictionary and the approved scenarios.",
+        }
+
     def _spec_redo(
         self, state: AuditState, check: str, problems: list[str]
     ) -> dict[str, Any] | None:
@@ -1002,6 +1024,17 @@ class AuditPipeline:
                 )
         if problems:
             redo = self._spec_redo(state, "synthkit generate", problems)
+            if redo is None and not spec.get("fallback"):
+                # Budget spent: the code-built spec (the scenarios' transforms on the
+                # dictionary) is the safety net, recorded as such on the artifact.
+                fallback = self._fallback_spec(state, problems)
+                art_id = await self._artifact(state, "generation_spec", fallback)
+                retry = await self.generate_data({**state, "spec": fallback})  # type: ignore[typeddict-item]
+                return {
+                    **retry,
+                    "spec": fallback,
+                    "artifacts": {"generation_spec": art_id, **(retry.get("artifacts") or {})},
+                }
             if redo is None:
                 raise StepFailed(f"The GenerationSpec is still invalid: {problems[0]}")
             await self._artifact(state, "dataset", {"status": "invalid_spec", "problems": problems})

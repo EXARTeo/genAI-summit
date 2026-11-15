@@ -97,19 +97,44 @@ def _categorical(dictionary_yaml: str | None) -> set[str] | None:
     }
 
 
-def _sanitise(spec: dict[str, Any], known: set[str], notes: list[str]) -> None:
-    """What synthkit would reject and code can fix without changing the intent."""
+def _dictionary_rules(dictionary_yaml: str | None) -> dict[str, str]:
+    try:
+        data = yaml.safe_load(dictionary_yaml or "")
+    except yaml.YAMLError:
+        return {}
+    rules = (data or {}).get("rules") if isinstance(data, dict) else None
+    return {
+        str(r.get("id")): " ".join(str(r.get("expr") or "").split())
+        for r in rules or []
+        if isinstance(r, dict) and r.get("id")
+    }
+
+
+def _sanitise(
+    spec: dict[str, Any], known: set[str], notes: list[str], base_rules: dict[str, str]
+) -> None:
+    """What synthkit would reject and code can fix without changing the intent.
+
+    The dictionary's own rules are merged with the spec's by synthkit, so a spec rule
+    that repeats one is dropped and one that reuses its id gets a fresh ``S<n>`` id.
+    """
     rules = spec.get("rules")
     if isinstance(rules, list):
-        seen: set[str] = set()
+        seen: set[str] = set(base_rules)
+        exprs = set(base_rules.values())
         clean = []
         for n, rule in enumerate(rules, start=1):
             if not isinstance(rule, dict) or not rule.get("expr"):
                 notes.append(f"rules[{n}] dropped: no expr")
                 continue
+            if " ".join(str(rule["expr"]).split()) in exprs:
+                notes.append(f"rule {rule.get('id')} dropped: the dictionary already has it")
+                continue
             rid = str(rule.get("id") or "")
             if not rid or rid in seen:
-                new = next(f"R{k}" for k in range(n, n + len(rules) + 100) if f"R{k}" not in seen)
+                new = next(
+                    f"S{k}" for k in range(1, len(rules) + len(seen) + 2) if f"S{k}" not in seen
+                )
                 notes.append(f"rule id {rid or '(none)'} -> {new} (ids must be unique)")
                 rule = {**rule, "id": new}
                 rid = new
@@ -177,7 +202,7 @@ def normalise_spec(
             spec[key] = value
     fields = _dictionary_fields(dictionary_yaml)
     if fields is not None:
-        _sanitise(spec, set(fields), notes)
+        _sanitise(spec, set(fields), notes, _dictionary_rules(dictionary_yaml))
     categorical = _categorical(dictionary_yaml)
     if categorical is not None:
         for block, list_key in (("coverage", "cells"), ("strata", "by")):

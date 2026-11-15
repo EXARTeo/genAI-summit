@@ -197,7 +197,7 @@ def test_spec_rule_ids_transforms_and_unknown_fields_are_repaired():
     )
     fixed, _ = normalise_spec(draft, dictionary)
     spec = yaml.safe_load(fixed)
-    assert [r["id"] for r in spec["rules"]] == ["R1", "R2"]
+    assert [r["id"] for r in spec["rules"]] == ["R1", "S1"]
     assert spec["fields"] == {}
     assert spec["transforms"] == [
         {"kind": "twins", "attribute": "sex", "modes": ["causal"]},

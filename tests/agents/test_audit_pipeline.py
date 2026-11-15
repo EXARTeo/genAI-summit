@@ -207,10 +207,34 @@ async def test_invalid_spec_from_generate_goes_back_to_draft_spec():
         await _answer(graph, {"decision": "approved"})
     snapshot = await graph.aget_state(CONFIG)
     assert snapshot.next == ("generate_data",)
-    assert h.backend.kinds().count("generation_spec") == 2
+    # Two drafts, then the code-built fallback spec (also rejected by this sandbox).
+    specs = [a["data"] for a in h.backend.artifacts if a["kind"] == "generation_spec"]
+    assert len(specs) == 3 and specs[-1]["fallback"] and not specs[0].get("fallback")
     assert [a["data"].get("status") for a in h.backend.artifacts if a["kind"] == "dataset"] == [
         "invalid_spec"
     ]
+
+
+async def test_a_spec_that_stays_invalid_falls_back_to_the_code_built_spec():
+    fails = iter([ExecResult(2, "", "synthkit: invalid input: rule ids"), None, None])
+
+    class Flaky(FakeSandbox):
+        async def run(self, command, files, *, timeout=None):
+            if "synthkit generate" in command:
+                failure = next(fails, None)
+                if failure is not None:
+                    self.commands.append(command)
+                    return failure
+            return await super().run(command, files, timeout=timeout)
+
+    settings.pipeline.max_auto_redos = 0
+    h = make_harness(sandbox=Flaky())
+    graph = build_graph(h, InMemorySaver())
+    await graph.ainvoke(START, CONFIG)
+    await _answer(graph, {"decision": "approved"})
+    assert (await _pending(graph)).value["gate"] == "datasets"
+    state = (await graph.aget_state(CONFIG)).values
+    assert state["spec"]["fallback"] and state["dataset"]["sha256"]
 
 
 async def test_public_data_gate_and_reference_sample():
