@@ -129,7 +129,9 @@ function StepHeader({
           {stage.gate && ' · Human gate'}
         </span>
         {state === 'done' && duration != null && <span className="num">· {formatDuration(duration)}</span>}
-        <span className="ml-auto">{state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}</span>
+        <span className="ml-auto">
+          {state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}
+        </span>
       </div>
     );
   }

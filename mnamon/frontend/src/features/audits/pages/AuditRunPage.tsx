@@ -5,7 +5,16 @@ import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { ApprovalDrawer } from '@/features/approvals/components/ApprovalDrawer';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { cn } from '@/shared/lib/utils';
-import { AnimatedNumber, Button, Card, ErrorState, PageHeader, Sheet, Skeleton, StatusPill } from '@/shared/ui';
+import {
+  AnimatedNumber,
+  Button,
+  Card,
+  ErrorState,
+  PageHeader,
+  Sheet,
+  Skeleton,
+  StatusPill,
+} from '@/shared/ui';
 import { ArtifactPanel } from '../components/ArtifactPanel';
 import { AuditPipeline } from '../components/AuditPipeline';
 import { PipelineFlow } from '../components/PipelineFlow';
