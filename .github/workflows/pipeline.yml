@@ -34,7 +34,7 @@ jobs:
       && vars.DENIS_DEPLOY_ENABLED == 'true'
     uses: ./.github/workflows/cd.yml
     secrets: inherit
-    # The caller must grant what cd.yml's jobs ask for (GHCR push, deploy branch push).
+    # The caller must grant what cd.yml's jobs ask for (GHCR push).
     permissions:
-      contents: write
+      contents: read
       packages: write
