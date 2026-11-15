@@ -67,6 +67,9 @@ export function useUploadFiles(id: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: systemKeys.files(id) });
+      // A re-upload is a new version of an existing path: refresh its content and history too.
+      qc.invalidateQueries({ queryKey: ['systems', id, 'file'] });
+      qc.invalidateQueries({ queryKey: ['systems', id, 'versions'] });
       qc.invalidateQueries({ queryKey: systemKeys.events(id) });
     },
   });

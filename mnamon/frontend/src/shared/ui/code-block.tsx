@@ -10,7 +10,10 @@ export interface CodeBlockProps {
   /** Shown in the header bar (e.g. a file name). */
   title?: ReactNode;
   showLineNumbers?: boolean;
+  /** CSS max-height of the scroll area; `'none'` lets a parent scroll instead. */
   maxHeight?: string;
+  /** Soft-wrap long lines (no horizontal scroll); continuation lines hang under the line's indent. */
+  wrap?: boolean;
   className?: string;
 }
 
@@ -79,6 +82,7 @@ export function CodeBlock({
   title,
   showLineNumbers = true,
   maxHeight = '32rem',
+  wrap = false,
   className,
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
@@ -110,18 +114,33 @@ export function CodeBlock({
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <pre className="overflow-auto p-3 font-mono text-[12.5px] leading-relaxed" style={{ maxHeight }}>
+      <pre
+        className={cn(
+          'p-3 font-mono text-[12.5px] leading-relaxed',
+          wrap ? 'overflow-y-auto' : 'overflow-auto',
+        )}
+        style={{ maxHeight: maxHeight === 'none' ? undefined : maxHeight }}
+      >
         <code>
-          {lines.map((line, i) => (
-            <div key={i} className="flex">
-              {showLineNumbers && (
-                <span className="mr-4 inline-block w-8 shrink-0 select-none text-right text-muted/60">
-                  {i + 1}
+          {lines.map((line, i) => {
+            // Hanging indent: wrapped parts start 2ch past the line's own indentation.
+            const hang = wrap ? (/^\s*(-\s+)?/.exec(line)?.[0].length ?? 0) + 2 : 0;
+            return (
+              <div key={i} className="flex">
+                {showLineNumbers && (
+                  <span className="mr-4 inline-block w-8 shrink-0 select-none text-right text-muted/60">
+                    {i + 1}
+                  </span>
+                )}
+                <span
+                  className={wrap ? 'min-w-0 flex-1 whitespace-pre-wrap break-words' : 'whitespace-pre'}
+                  style={wrap ? { paddingLeft: `${hang}ch`, textIndent: `-${hang}ch` } : undefined}
+                >
+                  {render(line)}
                 </span>
-              )}
-              <span className="whitespace-pre">{render(line)}</span>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </code>
       </pre>
     </div>

@@ -12,6 +12,7 @@ import {
 import { Cpu, User } from 'lucide-react';
 import { useMemo } from 'react';
 import { cn } from '@/shared/lib/utils';
+import { ACCESS_LABEL } from '../../lib/styles';
 import type { PluginCard } from '../../lib/types';
 
 type StageData = { label: string; sub: string; human: boolean; highlighted: boolean };
@@ -35,7 +36,7 @@ function StageNode({ data }: NodeProps<Node<StageData>>) {
       </div>
       <div className="min-w-0">
         <div className="truncate text-xs font-semibold">{data.label}</div>
-        <div className="truncate font-mono text-2xs text-muted">{data.sub}</div>
+        <div className="truncate text-2xs text-muted">{data.sub}</div>
       </div>
       <Handle type="source" position={Position.Right} className="!border-border !bg-surface" />
     </div>
@@ -82,7 +83,11 @@ export function PipelineGraph({ plugins, highlight }: { plugins: PluginCard[]; h
         position: { x: l * 250, y: row * 90 },
         data: {
           label: p?.name ?? short.replace(/-/g, ' '),
-          sub: p ? p.access.type : /ui|human|review/i.test(short) ? 'human review' : 'external',
+          sub: p
+            ? (ACCESS_LABEL[p.access?.type] ?? p.access?.type ?? '')
+            : /ui|human|review/i.test(short)
+              ? 'human review'
+              : 'external',
           human: !p && /ui|human|review/i.test(short),
           highlighted: id === highlight,
         },

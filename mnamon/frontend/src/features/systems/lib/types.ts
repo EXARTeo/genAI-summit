@@ -88,9 +88,26 @@ export interface PluginCard {
     downstream?: string[];
     pipeline_summary?: string;
   };
-  access: { type: string; uri?: string; url?: string; environment?: string; limits?: Record<string, number> };
-  io?: { output?: Record<string, unknown> };
+  access: {
+    type: string;
+    uri?: string;
+    url?: string;
+    method?: string;
+    environment?: string;
+    limits?: Record<string, number>;
+  };
+  io?: { input_schema?: string; output?: Record<string, unknown> };
   expected_behaviour: { task: string; must?: string[]; must_not?: string[]; known_limitations?: string[] };
+  /** Hints the planner turns into test scenarios and synthetic data. */
+  scenarios?: {
+    personas?: string[];
+    edge_cases?: string[];
+    protected_attributes?: string[];
+    known_proxies?: string[];
+    training_data?: string;
+    data_policy?: string;
+    metamorphic_relations?: string[];
+  };
 }
 
 export interface BusinessRule {

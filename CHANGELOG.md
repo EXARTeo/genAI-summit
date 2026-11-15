@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Folder tab as one explorer with in-tree uploads:** the separate "Add files for the agent" card is gone. Hovering (or focusing) a folder or the root row shows an "Add files" button that uploads into that folder, and files dropped on a folder row land there (closed folders open on drag-over; a spinner on the row, then a toast, and the new file is selected). Tree pane with file-type icons, per-folder counts and version / size on hover; the viewer fills the height and wraps long lines (`CodeBlock` gains `wrap`). Re-uploading a path refreshes the open file and its versions at once.
+- **Plugins tab, simpler cards:** each card shows the name, its step and access type in plain words ("Step 2 of 3, MLflow model"), one sentence on what it does, a strip with its neighbours in the pipeline, the model as a one-line chip (full URI in a tooltip) and three facts (returns, rate limit, timeout). Expected behaviour (must / must never / known limitations as a checklist), the connection and the test hints move to a Details side panel with a link to edit `plugin.yaml` in the Folder tab. The header gets a count and an "Open folder" link.
+
 - **Audit graph: step panel and a movable canvas.** On wide screens the audit page is the canvas: the graph fills the whole content area edge to edge (the shell gains a full-bleed mode, `useUiStore.fullBleed`), and the title, status, verdict counts, actions, a run-status card, the legend and the zoom controls float on it, with a fade under the title so the graph slides beneath it. Its resting view sits below the title, centred, scaled to fit but never below 0.85, scrolled so the current step's row shows. A click on a node opens the step in a right-side panel (it was a card under the graph); the panel stays open while you pick other nodes, and the graph slides (zoom 0.85) to keep the picked node clear of it, sliding back when it closes. The canvas pans by drag and zooms by pinch or Ctrl + scroll, with zoom and fit controls; nodes fade up in order on first paint. `Sheet` gains `modal={false}` (no overlay) and `keepOpenOn`.
 
 - **Agent map and plan in the chat** (ported from mAgenticX): two composer buttons open modal panels (above the composer on a desktop, a bottom sheet on a phone). The agent map shows the main agent, one branch per answer that delegated and every sub-agent with the ones it delegated to nested below, as a keyboard-navigable tree or a React Flow graph (remembered per browser), with live status, tool calls, working time and a detail view (instruction, reply, its own sub-agents a step deeper). Background tasks come from the conversation's task list, nested by parent. The plan panel shows the `write_todos` checklist per answer with done / now / not finished / not started steps and how long each took (from `PLAN_SNAPSHOT.updated_at`); it replaces the inline plan card. The timeline fold now keeps nested sub-agents (`TASK_SUBAGENT`, `SUBAGENT_COMPLETED`, `BEFORE_AGENT_EVENT` inside the parent's envelope) and the inline sub-agent cards nest them inside their parent.
@@ -33,6 +36,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Impact pipeline + change judge**: `POST /changes/{id}/judge` (agents): impact index (no LLM) from the RegChange × backend `GET /internal/impact-index`, a `DecisionModel` per affected system (Gemini default; Oumi Iris adapter behind `CHANGE_JUDGE_MODEL=iris`, falls back to Gemini) → `change_judgement` artifact, write-back to `regulation_changes` (`PUT /internal/regulation/changes/{id}/judgement`, human overrides kept) and optional re-run audits (`POST /internal/systems/{id}/audits`).
 - Backend: a new audit starts its pipeline on the agents service (`AUDIT_PIPELINE_AUTOSTART`, best effort).
 - Docs: `docs/services/agents-pipeline.md`.
+
+### Fixed
+
+- The theme menu opens from the collapsed sidebar: `Tooltip` now forwards its ref and props to its trigger, so it works as another `asChild` trigger (the menu's click handler was lost).
 
 ### Changed
 

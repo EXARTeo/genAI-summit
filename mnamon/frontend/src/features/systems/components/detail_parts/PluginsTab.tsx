@@ -1,104 +1,195 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, CircleSlash, Plug, TriangleAlert } from 'lucide-react';
-import { useState } from 'react';
+import { CheckCircle2, ChevronRight, FolderOpen, Plug, TriangleAlert, User, XCircle } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardHeader,
-  EmptyState,
-  ErrorState,
-  KeyValue,
-  Section,
-  SkeletonCard,
-} from '@/shared/ui';
+import { Badge, Button, Card, EmptyState, ErrorState, Section, SkeletonCard, Tooltip } from '@/shared/ui';
 import { usePlugins } from '../../hooks/useSystemFolder';
+import {
+  accessIcon,
+  limitFacts,
+  outputLabel,
+  placementLabel,
+  stageRef,
+  targetLabel,
+  type PluginFact,
+  type StageRef,
+} from '../../lib/plugins';
+import { systemRoutes } from '../../lib/routes';
 import { ACCESS_LABEL } from '../../lib/styles';
 import type { PluginCard } from '../../lib/types';
 import { PipelineGraph } from './PipelineGraph';
+import { PluginDetailsSheet } from './PluginDetailsSheet';
 
-function List({ items, icon, cls }: { items?: string[]; icon: JSX.Element; cls: string }) {
-  if (!items?.length) return null;
+/** One pill in the card's pipeline strip. */
+function StagePill({ stage, current, ghost }: { stage?: StageRef; current?: boolean; ghost?: string }) {
   return (
-    <ul className="space-y-1">
-      {items.map((t) => (
-        <li key={t} className="flex items-start gap-2 text-sm">
-          <span className={cn('mt-0.5 [&_svg]:size-4', cls)}>{icon}</span>
-          <span>{t}</span>
-        </li>
-      ))}
-    </ul>
+    <span
+      title={stage?.label ?? ghost}
+      className={cn(
+        'inline-flex min-w-0 max-w-[40%] items-center gap-1 rounded-full border px-2.5 py-1 text-xs',
+        current
+          ? 'shrink-0 border-primary/30 bg-primary/10 font-semibold text-primary'
+          : 'border-border text-muted',
+        !stage && 'border-dashed',
+      )}
+    >
+      {stage?.human && <User className="size-3 shrink-0" aria-hidden />}
+      <span className="truncate">{stage?.label ?? ghost}</span>
+    </span>
+  );
+}
+
+function Connector({ className }: { className?: string }) {
+  return <span aria-hidden className={cn('h-px min-w-3 flex-1 bg-border', className)} />;
+}
+
+/** upstream → this plugin → downstream, as a 3-node strip. */
+function PipelineStrip({ p, plugins }: { p: PluginCard; plugins: PluginCard[] }) {
+  const up = p.placement?.upstream ?? [];
+  const down = p.placement?.downstream ?? [];
+  const extra = (n: number) => (n > 1 ? ` +${n - 1}` : '');
+  const upStage = up[0] ? stageRef(up[0], plugins) : undefined;
+  const downStage = down[0] ? stageRef(down[0], plugins) : undefined;
+  return (
+    <div className="flex items-center gap-1.5" aria-label="Pipeline placement">
+      <StagePill stage={upStage && { ...upStage, label: upStage.label + extra(up.length) }} ghost="Input" />
+      <Connector />
+      <StagePill stage={{ id: p.id, label: p.name, human: false }} current />
+      <Connector />
+      <StagePill
+        stage={downStage && { ...downStage, label: downStage.label + extra(down.length) }}
+        ghost="Output"
+      />
+    </div>
+  );
+}
+
+function Fact({ value, unit, label }: PluginFact) {
+  const numeric = /^[\d.,]+k?$/.test(value);
+  return (
+    <div className="min-w-0">
+      <div
+        className={cn(
+          'flex h-8 items-end truncate leading-tight',
+          numeric ? 'font-heading text-2xl tabular-nums' : 'text-sm font-medium',
+        )}
+      >
+        {value}
+        {unit && <span className="ml-0.5 text-sm text-muted">{unit}</span>}
+      </div>
+      <div className="truncate text-2xs text-muted">{label}</div>
+    </div>
+  );
+}
+
+function Count({ n, icon, cls, label }: { n: number; icon: ReactNode; cls: string; label: string }) {
+  if (!n) return null;
+  return (
+    <span className="inline-flex items-center gap-1" title={label}>
+      <span className={cn('[&_svg]:size-3.5', cls)}>{icon}</span>
+      <span className="tabular-nums">{n}</span>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 
 function PluginCardView({
   p,
+  plugins,
   selected,
   onSelect,
+  onOpen,
 }: {
   p: PluginCard;
+  plugins: PluginCard[];
   selected: boolean;
   onSelect: () => void;
+  onOpen: () => void;
 }) {
   const access = p.access ?? { type: 'unknown' };
   const exp = p.expected_behaviour ?? { task: '' };
+  const Icon = accessIcon(access.type);
+  const target = targetLabel(access);
+  const output = outputLabel(p.io);
+  const facts: PluginFact[] = [
+    ...(output ? [{ value: output, label: 'Returns' }] : []),
+    ...limitFacts(access.limits).filter((f) => f.label !== 'Request budget'),
+  ].slice(0, 3);
+
   return (
     <motion.div variants={listItem}>
       <Card
         interactive
         onClick={onSelect}
-        className={cn('h-full', selected && 'border-primary/50 ring-2 ring-primary/20')}
+        className={cn('flex h-full flex-col', selected && 'border-primary/50 ring-2 ring-primary/20')}
       >
-        <CardHeader
-          icon={<Plug />}
-          title={p.name}
-          description={<span className="font-mono text-xs">{p.id}</span>}
-          actions={<Badge tone="accent">{ACCESS_LABEL[access.type] ?? access.type}</Badge>}
-        />
-        <CardContent className="space-y-4">
-          <KeyValue
-            items={[
-              {
-                label: 'Placement',
-                value: `${p.placement?.kind?.replace(/_/g, ' ') ?? '-'}${p.placement?.position ? ` · ${p.placement.position}` : ''}`,
-              },
-              {
-                label: 'Environment',
-                value: access.environment && (
-                  <Badge tone={access.environment === 'production' ? 'warning' : 'neutral'}>
-                    {access.environment}
-                  </Badge>
-                ),
-              },
-              { label: 'Target', value: access.uri ?? access.url, mono: true },
-              {
-                label: 'Limits',
-                value:
-                  access.limits &&
-                  Object.entries(access.limits)
-                    .map(([k, v]) => `${k} ${v}`)
-                    .join(' · '),
-                mono: true,
-              },
-            ]}
-          />
-          {p.placement?.pipeline_summary && (
-            <p className="rounded-lg bg-surface-muted px-3 py-2 text-xs text-muted">
-              {p.placement.pipeline_summary}
-            </p>
-          )}
-          <div>
-            <div className="mb-1 text-xs font-medium text-muted">Expected behaviour</div>
-            <p className="mb-2 text-sm">{exp.task}</p>
-            <div className="space-y-1.5">
-              <List items={exp.must} icon={<CheckCircle2 />} cls="text-success" />
-              <List items={exp.must_not} icon={<CircleSlash />} cls="text-danger" />
-              <List items={exp.known_limitations} icon={<TriangleAlert />} cls="text-warning" />
+        <div className="space-y-5 p-5">
+          <div className="flex items-start gap-3.5">
+            <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary [&_svg]:size-5">
+              <Icon />
             </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate font-heading text-xl leading-tight">{p.name}</h3>
+              <p className="mt-0.5 text-xs text-muted">
+                {placementLabel(p.placement)}, {ACCESS_LABEL[access.type] ?? access.type}
+              </p>
+            </div>
+            {access.environment && (
+              <Badge tone={access.environment === 'production' ? 'warning' : 'neutral'}>
+                {access.environment}
+              </Badge>
+            )}
           </div>
-        </CardContent>
+
+          {exp.task && <p className="line-clamp-2 text-sm leading-relaxed">{exp.task}</p>}
+
+          <PipelineStrip p={p} plugins={plugins} />
+
+          {target && (
+            <Tooltip content={<span className="break-all font-mono">{target.full}</span>}>
+              <div className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-muted/60 px-3 py-2">
+                <Icon className="size-3.5 shrink-0 text-muted" aria-hidden />
+                <code className="truncate whitespace-nowrap font-mono text-xs">{target.short}</code>
+              </div>
+            </Tooltip>
+          )}
+
+          {facts.length > 0 && (
+            <div className="grid grid-cols-[1.5fr_1fr_1fr] gap-4">
+              {facts.map((f) => (
+                <Fact key={f.label} {...f} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-border px-5 py-2.5">
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <Count n={exp.must?.length ?? 0} icon={<CheckCircle2 />} cls="text-success" label="must" />
+            <Count n={exp.must_not?.length ?? 0} icon={<XCircle />} cls="text-danger" label="must never" />
+            <Count
+              n={exp.known_limitations?.length ?? 0}
+              icon={<TriangleAlert />}
+              cls="text-warning"
+              label="known limitations"
+            />
+            <span>behaviour checks</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            rightIcon={<ChevronRight />}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+              onOpen();
+            }}
+          >
+            Details
+          </Button>
+        </div>
       </Card>
     </motion.div>
   );
@@ -107,6 +198,7 @@ function PluginCardView({
 export function PluginsTab({ systemId }: { systemId: string }) {
   const { plugins, isLoading, error, refetch } = usePlugins(systemId);
   const [selected, setSelected] = useState<string | undefined>();
+  const [openId, setOpenId] = useState<string | undefined>();
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (isLoading) {
@@ -126,12 +218,32 @@ export function PluginsTab({ systemId }: { systemId: string }) {
       />
     );
   }
+  const current = selected ?? plugins[0]?.id;
+  const opened = plugins.find((p) => p.id === openId);
   return (
     <div className="space-y-6">
       <Section title="Pipeline placement" description="Where each plugin sits; click a card to highlight it.">
-        <PipelineGraph plugins={plugins} highlight={selected ?? plugins[0]?.id} />
+        <PipelineGraph plugins={plugins} highlight={current} />
       </Section>
-      <Section title={`Plugins (${plugins.length})`}>
+      <Section
+        title={
+          <span className="flex items-center gap-2">
+            Plugins
+            <Badge tone="primary" className="rounded-full px-2">
+              {plugins.length}
+            </Badge>
+          </span>
+        }
+        description="Each plugin connects the agent to one model it can test."
+        actions={
+          <Button asChild variant="secondary" size="sm">
+            <Link to={systemRoutes.detail(systemId, 'folder')}>
+              <FolderOpen />
+              Open folder
+            </Link>
+          </Button>
+        }
+      >
         <motion.div
           variants={staggerList()}
           initial="initial"
@@ -142,12 +254,22 @@ export function PluginsTab({ systemId }: { systemId: string }) {
             <PluginCardView
               key={p.id}
               p={p}
-              selected={(selected ?? plugins[0]?.id) === p.id}
+              plugins={plugins}
+              selected={current === p.id}
               onSelect={() => setSelected(p.id)}
+              onOpen={() => setOpenId(p.id)}
             />
           ))}
         </motion.div>
       </Section>
+      {opened && (
+        <PluginDetailsSheet
+          plugin={opened}
+          systemId={systemId}
+          open={!!opened}
+          onOpenChange={(o) => !o && setOpenId(undefined)}
+        />
+      )}
     </div>
   );
 }

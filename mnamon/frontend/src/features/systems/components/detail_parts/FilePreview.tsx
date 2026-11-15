@@ -13,6 +13,7 @@ import {
   FilePreviewPanel,
   IconButton,
   Markdown,
+  fileIcon,
   SkeletonText,
   downloadPreviewFile,
   type DataTableColumn,
@@ -87,36 +88,57 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
 
   if (!path) {
     return (
-      <EmptyState
-        icon={<FileText />}
-        title="Pick a file"
-        description="Select a file in the tree to preview it."
-      />
+      <div className="grid h-full place-items-center p-6">
+        <EmptyState
+          icon={<FileText />}
+          title="Pick a file"
+          description="Select a file in the tree to preview it."
+        />
+      </div>
     );
   }
-  if (file.error) return <ErrorState compact error={file.error} onRetry={() => file.refetch()} />;
+  if (file.error) {
+    return (
+      <div className="p-5">
+        <ErrorState compact error={file.error} onRetry={() => file.refetch()} />
+      </div>
+    );
+  }
 
   const lang = languageFor(path);
   // Binary files (PDF, images, Word) render in the shared preview body.
   const kind = classifyFile({ name: path, mime: file.data?.contentType }).kind;
   const binary = file.data?.text === null || kind === 'pdf' || kind === 'image' || kind === 'docx';
   const text = file.data?.text ?? '';
+  const name = path.split('/').pop() ?? path;
+  const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-sm">{path}</span>
-        {file.data && (
-          <>
-            <Badge tone="primary">v{file.data.version}</Badge>
-            <Badge>{formatBytes(file.data.size)}</Badge>
-            <span className="text-xs text-muted">
-              by {actorLabel(file.data.createdBy)} · {formatRelative(file.data.createdAt)}
-            </span>
-          </>
-        )}
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-3 sm:px-5">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-muted [&_svg]:size-4">
+          {fileIcon(name)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <h3 className="truncate text-sm font-semibold" title={path}>
+              {name}
+            </h3>
+            {file.data && <Badge tone="primary">v{file.data.version}</Badge>}
+          </div>
+          <div className="truncate text-xs text-muted">
+            {dir && <span className="font-mono">{dir}</span>}
+            {dir && file.data && ' · '}
+            {file.data && (
+              <>
+                {formatBytes(file.data.size)} · by {actorLabel(file.data.createdBy)} ·{' '}
+                {formatRelative(file.data.createdAt)}
+              </>
+            )}
+          </div>
+        </div>
         {preview && (
-          <span className="ml-auto flex items-center gap-0.5">
+          <span className="flex items-center gap-0.5">
             <IconButton
               label={`Open ${preview.name} in the preview`}
               icon={<Maximize2 />}
@@ -129,59 +151,63 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
             />
           </span>
         )}
-      </div>
+      </header>
 
-      {file.isLoading ? (
-        <SkeletonText lines={10} />
-      ) : binary && preview ? (
-        <div className="h-[32rem] overflow-hidden rounded-xl border border-border bg-surface-sunken p-3">
-          <FilePreviewBody file={preview} onDownload={() => void downloadPreviewFile(preview)} />
-        </div>
-      ) : lang === 'markdown' ? (
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <Markdown>{text}</Markdown>
-        </div>
-      ) : lang === 'csv' ? (
-        <CsvPreview text={text} />
-      ) : (
-        <CodeBlock
-          code={text}
-          language={lang === 'yaml' || lang === 'json' ? lang : 'text'}
-          title={path.split('/').pop()}
-        />
-      )}
-
-      <FilePreviewPanel file={expanded ? preview : null} onClose={() => setExpanded(false)} />
-
-      {(versions.data?.length ?? 0) > 1 && (
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <History className="size-4 text-muted" /> Versions
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+        {file.isLoading ? (
+          <SkeletonText lines={10} />
+        ) : binary && preview ? (
+          <div className="h-[min(70vh,40rem)] overflow-hidden rounded-xl border border-border bg-surface-sunken p-3">
+            <FilePreviewBody file={preview} onDownload={() => void downloadPreviewFile(preview)} />
           </div>
-          <ul className="space-y-1">
-            {versions.data!.map((v) => {
-              const selected = (version ?? versions.data![0].version) === v.version;
-              return (
-                <li key={v.version}>
-                  <button
-                    type="button"
-                    onClick={() => setVersion(v.isCurrent ? undefined : v.version)}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
-                      selected ? 'bg-primary/10 text-primary' : 'hover:bg-surface-muted',
-                    )}
-                  >
-                    <span className="font-mono text-xs">v{v.version}</span>
-                    {v.isCurrent && <Badge tone="success">current</Badge>}
-                    <span className="truncate text-muted">{actorLabel(v.createdBy)}</span>
-                    <span className="ml-auto text-xs text-muted">{formatRelative(v.createdAt)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+        ) : lang === 'markdown' ? (
+          <article className="max-w-3xl break-words">
+            <Markdown>{text}</Markdown>
+          </article>
+        ) : lang === 'csv' ? (
+          <CsvPreview text={text} />
+        ) : (
+          <CodeBlock
+            code={text}
+            language={lang === 'yaml' || lang === 'json' ? lang : 'text'}
+            title={name}
+            maxHeight="none"
+            wrap
+          />
+        )}
+
+        <FilePreviewPanel file={expanded ? preview : null} onClose={() => setExpanded(false)} />
+
+        {(versions.data?.length ?? 0) > 1 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+              <History className="size-4 text-muted" /> Versions
+            </div>
+            <ul className="space-y-1">
+              {versions.data!.map((v) => {
+                const selected = (version ?? versions.data![0].version) === v.version;
+                return (
+                  <li key={v.version}>
+                    <button
+                      type="button"
+                      onClick={() => setVersion(v.isCurrent ? undefined : v.version)}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
+                        selected ? 'bg-primary/10 text-primary' : 'hover:bg-surface-muted',
+                      )}
+                    >
+                      <span className="font-mono text-xs">v{v.version}</span>
+                      {v.isCurrent && <Badge tone="success">current</Badge>}
+                      <span className="truncate text-muted">{actorLabel(v.createdBy)}</span>
+                      <span className="ml-auto text-xs text-muted">{formatRelative(v.createdAt)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
