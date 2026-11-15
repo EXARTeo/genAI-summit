@@ -1,8 +1,10 @@
 import { FolderTree, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { formatBytes, formatRelative } from '@/shared/lib/format';
 import { actorLabel } from '@/shared/lib/labels';
 import { EmptyState, ErrorState, FileTree, Skeleton, toast } from '@/shared/ui';
+import { useFillHeight } from '../../hooks/useFillHeight';
 import { useSystemFiles, useUploadFiles } from '../../hooks/useSystems';
 import { FilePreview } from './FilePreview';
 
@@ -10,6 +12,9 @@ const ACCEPT = '.md,.yaml,.yml,.json,.csv,.txt,.pdf';
 
 /** The system dossier as one explorer: tree (add files per folder, drag-and-drop) + full-height viewer. */
 export function FolderTab({ systemId }: { systemId: string }) {
+  // Wide screens: the explorer runs to the bottom of the window; both panes scroll inside it.
+  const wide = useMediaQuery('(min-width: 1024px)');
+  const fill = useFillHeight<HTMLDivElement>(480, 32);
   const files = useSystemFiles(systemId);
   const upload = useUploadFiles(systemId);
   const [selected, setSelected] = useState<string | null>('system-card.yaml');
@@ -59,9 +64,11 @@ export function FolderTab({ systemId }: { systemId: string }) {
   };
 
   return (
-    // The viewer sets the panel's height (its content, at most about a screen); on wide screens
-    // the tree pane is pinned to that height and scrolls inside, so it never leaves dead space.
-    <div className="grid overflow-hidden rounded-2xl border border-border bg-surface shadow-sm lg:min-h-[30rem] lg:grid-cols-[18.75rem_minmax(0,1fr)]">
+    <div
+      ref={fill.ref}
+      style={wide ? { height: fill.height } : undefined}
+      className="grid overflow-hidden rounded-2xl border border-border bg-surface shadow-sm lg:grid-cols-[18.75rem_minmax(0,1fr)] lg:grid-rows-1"
+    >
       <div className="relative min-h-0 border-b border-border lg:border-b-0 lg:border-r">
         <aside className="flex max-h-[45vh] min-h-0 flex-col bg-surface-sunken/60 lg:absolute lg:inset-0 lg:max-h-none">
           <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
@@ -121,7 +128,7 @@ export function FolderTab({ systemId }: { systemId: string }) {
           </p>
         </aside>
       </div>
-      <section className="flex min-h-[28rem] min-w-0 flex-col lg:max-h-[max(30rem,calc(100dvh-7rem))]">
+      <section className="flex min-h-[28rem] min-w-0 flex-col lg:min-h-0">
         <FilePreview key={selected ?? ''} systemId={systemId} path={selected} />
       </section>
       <input
