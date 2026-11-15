@@ -118,3 +118,19 @@ def test_rest_target_respects_429_and_reads_predictions(monkeypatch):
     assert scores.tolist() == [0, 0.25, 0.5, 0.75]
     assert decisions.tolist() == [0, 0, 1, 1]
     assert calls["n"] == 2
+
+
+def test_rest_target_never_sends_synthkit_bookkeeping_columns(monkeypatch):
+    """A strict endpoint (the model gateway) rejects unknown fields: `_probe` must not leave."""
+    monkeypatch.setenv("MODEL_GATEWAY_TOKEN", "tok")
+    seen: list[set] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        rows = json.loads(request.content)["inputs"]
+        seen.append({k for r in rows for k in r})
+        return httpx.Response(200, json={"predictions": [{"proba": 0.5} for _ in rows]})
+
+    access = {"url": "http://gw/v1/systems/s/screen", "limits": {"rps": 1000}}
+    target = rest_target(access, {"score_field": "proba"}, transport=httpx.MockTransport(handler))
+    target.score(pd.DataFrame({"x": [1, 2], "_probe": ["dag", "lhs"]}))
+    assert seen == [{"x"}]

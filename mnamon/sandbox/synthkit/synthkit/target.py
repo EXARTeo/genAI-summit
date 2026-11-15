@@ -122,6 +122,10 @@ class Target:
             if missing:
                 raise TargetError(f"rows miss model inputs: {missing}")
             frame = frame[self.input_columns]
+        else:
+            # Unknown inputs (a REST endpoint): never send synthkit's own bookkeeping columns
+            # (`_probe`, `_row`, ...); a strict API rejects unknown fields.
+            frame = frame[[c for c in frame.columns if not str(c).startswith("_")]]
         scores, decisions = [], []
         for start in range(0, len(frame), self.batch_size):
             chunk = frame.iloc[start : start + self.batch_size].reset_index(drop=True)
