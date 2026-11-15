@@ -334,7 +334,7 @@ def date_targets(result: RiskProposal) -> list[tuple[str, str, str | None]]:
     elif route == "art6_3_exempt":
         out.append(("Art. 6(4) assessment duty applies", "AIA.6.4", "annex_iii"))
         out.append(("Registration under Art. 49(2) applies", "AIA.49.2", None))
-    if route == "art50_only" or result.transparency.features or result.transparency.provisions:
+    if route == "art50_only" or result.transparency.features:
         out.append(("Transparency duties apply (Art. 50)", "AIA.50", None))
     return out
 
