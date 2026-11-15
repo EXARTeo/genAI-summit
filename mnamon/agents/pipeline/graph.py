@@ -1882,6 +1882,10 @@ class AuditPipeline:
                 data={
                     "verdicts": verdicts,
                     "gaps": sum(1 for f in state.get("sealed") or [] if f.get("gap_id")),
+                    # A retried audit that now finished is no longer failed or incomplete.
+                    "failure": None,
+                    "incomplete": False,
+                    "error": None,
                     "finishedAt": datetime.now(UTC).isoformat(),
                 },
             )
