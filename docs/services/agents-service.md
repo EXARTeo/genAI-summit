@@ -231,8 +231,40 @@ with its counter-arguments; drafts evidence or gap notes as `proposed`; starts a
   (`POST /v1/systems/{id}/audits`). Plus the platform's `present_artifact`, `render_chart`, the sandbox
   `execute` (always gated), and with a `system_id` the `/memory/` mount. No MCP tools (`all_mcp_tools:
   false`): answers come from the knowledge base.
-- **Sub-agents:** `regulation-researcher` (only `lookup_provision` + `search_regulation`) and
-  `evidence-analyst` (inherits every tool and gate). Delegation is not gated (`hitl.task: false`).
+- **History tools** (`workspace_api/history.py`, logic in `rerun.py`, no model): `list_kb_releases`,
+  `diff_kb(from_version, to_version?, provisions?)`, `list_reg_changes(status?)`, `get_reg_change(id)`,
+  `list_findings(audit_id | system_id)`, `get_gate_decisions(audit_id)`, `list_obligations(system_id?,
+  audit_id?)` and `audit_needs_rerun(audit_id)`. Results are summaries (ids, verdicts, counts, short
+  excerpts), never raw bodies. Routes that land later fall back to what exists and say so in `source`:
+  reg-memory `/v1/releases/{a}/diff/{b}` → the reg-memory changes on the release chain (`parent` links);
+  backend `/v1/audits/{id}/findings` and `/v1/systems/{id}/findings?current=true` → the audit's live
+  `finding` artifacts (latest audit for a system); reg-memory `/v1/obligations` → the audit's
+  `obligation_map` artifact, then `/v1/requirements`. Each run's client has a call budget
+  (`MAX_CALLS_PER_RUN` 150) and at most 4 calls in flight.
+- **`audit_needs_rerun`** (deterministic): pinned kb = `pins.kb_version` (`audit.pins` or `data.pins`),
+  else `data.kb_version`, else the first artifact's stamped `kb_version`. Same as the active release → no.
+  Otherwise the changed provisions (pinned → active) are intersected with what the audit relies on (the
+  `obligation_map` rows that apply, the `context` requirements' `source` / `related`, the findings'
+  citations; a parent or child provision counts). Any non-editorial change on one of them → `needs_rerun:
+  true`; only editorial → false. Returns `reason`, `changed_provisions`, `affected_obligations`,
+  `affected_findings`, `related_reg_changes` (with the change judge's decision for the system) and `pins`.
+- **`start_audit(system_id, mode=full|focused|custom, obligations?, kb_version?, dataset_ref?,
+  scenarios_ref?)`** posts that intake as the audit's `data` (focused needs obligations; an unknown
+  `kb_version` is refused). **`attach_upload_to_audit_draft(attachment_id, system_id?, file_name?)`**
+  copies a chat upload with `POST /v1/systems/{id}/files/from-attachment` to
+  `datasets/uploaded/<name>` and returns the `dataset_ref`. Both are gated.
+- **Sub-agents** (each lists its own tools; delegation is not gated, `hitl.task: false`):
+
+  | Sub-agent | Job | Tools |
+  | --- | --- | --- |
+  | `audit-analyst` | explain or compare audits: pins, findings, gates, critic, report | `list_audits`, `read_audit`, `read_audit_artifact`, `list_findings`, `get_gate_decisions`, `read_system_file` |
+  | `regulation-historian` | versions, diffs, changes, "does audit X need a re-run?" | `read_audit`, `list_audits`, `list_kb_releases`, `diff_kb`, `list_reg_changes`, `get_reg_change`, `audit_needs_rerun`, `lookup_provision` |
+  | `regulation-researcher` | one AI Act question from the kb | `lookup_provision`, `search_regulation` |
+  | `test-designer` | scenarios tied to obligation ids, a dummy or uploaded dataset, sandbox preview, then `start_audit` | `list_systems`, `list_system_files`, `read_system_file`, `list_obligations`, `list_kb_releases`, `lookup_provision`, `attach_upload_to_audit_draft`, `start_audit` (+ gated `execute`) |
+  | `evidence-analyst` | re-check a finding from the audit's saved evidence | `read_audit`, `read_audit_artifact`, `list_findings`, `read_system_file` (+ gated `execute`) |
+
+  The main prompt routes questions with a table and answers audit / regulation facts only from tool
+  results, citing the audit id and its kb_version.
 - **Prompt:** layered per the prompt-engineering plan: the precedence statement, `<platform_rules>`
   (HITL, cite with `kb_version`, no legal certainty, thresholds are the organisation's, no invented
   numbers) and `<agent_instructions>` in `AGENT.md`; then the platform defaults (harness sections), the
@@ -254,8 +286,8 @@ with its counter-arguments; drafts evidence or gap notes as `proposed`; starts a
 | `present_artifact`, `view_image`, `render_chart` | native (`harness/tools/`) | no |
 | `remember` | native; only with `system_id` + `audit_id` in the context | no |
 | `forget` | native; same | **yes** |
-| `list_systems`, `list_system_files`, `read_system_file`, `list_audits`, `read_audit`, `read_audit_artifact`, `lookup_provision`, `search_regulation` | native, selected in `agent.yaml` ([chat agent](#the-chat-agent-mnamon-copilot)) | no |
-| `propose_system_note`, `start_audit` | same | **yes** |
+| `list_systems`, `list_system_files`, `read_system_file`, `list_audits`, `read_audit`, `read_audit_artifact`, `lookup_provision`, `search_regulation`, `list_kb_releases`, `diff_kb`, `list_reg_changes`, `get_reg_change`, `audit_needs_rerun`, `list_findings`, `get_gate_decisions`, `list_obligations` | native, selected in `agent.yaml` ([chat agent](#the-chat-agent-mnamon-copilot)) | no |
+| `propose_system_note`, `start_audit`, `attach_upload_to_audit_draft` | same | **yes** |
 | `ask_user` | native; main agent of a chat run only | never (the call is the pause) |
 | MCP gateway tools | `MCP_GATEWAY_URL` | per the agent's `hitl:` |
 
