@@ -9,7 +9,7 @@ decide what to remember.
 | --- | --- | --- |
 | `/audits` | `audits` | Audit runs table: system and title, id, kb_version, trace, current step (live spinner or status), trigger, progress bar, updated |
 | `/audits/:auditId[?step=<stage>]` | `audits` | **Audit run page** (below); `?step=` deep-links and pins a step |
-| `/approvals` | `approvals` | Inbox of every open HITL gate; opens the approval drawer |
+| `/approvals` | (removed) | Redirects to `/audits`; open gates badge the Audits nav entry and are listed on Home under *Waiting for you* |
 | `/regulation?tab=changes\|sources&source=…` | `regulation` | Regulation-change inbox and reg-memory sources with versions, text and diffs |
 
 ## Audit run page
