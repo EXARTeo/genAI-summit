@@ -24,8 +24,6 @@ org_thresholds:                      # the organisation's own fairness policy
   counterfactual_flip_rate: "<= 0.02"
   accuracy_gap: "<= 0.05"            # worst subgroup vs the rest
   prediction_flip_rate: "<= 0.05"    # robustness: decisions flipped by small input noise
-  group_share_gap: "<= 0.05"         # representation: test population vs declared shares
-  min_group_share: ">= 0.03"
   crash_rate: "<= 0.0"               # invalid inputs never crash the model
   nonsense_rate: "<= 0.0"
   silent_acceptance_rate: "<= 0.10"

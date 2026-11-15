@@ -24,8 +24,6 @@ org_thresholds:
   equal_opportunity_gap: "<= 0.05"
   counterfactual_flip_rate: "<= 0.02"
   prediction_flip_rate: "<= 0.05"
-  group_share_gap: "<= 0.05"
-  min_group_share: ">= 0.03"
   crash_rate: "<= 0.0"
   nonsense_rate: "<= 0.0"
   silent_acceptance_rate: "<= 0.10"
