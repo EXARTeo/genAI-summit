@@ -13,6 +13,7 @@ optional ``httpx.AsyncClient`` so the tests inject a ``MockTransport``.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -25,6 +26,9 @@ import httpx
 
 from core.settings import settings
 from harness.filesystem.sandbox_backend import EXEC_PATH, RUNNER_SECRET_HEADER
+
+#: Extra attempts of a GET whose connection failed (busy backend, a restart).
+TRANSPORT_RETRIES = 2
 
 #: The agent name the pipeline writes under (``agent:<name>`` in the backend's ledger).
 PIPELINE_AGENT = "audit-pipeline"
@@ -48,10 +52,16 @@ def _client(client: httpx.AsyncClient | None) -> httpx.AsyncClient:
 async def _json(
     client: httpx.AsyncClient, service: str, method: str, url: str, **kwargs: Any
 ) -> Any:
-    try:
-        response = await client.request(method, url, **kwargs)
-    except httpx.HTTPError as exc:
-        raise PipelineHTTPError(service, None, type(exc).__name__) from exc
+    # A dropped connection on a read (GET) is retried; a write is never sent twice.
+    attempts = TRANSPORT_RETRIES + 1 if method == "GET" else 1
+    for attempt in range(1, attempts + 1):
+        try:
+            response = await client.request(method, url, **kwargs)
+            break
+        except httpx.HTTPError as exc:
+            if attempt >= attempts:
+                raise PipelineHTTPError(service, None, type(exc).__name__) from exc
+            await asyncio.sleep(0.5 * attempt)
     if response.status_code >= 400:
         raise PipelineHTTPError(service, response.status_code, response.text[:300])
     return response.json() if response.content else None
