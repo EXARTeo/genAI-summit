@@ -57,7 +57,7 @@ mnamon/agents/
     memory/            per-system agent memory: system_memories table, /memory/ mount, binding
     middlewares/       tool errors, summarization (compaction), rate-limit retry
     models/            Gemini model access (gemini.py), the scripted fake model (fake.py),
-                       reasoning summaries (OpenAI-only; unused by the product)
+                       reasoning requests (Gemini include_thoughts; OpenAI summaries)
     observability/     Langfuse (opt-in, fail-open), nested under the backend's trace
     prompt_engineering/ the composed system prompt, one module per section
     tools/             ask_user, present_artifact, view_image, render_chart, remember, forget;
@@ -80,6 +80,13 @@ mnamon/agents/
 5. The graph streams (`messages`, `updates`, `tasks`, with sub-graphs); the
    normalizer turns each chunk into AG-UI frames. A keepalive comment goes out
    after 15 s of silence. A client disconnect cancels the run.
+   Gemini streams give the same contract as OpenAI's (replayed from recorded
+   runs in `tests/agents/test_agui_gemini.py`): list-of-parts content becomes
+   text deltas (the thought-signature part never reaches the UI); its thought
+   summary, all on one content index, is split into one thinking step per
+   titled section (`**Title**`); tool calls come whole and open their cards
+   from the settled message, parallel ones in call order; a HITL pause closes
+   the open thinking phase (`THINKING_END`) before `HITL_INTERRUPT`.
 6. At the end: `CUSTOM CHECKPOINT_COMMITTED {thread_id, checkpoint_id}`. A
    failure is one `RUN_ERROR` (public message only) and nothing after it.
 
@@ -296,6 +303,8 @@ fail-open: a Langfuse outage costs traces, never a run.
 | `LOG_REDACTION_SECRET` | random per process | Keys the `h:` id hashes; use the backend's value |
 | `GOOGLE_API_KEY` | | Gemini, the only provider; empty = a clear `RUN_ERROR` ([agents pipeline](agents-pipeline.md#model-access-gemini)) |
 | `GEMINI_MODEL` / `GEMINI_MODEL_REASONING` | `gemini-3.5-flash-lite` / empty | Default and reasoning-role models |
+| `GEMINI_THINKING_LEVEL` | empty (model default) | `minimal`/`low`/`medium`/`high` for the chat agents' Gemini models. Their thoughts are requested (`include_thoughts`) and shown as THINKING steps; `gemini-3.5-flash-lite` returns none, `gemini-3.5-flash` does |
+| `REASONING_SUMMARY` | `auto` | `off` requests no thoughts from any model (Gemini thoughts, OpenAI summaries) |
 | `AGENTS_FAKE_LLM` | `false` | Deterministic stub model for dry runs (the pipeline steps and every declarative agent) |
 | `REG_MEMORY_URL`, `PIPELINE_*`, `CHANGE_JUDGE_MODEL`, `OUMI_*` | | The pipelines ([settings](agents-pipeline.md#pipeline-settings)) |
 | `AGENT_RUNTIME_DATABASE_URL` | `postgresql://postgres:postgres@postgres:5432/agent_runtime` | psycopg conninfo; the database is created if missing |
