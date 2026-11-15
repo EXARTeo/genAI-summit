@@ -67,12 +67,12 @@ describe('RegisterWizard', () => {
     setup();
     await waitFor(() => expect(screen.getByLabelText('System id')).toHaveValue('SYS-004'));
     await userEvent.click(screen.getByRole('button', { name: /Auto fill/ }));
-    expect(screen.getByLabelText('Name')).toHaveValue('CV Parser');
+    expect(screen.getByLabelText('Name')).toHaveValue('Candidate Shortlister');
     for (let i = 0; i < 4; i++) await userEvent.click(screen.getByRole('button', { name: /Next/ }));
     expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument();
     expect(screen.getByText('docs/system-specification.md')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Create system/ }));
-    await screen.findByText('CV Parser is registered');
+    await screen.findByText('Candidate Shortlister is registered');
     expect(calls).toEqual([
       'create SYS-004',
       'write system-card.yaml',

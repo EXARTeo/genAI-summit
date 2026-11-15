@@ -215,25 +215,26 @@ export function RegisterWizard() {
 }
 
 /** The example's specification (what the demo uploads with "Auto fill"). */
-const EXAMPLE_SPEC = `# CV Parser: system specification
+const EXAMPLE_SPEC = `# Candidate Shortlister: system specification
 
 ## 1. Purpose
-Turns incoming CVs (PDF, DOCX) into structured candidate records for the applicant
-tracking system, so recruiters do not retype them.
+Ranks job applicants for an open role and proposes a shortlist of the top candidates.
+Recruiters invite the shortlist to interview.
 
-## 2. Output
-Fields: name, contact details, work history (employer, role, dates), education,
-skills, languages. Each field carries the text span it came from.
+## 2. Pipeline
+1. CV parser: turns PDF/DOCX CVs into structured fields (age, nationality, postcode,
+   degree, skills, languages, years of experience, career breaks).
+2. Ranker: a gradient-boosted model scores each candidate (0-1).
+3. Shortlist: candidates with a score of 0.5 or more are shortlisted.
 
-## 3. What it does not do
-It does not score, rank, filter, shortlist or reject candidates. Records are listed
-in the order the CVs arrived. Recruiters decide whom to contact.
+## 3. Use of the output
+Recruiters usually follow the shortlist and rarely open CVs below the cut-off.
 
 ## 4. Human oversight
-Recruiters see the original CV next to the extracted fields and correct any field
-before saving. Nothing is saved without a recruiter.
+Recruiters can add a rejected candidate back. A senior recruiter reads a weekly
+sample of rejected CVs.
 
-## 5. Model
-A fine-tuned document-layout model plus rules for dates and phone numbers. No
-inference about the person (no personality, fit or performance prediction).
+## 5. Training data
+Five years of past hiring decisions at Acme clients (about 40,000 applications).
+Sex and nationality are not model inputs; postcode and career breaks are.
 `;

@@ -83,28 +83,31 @@ export const EMPTY_FORM: WizardForm = {
   annex_i_product: '',
 };
 
-/** The demo's "Auto fill" (plan 02 §11): a CV parser that only structures CVs. */
+/** The demo's "Auto fill": a candidate shortlister (parse, rank, shortlist), the same
+ * model the plugin form's Auto fill wires (the gateway's screening route). Recruitment
+ * and selection with profiling, so Annex III 4(a) high risk and the audit runs real
+ * Art. 10 / Art. 15 model tests. */
 export function exampleForm(id: string): WizardForm {
   return {
     ...EMPTY_FORM,
     id,
-    name: 'CV Parser',
+    name: 'Candidate Shortlister',
     organisation: 'Acme Talent Services',
     acquisition: 'in_house',
     description:
-      'Extracts structured fields (contact details, work history, education, skills, languages) from CVs uploaded as PDF or Word files, so recruiters do not retype them into the applicant tracking system.',
+      'Parses incoming CVs, scores each candidate for the open role and shortlists the top candidates, so recruiters only review the shortlist.',
     intended_purpose:
-      'Turn incoming CVs into structured candidate records for recruiters. It does not score, rank, filter or reject candidates.',
+      'Rank job applicants for an open role and propose a shortlist that recruiters invite to interview.',
     decision_informed:
-      'None directly: recruiters read the structured record and decide whom to shortlist themselves.',
+      'Who is invited to interview: recruiters usually follow the shortlist and rarely open CVs below the cut-off.',
     human_oversight:
-      'Recruiters see the original CV next to the extracted fields and correct any field before saving.',
-    profiling: 'no',
+      'Recruiters review the shortlist and can add a rejected candidate back; a weekly sample of rejected CVs is read by a senior recruiter.',
+    profiling: 'yes',
     countries: 'GR, CY',
     users: 'In-house recruiters (about 40)',
     deployment_status: 'pilot',
-    affected_persons: 'Job applicants whose CVs are processed',
-    vulnerable_groups: '',
+    affected_persons: 'Job applicants for roles at Acme clients',
+    vulnerable_groups: 'Older applicants, applicants with career breaks, non-Greek nationals',
     features: [],
     safety_component: false,
     annex_i_product: '',

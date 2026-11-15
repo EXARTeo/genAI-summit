@@ -51,10 +51,10 @@ describe('buildCard', () => {
     const card = buildCard({ ...exampleForm('SYS-004'), features: ['interacts_with_persons'] });
     expect(card).toMatchObject({
       id: 'SYS-004',
-      name: 'CV Parser',
+      name: 'Candidate Shortlister',
       risk_class: 'unclassified',
       acquisition: 'in_house',
-      profiling: 'no',
+      profiling: 'yes',
       features: ['interacts_with_persons'],
       annex_i_product: null,
       provenance: 'declared_by_pm',
