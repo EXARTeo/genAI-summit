@@ -3,9 +3,10 @@
 `.github/workflows/pipeline.yml` (workflow **CI/CD**) has two stages, shown as two
 boxes: **CI** (`ci.yml`, reusable: one job per service, on every push and pull
 request) and **CD** (`cd.yml`, reusable: on `main` only, after CI passed). CD
-builds the ARM64 images, publishes them to the repo owner's GHCR, writes the
-Dennis stack onto this repo's **`denis-deploy` branch** and tells Portainer to
-redeploy.
+builds the ARM64 images, publishes them to the repo owner's GHCR as `:main`
+(and `:sha-<12>`) and calls the Portainer webhook. Portainer reads
+`deploy/denis/docker-compose-denis.yaml` straight from `main` and re-pulls the
+images. No deploy branch, no deploy repo, no bot commits.
 
 The deploying repo is `konstantinosmpouros/genai-summit-2026` (git remote
 `origin`; the team repo `EXARTeo/genAI-summit` is remote `exarteo`). CD uses
@@ -16,19 +17,10 @@ The owner's own token is entered only in Portainer, to pull the private repo.
 flowchart LR
   push[push to main] --> ci[CI jobs: lint, tests, migrations, frontend, compose]
   ci -->|all green| img[cd-images: 8 ARM64 images to GHCR, tag sha-<12>]
-  img --> dep[cd-deploy: render deploy/denis/docker-compose-denis.yaml]
-  dep --> br[(branch denis-deploy: docker-compose-denis.yaml)]
-  dep --> hook[Portainer stack webhook]
-  hook --> portainer[Portainer pulls denis-deploy, docker stack deploy]
+  img --> hook[cd-deploy: Portainer stack webhook]
+  hook --> portainer[Portainer pulls main, re-pulls :main images, docker stack deploy]
   portainer --> live[cd-deploy waits for SITE/api/health = sha-<12>]
 ```
-
-## Why a `denis-deploy` branch
-
-Portainer runs the **rendered** stack (image tags filled in). CD commits it to
-its own branch so `main` never gets deploy commits; a push made with
-`GITHUB_TOKEN` triggers no workflow, so it cannot loop. Never edit the branch
-by hand; its source is `deploy/denis/docker-compose-denis.yaml`.
 
 ## What runs on Dennis
 
@@ -88,8 +80,8 @@ Stacks → Add stack → **Repository**:
 | --- | --- |
 | Name | `genai-summit` |
 | Repository URL | `https://github.com/konstantinosmpouros/genai-summit-2026` |
-| Reference | `refs/heads/denis-deploy` |
-| Compose path | `docker-compose-denis.yaml` |
+| Reference | `refs/heads/main` |
+| Compose path | `deploy/denis/docker-compose-denis.yaml` |
 | Authentication | on: your GitHub user + your own token (`repo` read; entered only here) |
 | GitOps updates | on, mechanism **Webhook**: copy the URL into `PORTAINER_WEBHOOK_URL` |
 | Environment variables | the table below |

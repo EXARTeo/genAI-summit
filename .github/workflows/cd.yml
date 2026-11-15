@@ -1,19 +1,17 @@
 name: CD
 
 # Reusable: called by pipeline.yml (the "CD" box) after CI passed, on main only.
-# cd-images builds the ARM64 images to this repo owner's GHCR; cd-deploy renders
-# the Dennis stack onto this repo's `denis-deploy` branch, calls the Portainer
-# webhook and waits until live. Only the built-in GITHUB_TOKEN is used: no
-# personal token is stored in GitHub. Setup: docs/guides/deploy-denis.md.
+# cd-images builds the ARM64 images to this repo owner's GHCR (tags sha-<12> and
+# main); cd-deploy calls the Portainer webhook (the stack pulls
+# deploy/denis/docker-compose-denis.yaml from main and re-pulls the :main images)
+# and waits until live. Only the built-in GITHUB_TOKEN is used: no personal token
+# is stored in GitHub. Setup: docs/guides/deploy-denis.md.
 
 on:
   workflow_call:
 
 permissions:
   contents: read
-
-env:
-  DEPLOY_BRANCH: denis-deploy
 
 jobs:
   # One image per service, ARM64 (Dennis is Ampere). Cross-built with QEMU on
@@ -72,7 +70,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-  # Deploys what cd-images published; builds nothing.
+  # Deploys what cd-images published; builds nothing, commits nothing.
   cd-deploy:
     name: cd-deploy
     needs: [cd-images]
@@ -81,79 +79,32 @@ jobs:
     environment:
       name: production
       url: ${{ vars.DENIS_SITE_URL }}
-    permissions:
-      contents: write
     concurrency:
       group: deploy-denis
       cancel-in-progress: false
     env:
-      NAMESPACE: ${{ github.repository_owner }}
       SITE: ${{ vars.DENIS_SITE_URL }}
+      WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
     steps:
-      - uses: actions/checkout@v4
       - name: Check the deploy settings
-        env:
-          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
-        # No webhook yet (first run, before the Portainer stack exists): still
-        # publish the denis-deploy branch the stack is created from, skip the rest.
         run: |
-          if [ -z "$SITE" ]; then echo "::error::DENIS_SITE_URL is not set (docs/guides/deploy-denis.md)"; exit 1; fi
-          if [ -z "$WEBHOOK" ]; then
-            echo "::warning::PORTAINER_WEBHOOK_URL is not set: publishing the denis-deploy branch only. Create the Portainer stack from it, add the webhook secret, then re-run."
-            echo "HAS_WEBHOOK=false" >> "$GITHUB_ENV"
-          else
-            echo "HAS_WEBHOOK=true" >> "$GITHUB_ENV"
-          fi
-      - name: Render the stack for this release
-        run: |
-          tag="sha-${GITHUB_SHA::12}"
-          mkdir -p out
-          sed -e "s/__GHCR_NAMESPACE__/${NAMESPACE}/g" -e "s/__IMAGE_TAG__/${tag}/g" \
-            deploy/denis/docker-compose-denis.yaml > out/docker-compose-denis.yaml
-          if grep -q '__[A-Z_]*__' out/docker-compose-denis.yaml; then
-            echo "::error::unreplaced placeholder in the rendered stack"; exit 1
-          fi
-          echo "TAG=$tag" >> "$GITHUB_ENV"
-      # A push made with GITHUB_TOKEN never triggers another workflow run, and
-      # pipeline.yml only runs on main anyway, so this cannot loop.
-      - name: Push it to the denis-deploy branch (Portainer pulls this)
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          url="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          if git ls-remote --exit-code --heads "$url" "$DEPLOY_BRANCH" >/dev/null; then
-            git clone --depth 1 --branch "$DEPLOY_BRANCH" "$url" deploy-repo
-          else
-            git init -q -b "$DEPLOY_BRANCH" deploy-repo
-            git -C deploy-repo remote add origin "$url"
-          fi
-          cp out/docker-compose-denis.yaml deploy-repo/docker-compose-denis.yaml
-          cd deploy-repo
-          git config user.name "genai-summit-cd"
-          git config user.email "genai-summit-cd@users.noreply.github.com"
-          git add docker-compose-denis.yaml
-          if git diff --cached --quiet; then
-            echo "Stack unchanged."
-          else
-            git commit -q -m "deploy: genai-summit ${TAG}"
-            git push origin "HEAD:${DEPLOY_BRANCH}"
-          fi
-      - name: Tell Portainer to pull and redeploy
-        if: env.HAS_WEBHOOK == 'true'
-        env:
-          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+          missing=0
+          for v in SITE WEBHOOK; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set (docs/guides/deploy-denis.md)"; missing=1; fi
+          done
+          exit "$missing"
+      - name: Tell Portainer to re-pull and redeploy
         run: curl -fsS --max-time 60 --retry 3 --retry-all-errors -X POST -o /dev/null "$WEBHOOK"
       - name: Wait until the release is live
-        if: env.HAS_WEBHOOK == 'true'
         run: |
+          want="sha-${GITHUB_SHA::12}"
           deadline=$((SECONDS + 1200))
           while :; do
-            live=$(curl -fsS --max-time 10 "$SITE/api/health" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin).get("version", ""))' 2>/dev/null || true)
-            if [ "$live" = "$TAG" ]; then echo "Live: backend $live"; exit 0; fi
+            live=$(curl -fsS --max-time 10 "$SITE/api/health"               | python3 -c 'import json, sys; print(json.load(sys.stdin).get("version", ""))' 2>/dev/null || true)
+            if [ "$live" = "$want" ]; then echo "Live: backend $live"; exit 0; fi
             if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "::error::Not live after 20 min (backend '${live:-none}', want $TAG). Check the stack in Portainer; a failed update rolls back."
+              echo "::error::Not live after 20 min (backend '${live:-none}', want $want). Check the stack in Portainer; a failed update rolls back."
               exit 1
             fi
-            echo "Waiting: backend ${live:-none} -> $TAG"; sleep 20
+            echo "Waiting: backend ${live:-none} -> $want"; sleep 20
           done

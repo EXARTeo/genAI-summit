@@ -1,9 +1,8 @@
 # Production stack for Dennis (Docker Swarm, deployed by Portainer as a Git stack).
 #
-# Source of truth lives here; CD (.github/workflows/pipeline.yml, job cd-deploy)
-# replaces __GHCR_NAMESPACE__ / __IMAGE_TAG__ with the images it just published
-# and pushes the result to the deploy repo Portainer pulls, then calls the stack
-# webhook. Never edit the copy in the deploy repo. Guide: docs/guides/deploy-denis.md.
+# Portainer pulls this file straight from main (Git stack). CD pushes the images
+# as :main (and :sha-<12>) and calls the stack webhook, which re-pulls them.
+# Pin a release with the stack variable IMAGE_TAG=sha-<12>. Guide: docs/guides/deploy-denis.md.
 #
 # Differences from mnamon/docker-compose.yaml (local):
 # - Prebuilt ARM64 images from GHCR, no `build:`.
@@ -40,7 +39,7 @@ x-python-health: &python-health
 services:
 
   frontend: # 8080, reached only through NPM (proxy network)
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_frontend:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_frontend:${IMAGE_TAG:-main}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 15s
@@ -62,7 +61,7 @@ services:
       - proxy    # NPM -> frontend:8080
 
   backend: # 8000
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_backend:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_backend:${IMAGE_TAG:-main}
     environment:
       APP_ENV: production
       LOG_FORMAT: json
@@ -107,7 +106,7 @@ services:
       - langfuse
 
   agents: # 8003
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_agents:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_agents:${IMAGE_TAG:-main}
     environment:
       APP_ENV: production
       LOG_FORMAT: json
@@ -162,7 +161,7 @@ services:
       - sandbox_net
 
   reg-memory: # 8010
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_reg-memory:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_reg-memory:${IMAGE_TAG:-main}
     environment:
       APP_ENV: production
       LOG_FORMAT: json
@@ -199,7 +198,7 @@ services:
       - edge          # public EU sites
 
   mlflow: # 5000
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_mlflow:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_mlflow:${IMAGE_TAG:-main}
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in Portainer}
@@ -225,7 +224,7 @@ services:
       - sandbox_models
 
   mlflow-seed: # one-shot job: trains + registers the demo models, then exits 0
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_mlflow-seed:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_mlflow-seed:${IMAGE_TAG:-main}
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       SEED_CASES_DIR: /seed-cases
@@ -246,7 +245,7 @@ services:
       - backend
 
   model-gateway: # 8000
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_model-gateway:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_model-gateway:${IMAGE_TAG:-main}
     environment:
       APP_ENV: production
       LOG_FORMAT: json
@@ -271,7 +270,7 @@ services:
       - sandbox_models
 
   sandbox_runner: # 8090: the agents' `execute` + synthkit; no internet
-    image: ghcr.io/__GHCR_NAMESPACE__/genai-summit_sandbox:__IMAGE_TAG__
+    image: ghcr.io/konstantinosmpouros/genai-summit_sandbox:${IMAGE_TAG:-main}
     environment:
       APP_ENV: production
       LOG_FORMAT: json

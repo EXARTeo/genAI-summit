@@ -7,7 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
-- CD deploys from `konstantinosmpouros/genai-summit-2026` with the built-in GITHUB_TOKEN only: images to the owner's GHCR, the rendered stack on the `denis-deploy` branch; no personal token in GitHub, no separate deploy repo.
+- CD deploys from `konstantinosmpouros/genai-summit-2026` with the built-in GITHUB_TOKEN only: images to the owner's GHCR, Portainer pulls `deploy/denis/docker-compose-denis.yaml` from `main` and re-pulls the `:main` images on the webhook; no personal token in GitHub, no deploy repo or branch.
 
 ### Added
 
