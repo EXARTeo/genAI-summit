@@ -21,7 +21,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0 bg-surface px-5 py-3 sm:px-6">
       <dt className="text-2xs font-medium uppercase tracking-wider text-muted">{label}</dt>
-      <dd className="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">{children}</dd>
+      <dd className="mt-1 flex min-h-6 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+        {children}
+      </dd>
     </div>
   );
 }
