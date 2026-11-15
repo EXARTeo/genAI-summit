@@ -230,9 +230,8 @@ sealed findings, gaps first, link to its Findings view),
   - *Folder*: `FileTree` of `/systems/<id>/`, preview by type (YAML/JSON `CodeBlock`, Markdown, CSV
     `DataTable`, PDF/binary placeholder), version list (click to view an old version), upload `FileDropzone`
     into a chosen folder (each upload = a new version).
-  - *Plugins*: pipeline placement graph (`@xyflow/react`, built from `placement.upstream/downstream`,
-    longest-path layout) + one card per `plugin.yaml` (access type, environment, target, limits,
-    must / must-not / known limitations).
+  - *Plugins*: where the engineer configures a **plugin**, the wrapper around one model (how the audit agent
+    calls it). See [Plugins tab](#plugins-tab) below.
   - *Business rules*: bullets of each plugin's `data/business-rules.md` grouped by plugin and typed
     hard / soft / policy; **Add rule** appends the rule as a bullet to the chosen plugin's
     `data/business-rules.md` (under a "… added in the UI" heading that parses back with the same kind), saved as
@@ -240,6 +239,24 @@ sealed findings, gaps first, link to its Findings view),
 
 API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../files/{path}?format=json[&version=]`,
 `GET .../files/{path}/versions`, `GET .../events`, `PUT .../files/{path}` (multipart, or JSON `{content, reason}` for an added rule).
+
+### Plugins tab
+
+A plugin is the wrapper around one model of the system ([agent context § 3](../architecture/agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do)).
+The backend API is new ([backend § Plugins](backend-systems.md#plugins)); this tab is being rebuilt on it.
+
+- **Graph:** the system graph from `architecture.yaml` (`GET /v1/systems/{id}/plugins`): components and edges,
+  e.g. SYS-001 CV parser → CV ranker → recruiter review. The API marks each node `configured` and `testable`.
+- **Form:** clicking a model node opens the plugin form (`GET .../plugins/defaults?component=`). Every field shows
+  its **default in grey**, from the graph and the local MLflow registry (model version, task from the
+  description, input fields and output type / label / score fields from the signature, the gateway REST path,
+  `env://MODEL_GATEWAY_TOKEN`, rps 5, timeout 10 s, 500 requests). The engineer overrides only what differs; an
+  empty field saves the default (`PUT .../plugins/{name}`). A model that is not in the graph can be added as a
+  standalone plugin; saving links it into `architecture.yaml`.
+- **Folder tab hides `plugins/`:** the card is still `plugins/<name>/plugin.yaml` (the agents read it), but it is
+  edited here, not as raw YAML.
+- **Start audit** gets a plugin picker: an audit tests one plugin and sends it as `data.target_plugin`; without
+  a pick the pipeline tests the decision model.
 
 ## Audit findings, report, pins and retry (`src/features/audits`)
 

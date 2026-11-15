@@ -1,7 +1,9 @@
 # Agent context and memory
 
-> Status: **design, not built yet**. This page extends the design PDF (§5.5 precedents, §12 MVP) to the
-> engineer pipeline. Keep it current as we build.
+> Status: **mostly built**. The system folder and plugins live in the backend's versioned files, plugins are
+> configured in the Plugins tab, and agent memory runs in the agents service. Not built: `workspace_file_meta`
+> (pgvector) and mounting `/systems/` and `/regulation/` as agent paths (section 5). This page extends the design
+> PDF (§5.5 precedents, §12 MVP) to the engineer pipeline. Keep it current as we build.
 
 Before the agent audits a system it needs four things:
 
@@ -66,13 +68,39 @@ One versioned folder per system, with everything the agent needs about it. It is
 
 ## 3. Plugins: how to reach a model, what it is, what it should do
 
-A **plugin** connects the agent to one testable thing: a model, an endpoint, an LLM app or a dataset. A system
-can have several (a pipeline of models). When an engineer **configures a plugin** they:
+A **plugin** is the wrapper around **one model** of a system: how the audit agent reaches it, where it sits in the
+system graph, its inputs and outputs, and what it should do. It can also wrap an endpoint, an LLM app or a
+dataset. A system can have several (a pipeline of models: SYS-001 has `cv-parser` and `cv-ranker`).
 
-1. pick the access type (MLflow model, REST endpoint, LLM chat, batch file, dataset only);
-2. fill in the **target card** (`plugin.yaml`): access, place in the pipeline, inputs and outputs, expected behaviour;
-3. **add any files the agent should read**: API docs, model card, training-data description, data dictionary,
-   evaluation reports, known issues, free-text notes.
+**Configured in the Plugins tab, not the Folder tab.** The Plugins tab draws the system graph from
+`architecture.yaml` (components and edges, e.g. CV parser → CV ranker → recruiter review). Clicking a model node
+opens the plugin form. Every field shows its **default in grey**, built by the backend
+(`GET /v1/systems/{id}/plugins/defaults`, [backend § Plugins](../services/backend-systems.md#plugins)) from the
+graph and the local MLflow registry:
+
+| Field | Default from |
+| --- | --- |
+| `placement` (upstream, downstream, position, pipeline summary) | the graph |
+| `access.uri` | the component's `model` (`models:/<name>@champion`) |
+| `access.rest_url` | the model gateway path `/v1/models/<name>/predict` |
+| `access.auth.secret_ref` | `env://MODEL_GATEWAY_TOKEN` |
+| `access.limits` | rps 5, timeout 10 s, 500 requests |
+| `expected_behaviour.task` | the registered model version's description (or its `intended_purpose` tag) |
+| `io.input_fields` | the MLflow signature inputs |
+| `io.output` (type, label field, score field) | the MLflow signature outputs |
+
+The engineer overrides only what differs; the client fills an empty field with its default before saving. A plugin
+can also be configured standalone (a model not in the graph); saving links it into `architecture.yaml`. The card is
+saved as `plugins/<name>/plugin.yaml` (a new file version each time), because the agents read it from there; the
+Folder tab hides `plugins/`. Docs and training-data descriptions for a plugin are still files under its folder.
+
+**One plugin per audit.** An audit tests one plugin: `audit.data.target_plugin` if given, otherwise the decision
+model (the first plugin whose name contains `rank`, `scor`, `classif` or `model`; see `_pick_plugin` in
+`mnamon/agents/pipeline/graph.py`). Only plugins with `data/data-dictionary.yaml` can be picked; a
+`target_plugin` without one falls back to the decision model. A system with two
+models is audited one model per audit. To test the whole chain in one audit, configure an end-to-end REST plugin on
+the model gateway's `POST /v1/systems/sys-001/screen` route (not configured by default). One audit that plans and
+runs scenarios across several plugins is future work.
 
 Everything is stored as one folder:
 
@@ -109,13 +137,13 @@ placement:
 # How to reach it
 access:
   type: mlflow_model                # mlflow_model | rest | llm_chat | batch_file | dataset_only
-  uri: models:/cv-screener/3
-  # type: rest
-  # url: https://staging.example.internal/rank
+  uri: models:/sys-001-cv-ranker@champion   # mlflow_model needs a models:/ URI
+  # type: rest                      # rest and llm_chat need a url
+  # url: /v1/models/sys-001-cv-ranker/predict   # a /v1/... path joins MODEL_GATEWAY_URL
   # method: POST
-  # auth: {type: bearer, secret_ref: vault://targets/sys-001-ranker}   # a reference, never the secret
+  auth: {type: bearer, secret_ref: env://MODEL_GATEWAY_TOKEN}   # env://NAME only, never the secret
   environment: staging              # production needs explicit approval at the test-plan gate
-  limits: {rps: 5, max_requests: 5000, timeout_s: 10}
+  limits: {rps: 5, max_requests: 500, timeout_s: 10}            # non-negative numbers
 
 # What goes in and out
 io:
@@ -163,8 +191,9 @@ How the agent uses a plugin:
 
 Security rules:
 
-- **Secrets are references only** (`secret_ref`). The sandbox runner resolves them; the LLM never sees them,
-  and plugin files are checked so no raw credential is stored.
+- **Secrets are references only** (`auth.secret_ref: env://NAME`). The sandbox runner resolves them; the LLM never
+  sees them. Saving a plugin is rejected (422) when a key looks like a credential (`token`, `password`, `secret`,
+  `api_key`, `bearer`).
 - The sandbox's network egress is allow-listed to the target's host and MLflow only.
 - Production endpoints, or anything over `max_requests`, need approval at the test-plan gate (G5).
 
@@ -267,8 +296,8 @@ Tables (backend Postgres, migration `0003_systems_audits`; built, see
 
 ## Demo moment
 
-1. The engineer configures the `ranker` plugin: picks MLflow, fills the card, uploads the training-data
-   description. The agent generates personas and counterfactual twins that match that population.
+1. The engineer opens SYS-001's Plugins tab, clicks the CV ranker in the graph and saves the form with its
+   MLflow defaults; the training-data description is already in the plugin folder. The agent generates personas and counterfactual twins that match that population.
 2. They reject a fairness test on SYS-001 ("wrong metric for hiring"). The pipeline hands the reason to the
    planner, which calls `remember` → `/memory/audits/<audit>/wrong-fairness-metric.md`, then re-plans.
 3. The next audit of SYS-001 starts with that line in its `MEMORY.md`; the plan cites the entry, and the

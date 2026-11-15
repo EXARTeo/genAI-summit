@@ -27,6 +27,7 @@ It is not user-visible and the backend has no memory routes.
 | `utils/findings.py`, `router/findings.py`, `router/internal_findings.py` | sealed findings: seal (idempotent, hash chain, supersede), annotations, status events |
 | `utils/register.py`, `router/register.py`, migration `0007_finding_register` | findings register: per-(system, obligation) state across audits, close / reopen, rebuild |
 | `router/internal.py`, `core/security/internal.py` | the agents service's internal API and its shared-secret guard |
+| `router/plugins.py`, `utils/plugins.py`, `schema/plugins.py` | plugins: the system graph, form defaults from MLflow, validated `plugin.yaml` writes (tests `tests/backend/test_plugins.py`) |
 
 ## Tables
 
@@ -96,6 +97,38 @@ All `/v1` routes need `X-Client-Id`, are rate-limited (`WORKSPACE_RATE_LIMIT_*`)
 | `POST /v1/admin/rebuild-register[?reset=true&systemId=]` | fold every `done` audit into the register, oldest first; audits already folded are skipped; `reset` drops the register first (human closures are lost) |
 
 `POST /v1/conversations` (and a `new` run start) also accept optional `systemId` / `auditId` (404 if unknown); summaries return them. Every run of such a conversation sends `system_id` / `audit_id` in the agents run context, which mounts that system's memory.
+
+## Plugins
+
+A plugin is the wrapper around one model of a system: how the audit agent reaches it (`access`), where it sits in
+the system graph (`placement`), its I/O (`io.output`: type, label_field, score_field, positive_label) and its
+expected behaviour (task, must, must_not, known_limitations). It is stored as `plugins/<name>/plugin.yaml` in the
+system folder, because the agents read it from there; the UI edits it in the Plugins tab, not the Folder tab.
+Design: [agent context § 3](../architecture/agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do).
+
+| Route | Does |
+| --- | --- |
+| `GET /v1/systems/{id}/plugins` | the graph from `architecture.yaml`: `components` (each with `plugin`, `configured`, `testable`: a model or endpoint the agent can call), `edges` (`source`, `target`, `data`), `entry` (the end-to-end entry), and `plugins` (every `plugin.yaml`, parsed, by folder name). A plugin no component names shows as a standalone box |
+| `GET /v1/systems/{id}/plugins/defaults?component=\|model=\|name=` | `{name, component, defaults, existing, mlflow}`: `defaults` is a complete card (the form's grey placeholders), `existing` the saved `plugin.yaml`, `mlflow` = `{status: ok \| not_found \| unreachable \| not_mlflow, version, run_id, description, tags, inputs, outputs}`. 404 for an unknown component, 422 when none of the three is given |
+| `PUT /v1/systems/{id}/plugins/{name}` | body `{card, component?, reason?}`: validates, writes a new version of `plugins/<name>/plugin.yaml` and links the component in `architecture.yaml` (adds it when missing). Returns `{name, path, version, changed, card, architecture_updated}`. Invalid → 422 `Invalid plugin: ...` |
+
+**Defaults.** The registry is read over MLflow's REST API: `registered-models/alias` (or `model-versions/get` for
+a numbered version), then `model-versions/get-download-uri` and the `MLmodel` artifact through the proxied artifact
+store for the signature. From that: `access.uri` (the component's `models:/<name>@champion`), `access.rest_url`
+(`/v1/models/<name>/predict` on the model gateway), `auth.secret_ref: env://MODEL_GATEWAY_TOKEN`, limits rps 5 /
+timeout 10 s / 500 requests, environment `staging`, `expected_behaviour.task` from the version's description (or
+its `intended_purpose` tag), `io.input_fields` from the signature inputs and `io.output` guessed from the outputs
+(a float score + an int label → `binary_classification`). MLflow being down never fails the call: `mlflow.status`
+says why.
+
+**Validation** (`validate_card`): `access.type` in `mlflow_model | rest | llm_chat | batch_file | dataset_only`;
+a `models:/<name>@<alias>` or `/<version>` URI for `mlflow_model`; a `url` for `rest` and `llm_chat`;
+`auth.secret_ref` must be `env://NAME`; no key that looks like a credential (`token`, `password`, `secret`,
+`api_key`, `bearer`; `secret_ref` is the allowed form); non-negative `limits`; a `name`. Plugin folder names match
+`^[a-z0-9][a-z0-9-]{0,62}$`.
+
+**One plugin per audit.** The audit pipeline tests `audit.data.target_plugin` when given, else the decision model
+([agents pipeline](agents-pipeline.md)); `POST /v1/systems/{id}/audits` merges the request's `data` (e.g. `{"target_plugin": "cv-parser"}`) into the audit's data.
 
 ## Internal API (agents service)
 
@@ -237,6 +270,8 @@ long-polling worker), `router/telegram.py` (optional webhook), table `telegram_p
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | empty | Telegram approvals; comma-separated allow-listed chat ids |
 | `TELEGRAM_WEBHOOK_URL` / `TELEGRAM_WEBHOOK_SECRET` | empty | webhook mode instead of long polling |
 | `APP_PUBLIC_URL` | `http://localhost:8080` | base of the "Open in app" links |
+| `MLFLOW_TRACKING_URI` | `http://mlflow:5000` | the registry the plugin defaults read |
+| `MLFLOW_TIMEOUT_SECONDS` | `5` | each MLflow call of the plugin defaults (not passed by compose; the default applies) |
 
 ## Not included yet
 
