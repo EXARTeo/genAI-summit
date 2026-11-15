@@ -8,7 +8,7 @@ sits in the system (``placement``), its I/O and expected behaviour. It is stored
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 #: Folder name of a plugin: ``cv-ranker``.
 PLUGIN_NAME_PATTERN = r"^[a-z0-9][a-z0-9-]{0,62}$"
@@ -30,11 +30,12 @@ class GraphComponent(BaseModel):
 
 
 class GraphEdge(BaseModel):
-    source: str = Field(..., alias="from")
-    target: str = Field(..., alias="to")
-    data: str | None = None
+    """An edge of the graph; read from ``from``/``to`` (architecture.yaml), sent as
+    ``source``/``target``."""
 
-    model_config = {"populate_by_name": True}
+    source: str = Field(..., validation_alias=AliasChoices("from", "source"))
+    target: str = Field(..., validation_alias=AliasChoices("to", "target"))
+    data: str | None = None
 
 
 class PluginGraphOut(BaseModel):

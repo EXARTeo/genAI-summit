@@ -98,6 +98,11 @@ async def test_graph_joins_components_and_plugins(client):
     assert comps["SYS-001.cv-ranker"]["testable"] is True
     assert comps["SYS-001.recruiter-ui"]["testable"] is False
     assert len(graph["edges"]) == 2
+    assert graph["edges"][0] == {
+        "source": "SYS-001.cv-parser",
+        "target": "SYS-001.cv-ranker",
+        "data": None,
+    }
     assert "cv-parser" in graph["plugins"]
     assert (await client.get("/v1/systems/SYS-404/plugins")).status_code == 404
 
