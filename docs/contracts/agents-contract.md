@@ -31,7 +31,33 @@ in the background and reports through the backend's internal API):
 | `POST` | `/audits/{audit_id}/run` | `{"system_id", "trigger"?, "client_id"?, "trace"?}` | `202 {audit_id, thread_id, status: started\|resumed}`; `409` while running or waiting at a gate (`detail.pending_gates`) |
 | `POST` | `/audits/{audit_id}/resume` | `{"system_id", "gate": public_data\|scenarios\|datasets, "decision": approved\|rejected\|changes_requested, "reasonCategory", "comment", "edits", "artifactId", "decidedBy"}` (the backend's `utils/audit_pipeline.py` `resume_body`) | `202`; `409` when not waiting at `gate` |
 | `GET` | `/audits/{audit_id}/state?system_id=` | | `{next, pending_gate, status, stage_artifacts}` |
-| `POST` | `/changes/{change_id}/judge` | `{"system_ids"?, "rerun"?, "change"?}` | `{change_id, kb_version, impacted_requirements, judgements: [...]}`; also writes `PUT /internal/regulation/changes/{id}/judgement` on the backend |
+| `POST` | `/changes/{change_id}/judge` | `{"system_ids"?, "rerun"?, "change"?, "systems"?: [{system_id, name, card, findings}]}` | `{change_id, kb_version, impacted_requirements, judgements: [{..., affected_obligations, stale_findings, rerun_audit_id}]}`; also writes `PUT /internal/regulation/changes/{id}/judgement` on the backend |
+| `POST` | `/changes/delta/{audit_id}` | | (Re)writes the `delta_report` artifact of a finished regulation-change re-run and returns it |
+
+### Regulation change (plan 01 §9)
+
+The backend's accept (`POST /v1/regulation/changes/{id}/decision`, also from Telegram) activates
+the candidate release and, once committed, calls `/changes/{id}/judge` in the background with
+`rerun: true` and `systems` (every card + its current sealed findings); the inbox `judge` flag goes
+`pending → running → done | failed` (`done` with `affected: []` = no system affected). The agents:
+
+1. resolve each system's **obligation map** at the change's `to_kb_version`
+   (`pipeline/obligations.py` `resolve_obligation_map(card, kb_version, *, iris=None)`, async;
+   entries `{obligation_id, article, related, applicable, reason, in_force_date, in_force_now,
+   verification_mode, checks, decided_by: rule | iris, borderline}`);
+2. impact (no LLM) = applicable obligations whose article/related provisions changed (or that
+   reg-memory listed in `impacted_obligations`) + the older requirement / citation paths;
+3. judge each affected system (Iris, Gemini fallback): a `change_judgement` artifact on its latest
+   audit (or on the re-run when it has none);
+4. a decision other than `no_impact` marks the findings on the affected obligations **stale**:
+   `POST /internal/findings/{id}/status-events` `{status: stale, reason, data: {reg_change_id, ...}}`
+   for sealed findings, else a `finding_status` artifact `{finding, status: stale, reason,
+   reg_change_id}` on the old audit;
+5. `rerun_tests` / `new_tests_needed` start a **focused audit** (`data.obligations` = the affected
+   ids, `data.kb_version` = the new kb, `data.focused`, `data.change_id`, `data.previous_audit_id`);
+   a watcher waits for it (`done`/`failed`) and writes a `delta_report` artifact on it: per
+   obligation `{old, new, verdict_change, metric_deltas, reason: law_changed | model_changed |
+   law_and_model_changed | new_evidence | no_new_verdict | unchanged}`.
 
 Details: [agents pipeline](../services/agents-pipeline.md).
 

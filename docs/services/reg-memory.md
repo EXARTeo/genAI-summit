@@ -234,6 +234,26 @@ data), 11, 12, 13, 14, 15, 17 and Art. 50, 32 requirements. Eight test templates
 manifest). In a release each requirement also carries `valid_from` (+ `valid_from_by_basis`) and
 `source_hash` from its source provision.
 
+### Obligation catalogue: `corpus/obligations.yaml` (plan 01 §3.2, in git)
+
+35 obligations `OBL.AIA.<art>.<slug>` of a **provider** of a high-risk system (plus the two duties
+every operator has, Art. 4 and 5, and the features-gated Art. 50(1)/(2)): Art. 4, 4a, 5, 6(2), 6(4),
+9(1), 9(2), 9(6)-(8), 9(9), 10(2), 10(2)(f), 10(2)(g), 10(3), 10(4), 11 + Annex IV, 12, 13,
+13(3)(b)(ii), 14(4), 15(1), 15(3), 15(4), 15(5), 16, 17, 18, 43, 47, 48, 49(1), 49(2), 50(1), 50(2),
+72, 73. Each row: `article` (a provision id of the kb), `related`, `addressee`, `applies_if`
+(`risk_class`, `basis_any`, `annex_points_any` as `4.a`, `features_any`, `exempt_6_3`: false = only
+without an Art. 6(3) claim, true = only with one), `in_force` per basis family (post-Omnibus:
+Annex III 2027-12-02, Annex I 2028-08-02, Art. 50 2026-08-02, Art. 4/4a/5 2025-02-02),
+`verification_mode` (`model_test | system_test | hybrid | documentary`), `checks` (`metric_family`,
+`templates` from `test_templates.yaml`, `threshold_source`: always the organisation's),
+`evidence_types`, `requirements` (the `requirements.yaml` entries it covers: all 32 are mapped, the
+requirements API keeps working) and `summary`. Schema + cross-checks: `engine/kb/obligations.py`
+(every `article`/`related` id exists in release 2026.11.15-1: `tests/reg_memory/fixtures/`). Each
+release snapshots it as `obligations.yaml` (+ `article_hash` per row, `counts.obligations`,
+`hashes.obligations`); a release built before the catalogue existed serves the git copy
+(`catalogue_source: corpus`). The agents' `pipeline/obligations.py` turns it into a system's
+obligation map (rules first, Iris on borderline rows).
+
 ### Releases (`kb_version`)
 
 ```text
@@ -243,7 +263,7 @@ kb/releases/<kb_version>/
   index.json                          id -> {file, content_hash} for provisions and interpretations
   provisions/AIA/art_10.yaml          one YAML per article / annex (+ recitals.yaml), OMNIBUS/ too
   interpretations/<source_id>.yaml
-  requirements.yaml, test_templates.yaml
+  requirements.yaml, test_templates.yaml, obligations.yaml
 ```
 
 A build snapshots the latest texts; if its content hash equals the latest release, nothing is
@@ -262,7 +282,11 @@ with a JSON schema) or `heuristic` (no key, an error, or beyond `GEMINI_MAX_ITEM
 whitespace/punctuation only → editorial; dates/numbers changed with the wording otherwise ≥90 % equal →
 date; interpretation changes → new_interpretation; otherwise substantive. The impact index (no LLM)
 lists `impacted_requirements` whose source/related provision changed or is cited by a changed
-interpretation. Saved as `kb/changes/RC-<to_kb_version>.json`, then notified.
+interpretation, and `impacted_obligations` (`{obligation_id, via, verification_mode}`) whose
+article / related provisions changed. Saved as `kb/changes/RC-<to_kb_version>.json`, then notified.
+`GET /v1/releases/{a}/diff/{b}?provisions=AIA.10,AIA.15` is the same provision-level diff between
+any two releases (by `content_hash`, optionally only under the given ids), plus the catalogue rows
+that changed.
 
 ## Watcher, discovery, notifications
 
@@ -340,6 +364,17 @@ PY
 
 `PUT /v1/demo/mirror` takes `{html}` (replace all), `{find, replace}`, `{append_html}` or `{reset: true}`.
 
+From the UI the backend proxies it: `PUT /v1/regulation/demo/mirror` (`{find, replace}` /
+`{appendHtml}` / `{html}` / `{reset}`, plus `check: true` to run "Check now" on the mirror alone,
+10 edits per minute per client). Accepting the resulting change in the inbox starts the change judge
+(see the [agents contract](../contracts/agents-contract.md)): obligation maps at the new kb →
+impact → Iris per system → focused re-runs → stale marks → delta report.
+
+**Firecrawl credits.** Every Firecrawl answer is cached on disk (`<data>/firecrawl-cache/`,
+`FIRECRAWL_CACHE_MINUTES`, default 360), and a URL Firecrawl cannot reach (localhost, a private IP,
+a bare Docker host name such as the default demo mirror) is never sent: the check records
+`not public; not sent` and the own sha256 diff decides. Only `monitor: true` sources are tracked.
+
 **With Firecrawl monitoring**: publish the same HTML where Firecrawl can reach it, e.g. GitHub Pages
 (a repo whose `index.html` is the `html` of `GET /v1/demo/mirror`; Settings → Pages → deploy from a
 branch), set `REG_MEMORY_DEMO_MIRROR_URL=https://<user>.github.io/<repo>/` so the demo source fetches
@@ -372,6 +407,8 @@ ingest / write limits) and logged with a request id.
 | GET | `/v1/changes` / `/v1/changes/{id}` | RegChanges (summaries) / one with old/new text, diff, types, impact |
 | GET | `/v1/requirements?role=&risk_class=&basis=&date=&feature=&testability=&kb_version=` | Applicable requirements, each with `effective_valid_from` and `in_force` on `date` (default today) |
 | GET | `/v1/test-templates` | Test templates of a release |
+| GET | `/v1/obligations?role=&risk_class=&basis=&annex_point=&features=&exempt_6_3=&date=&kb_version=&include_not_applicable=` | The obligation catalogue at a release, each row with `applicable`, `reason`, `in_force_date`, `in_force_now` for the query (a parameter left out is not checked) |
+| GET | `/v1/releases/{a}/diff/{b}?provisions=` | Provision-level diff of two releases (`content_hash`, unified diff) + changed obligation rows |
 | GET | `/v1/integrations` | Which integrations are active and what falls back |
 | GET | `/v1/watch` | Scheduler, discovery state, recent checks |
 | POST | `/v1/watch/check-now` `{source_ids?, wait?, discovery?}` | Run a check (202 + id, or the record with `wait`) |
@@ -404,6 +441,7 @@ Example for an Annex III 4(a) provider (the agents' `load_context`):
 | `GEMINI_MAX_ITEMS` | `40` | Nodes per Gemini call (the rest use the heuristic) |
 | `FIRECRAWL_API_KEY` / `FIRECRAWL_API_URL` | empty / `https://api.firecrawl.dev` | Change tracking, search, map, challenge fallback |
 | `FIRECRAWL_WEBHOOK_SECRET` | empty | Verifies `X-Firecrawl-Signature` |
+| `FIRECRAWL_CACHE_MINUTES` | `360` | Reuse a Firecrawl answer from `<data>/firecrawl-cache` this long; `0` = off |
 | `BACKEND_INTERNAL_URL` / `BACKEND_INTERNAL_SECRET` | empty / compose: `AGENTS_INTERNAL_SECRET` | RegChange POST to the backend |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | empty | Telegram alert |
 | `WRITE_RATE_LIMIT_MAX_ATTEMPTS` | 30 per minute | check-now, releases, proposals, demo edits, webhook |
