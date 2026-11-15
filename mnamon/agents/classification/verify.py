@@ -109,6 +109,23 @@ def _hint_problems(result: RiskProposal, pre: Mapping[str, Any]) -> list[str]:
     return problems
 
 
+def _transparency_problems(result: RiskProposal, pre: Mapping[str, Any]) -> list[str]:
+    """Art. 50 rests on features the card declares, never on features the model assumes."""
+    if pre.get("features"):
+        return []
+    problems = []
+    if result.risk_class == "limited_risk" or result.route == "art50_only":
+        problems.append(
+            "limited_risk / art50_only needs an Art. 50 feature the card declares; it declares "
+            "none, so a system exempt under Art. 6(3) or outside Annex III is minimal_risk"
+        )
+    if result.transparency.features:
+        problems.append(
+            "transparency.features must list only features the card declares (it declares none)"
+        )
+    return problems
+
+
 def classification_problems(
     result: RiskProposal,
     kb_ids: Mapping[str, Mapping[str, Any] | None],
@@ -119,6 +136,7 @@ def classification_problems(
     problems += _class_problems(result)
     problems += _art63_problems(result, pre)
     problems += _hint_problems(result, pre)
+    problems += _transparency_problems(result, pre)
     if not result.counter_arguments:
         problems.append("give at least one counter_argument")
     if not result.would_change_if:

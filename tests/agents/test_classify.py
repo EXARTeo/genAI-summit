@@ -506,3 +506,23 @@ async def test_route_502_when_reg_memory_is_down(client, internal_headers, monke
 async def test_route_needs_the_internal_secret(client):
     resp = await client.post("/systems/SYS-004/classify", json=BODY)
     assert resp.status_code in {401, 403}
+
+
+def test_verifier_limited_risk_needs_a_declared_art_50_feature():
+    """A 6(3)-exempt CV parser with no declared Art. 50 feature is minimal, not limited, risk."""
+    pre = prechecks(CV_PARSER, [])
+    assert pre["features"] == []
+    limited = _proposal(
+        risk_class="limited_risk",
+        route="art6_3_exempt",
+        annex_basis="Annex III 4(a)",
+        annex_basis_id=None,
+        art6_3=Art63Assessment(considered=True, condition="a", profiling="no", holds=True),
+        citations=[RiskCitation(id="AIA.6.3"), RiskCitation(id="AIA.ANNEX_III.4.a")],
+    )
+    problems = classification_problems(limited, KNOWN, pre)
+    assert any(p.startswith("limited_risk / art50_only needs an Art. 50 feature") for p in problems)
+    declared = prechecks({**CV_PARSER, "features": ["chatbot"]}, [])
+    assert not any(
+        p.startswith("limited_risk") for p in classification_problems(limited, KNOWN, declared)
+    )
