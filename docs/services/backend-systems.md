@@ -17,13 +17,14 @@ It is not user-visible and the backend has no memory routes.
 
 | File | Holds |
 | --- | --- |
-| `core/database/models.py`, migrations `0003_systems_audits`, `0004_drop_memory_namespaces`, `0005_regulation_telegram` | the tables below + `conversations.system_id` / `audit_id`; 0004 deletes the old `memory:*` rows (data only) |
+| `core/database/models.py`, migrations `0003_systems_audits`, `0004_drop_memory_namespaces`, `0005_regulation_telegram`, `0006_sealed_findings` | the tables below + `conversations.system_id` / `audit_id`; 0004 deletes the old `memory:*` rows (data only) |
 | `utils/workspace.py` | versioned files: path safety, write (new version, no-op on same bytes), tree, read, versions, delete, ledger, `dossier_version` |
 | `utils/systems.py` | systems CRUD, the write body (JSON or multipart), attachment → system folder |
 | `utils/audits.py` | audits, artifacts (versioning + supersede), approvals (decision + reason) |
 | `utils/seed_import.py` | `SEED_CASES_DIR` → systems + files |
 | `router/systems.py`, `router/workspace_files.py` | public routes; the file routes are one factory (`build_file_router`) |
 | `router/audits.py`, `router/admin.py` | audits, artifacts, approvals; seed import |
+| `utils/findings.py`, `router/findings.py`, `router/internal_findings.py` | sealed findings: seal (idempotent, hash chain, supersede), annotations, status events |
 | `router/internal.py`, `core/security/internal.py` | the agents service's internal API and its shared-secret guard |
 
 ## Tables
@@ -36,9 +37,12 @@ Few typed columns (what is filtered or joined on); everything else in JSONB `dat
 | `workspace_file_blobs` | `sha256` (pk), `data`, `size_bytes` | content stored once per hash (plain bytes) |
 | `workspace_files` | `namespace`, `path`, `version`, `blob_sha256`, `content_type`, `size_bytes`, `created_by`, `is_current` | one row per version; at most one current row per `(namespace, path)`; old rows stay |
 | `workspace_events` | `namespace`, `path`, `version`, `action`, `actor`, `reason`, `audit_id`, `run_id`, `trace_id`, `at` | append-only ledger: `create`, `update`, `delete`, `read` |
-| `audits` | `system_id`, `status`, `stage`, `created_by` | `data`: `dossier_version` (locked at creation), `plugin_ids`, `kb_version`, ... |
+| `audits` | `system_id`, `status`, `stage`, `created_by`, `pins` | `pins` (JSONB, copied from `data.pins` when the pipeline writes it: `kb_version`, `dossier_version`, `config_version`, `model_version`, `seeds`); `data`: `dossier_version` (locked at creation), `plugin_ids`, `kb_version`, ... |
 | `audit_artifacts` | `audit_id`, `kind`, `name`, `version`, `status`, `parent_id`, `created_by` | `data`, `file_refs` (workspace paths, MLflow URIs, trace ids) |
 | `approvals` | `audit_id`, `artifact_id`, `gate`, `decision`, `reason_category`, `comment`, `decided_by`, `at` | `edits` JSONB; append-only |
+| `findings` | `audit_id`, `system_id`, `obligation_id`, `verdict`, `severity`, `gap_id`, `kb_version`, `prev_hash`, `hash` (unique), `created_by` | sealed verdict per obligation; `evidence_refs`, `citations`, `metrics_ref`, `counter_arguments`, `would_change_if`, `judges`, `critic`, extra fields in `data`. **Append-only**: a trigger rejects UPDATE / DELETE. No FK to `audits` on purpose |
+| `finding_annotations` | `finding_id`, `kind` (`contest`, `accept_risk`, `remediation_planned`, `comment`), `body`, `actor` | append-only (trigger) |
+| `finding_status_events` | `finding_id`, `status` (`stale`, `superseded`, ...), `superseded_by`, `reason`, `actor` | `data`; append-only (trigger). A new finding for the same (system, obligation) adds `superseded` to the earlier ones |
 | `regulation_changes` | `id` (reg-memory's RC id), `status` | `data`: reg-memory's payload, the decision (`decidedBy`, `reason`), per-system `affected` |
 | `telegram_prompts` | `id` (callback token), `kind`, `key`, `status`, `decision`, `decided_by` | `data` (what it decides, reject state), `messages` (sent chat / message ids) |
 
@@ -76,7 +80,11 @@ All `/v1` routes need `X-Client-Id`, are rate-limited (`WORKSPACE_RATE_LIMIT_*`)
 | `POST /v1/systems/{id}/audits` | start an audit (`{stage?, data?}`); locks `dossier_version` and `plugin_ids` |
 | `GET /v1/audits[?systemId=]`, `GET / PATCH /v1/audits/{id}` | list; detail with every artifact and approval; set `status` / `stage` / merge `data` |
 | `GET / POST /v1/audits/{id}/artifacts[?kind=&liveOnly=]` | list; new version `{kind, name?, data, fileRefs, parentId?, status?}` |
-| `GET / PATCH /v1/audits/{id}/artifacts/{artifactId}` | one artifact; set `status` / merge `data` |
+| `GET / PATCH /v1/audits/{id}/artifacts/{artifactId}` | one artifact; set `status` / merge `data`; **405 for kind `finding`** (sealed) |
+| `POST /v1/audits/{id}/retry` | 202 `{auditId, outcome, status: running}`: a `failed` (or never-started `open`) audit calls the agents service's `POST /audits/{id}/run` (`trigger: retry`), which re-runs the failed node from its checkpoint; the error moves to `data.retries[]`. 409 when not failed or the pipeline is running / at a gate, 502 when the agents service is down |
+| `GET /v1/audits/{id}/findings` | the audit's sealed findings (`FindingOut[]`, below) |
+| `GET /v1/systems/{id}/findings[?current=true]` | the system's findings, newest first; `current` drops superseded ones |
+| `GET / POST /v1/findings/{id}/annotations` | list; add `{kind, body}` (actor = `client:<X-Client-Id>`); there is no route that edits a finding |
 | `GET / POST /v1/audits/{id}/approvals` | list; record `{gate, decision, artifactId?, reasonCategory?, comment?, edits?}` |
 | `POST /v1/admin/import-seed` | import every `SYS-xxx/` folder of `SEED_CASES_DIR` (`_answer-key/`, hidden and `_`-prefixed dirs skipped) |
 
@@ -98,6 +106,8 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 | `POST /internal/audits/{id}/artifacts` | new artifact version (actor `agent[:name]`) |
 | `PUT /internal/audits/{id}/datasets/public/{slug}/{name}` | store one file of a human-approved public reference dataset (`router/internal_datasets.py`); only `data.csv`, `mapping.yaml`, `datasheet.md`, `source.json` under `datasets/public/<slug>/` (lower-case slug), JSON `{content, contentType?, reason?, data?}`, logged with run/trace ids |
 
+| `POST /internal/audits/{id}/findings` | seal one finding (body below); 201, or 200 with the stored row when its `hash` (or, without a hash, its identical content in this audit) is already sealed; 409 when the hash is sealed in another audit |
+| `POST /internal/findings/{id}/status-events` | `{status, superseded_by?, reason?, data?}` (e.g. `stale` from the change judge); 201 |
 | `GET /internal/impact-index` | per system: its latest audit (with findings) → live `findings` (artifact data + `id`), `tests` (test_result rows), context `requirements`, `kb_version` (the change judge's impact index) |
 | `POST /internal/systems/{id}/audits` | a new audit started by an agent (the change judge's re-run, actor `agent:<X-Agent-Name>`); starts its pipeline |
 | `PUT /internal/regulation/changes/{id}/judgement` | `{affected: [...], decidedBy}` from the change judge onto `regulation_changes.data` (`judge: done`; a human `humanDecision` is kept) |
@@ -107,6 +117,12 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 `data.autostart: false`).
 
 The agent cannot write the system folder, except `datasets/public/<slug>/` (the four files above) for a public dataset a human approved.
+
+## Sealed findings
+
+`FindingIn` (snake_case, what the pipeline's `seal` step posts): `{id?, obligation_id, verdict: pass|partial|gap|inconclusive|not_applicable|not_assessable_by_testing, severity: critical|high|medium|low|null, gap_id, metrics_ref, evidence_refs: [{path, sha256, mlflow_run_id?}], citations: [{provision_id, kb_version}], kb_version, reasoning, counter_arguments, would_change_if, judges: {rule, gemini, iris}, critic: {upheld, objection}, prev_hash?, hash?}`; any other field (`article`, `title`, ...) is kept in `data`. Without `hash` the backend computes `sha256(prev_hash + canonical JSON of the sealed fields)`; without `prev_hash` it chains to the audit's last finding.
+
+`FindingOut` = the same fields + `id, audit_id, system_id, data, created_by, created_at, sealed: true, status` (`current`, `stale`, `superseded`, ... from the status events), `stale`, `annotations[]`, `status_events[]`.
 
 ## Audit data and status
 
