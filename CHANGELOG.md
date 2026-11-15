@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- CD deploys from `konstantinosmpouros/genai-summit-2026` with the built-in GITHUB_TOKEN only: images to the owner's GHCR, the rendered stack on the `denis-deploy` branch; no personal token in GitHub, no separate deploy repo.
+
 ### Added
 
 - **Agent map and plan in the chat** (ported from mAgenticX): two composer buttons open modal panels (above the composer on a desktop, a bottom sheet on a phone). The agent map shows the main agent, one branch per answer that delegated and every sub-agent with the ones it delegated to nested below, as a keyboard-navigable tree or a React Flow graph (remembered per browser), with live status, tool calls, working time and a detail view (instruction, reply, its own sub-agents a step deeper). Background tasks come from the conversation's task list, nested by parent. The plan panel shows the `write_todos` checklist per answer with done / now / not finished / not started steps and how long each took (from `PLAN_SNAPSHOT.updated_at`); it replaces the inline plan card. The timeline fold now keeps nested sub-agents (`TASK_SUBAGENT`, `SUBAGENT_COMPLETED`, `BEFORE_AGENT_EVENT` inside the parent's envelope) and the inline sub-agent cards nest them inside their parent.

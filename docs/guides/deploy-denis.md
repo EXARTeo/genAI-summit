@@ -3,26 +3,32 @@
 `.github/workflows/pipeline.yml` (workflow **CI/CD**) has two stages, shown as two
 boxes: **CI** (`ci.yml`, reusable: one job per service, on every push and pull
 request) and **CD** (`cd.yml`, reusable: on `main` only, after CI passed). CD
-builds the ARM64 images, publishes them to GHCR, writes the Dennis stack into a
-separate **deploy repo** and tells Portainer to redeploy.
+builds the ARM64 images, publishes them to the repo owner's GHCR, writes the
+Dennis stack onto this repo's **`denis-deploy` branch** and tells Portainer to
+redeploy.
+
+The deploying repo is `konstantinosmpouros/genai-summit-2026` (git remote
+`origin`; the team repo `EXARTeo/genAI-summit` is remote `exarteo`). CD uses
+only the built-in `GITHUB_TOKEN`: **no personal token is stored in GitHub.**
+The owner's own token is entered only in Portainer, to pull the private repo.
 
 ```mermaid
 flowchart LR
   push[push to main] --> ci[CI jobs: lint, tests, migrations, frontend, compose]
   ci -->|all green| img[cd-images: 8 ARM64 images to GHCR, tag sha-<12>]
   img --> dep[cd-deploy: render deploy/denis/docker-compose-denis.yaml]
-  dep --> repo[(deploy repo: docker-compose-denis.yaml)]
+  dep --> br[(branch denis-deploy: docker-compose-denis.yaml)]
   dep --> hook[Portainer stack webhook]
-  hook --> portainer[Portainer pulls the deploy repo, docker stack deploy]
+  hook --> portainer[Portainer pulls denis-deploy, docker stack deploy]
   portainer --> live[cd-deploy waits for SITE/api/health = sha-<12>]
 ```
 
-## Why a deploy repo
+## Why a `denis-deploy` branch
 
-`EXARTeo/genAI-summit` is private and not ours, and Portainer pulls a Git
-stack with credentials of its own. So the stack Portainer runs lives in a small
-repo in the deployer's account. CD keeps it in sync: never edit it by hand.
-Its source is `deploy/denis/docker-compose-denis.yaml` in this repo.
+Portainer runs the **rendered** stack (image tags filled in). CD commits it to
+its own branch so `main` never gets deploy commits; a push made with
+`GITHUB_TOKEN` triggers no workflow, so it cannot loop. Never edit the branch
+by hand; its source is `deploy/denis/docker-compose-denis.yaml`.
 
 ## What runs on Dennis
 
@@ -45,35 +51,28 @@ About 11 GB at the limits; Dennis had 18 GB available on 2026-11-14.
 
 ## One-time setup
 
-### 1. The deploy repo (your account)
+### 1. Push the code to the deploying repo
 
-Create a **private** repo, e.g. `konstantinosmpouros/genai-summit-denis`, with
-an initial commit (a README). CD adds `docker-compose-denis.yaml` on the first
-deploy.
+`git push -u origin main` (remote `origin` = `konstantinosmpouros/genai-summit-2026`).
 
-### 2. A token for CD
+### 2. GitHub settings on `konstantinosmpouros/genai-summit-2026`
 
-One classic PAT on the account that owns the GHCR namespace and the deploy repo
-(`konstantinosmpouros`), scopes **`write:packages`** and **`repo`**. (A
-fine-grained token can't push to GHCR.)
-
-### 3. GitHub settings on `EXARTeo/genAI-summit` (needs admin)
-
-Create the environment **`production`** (Settings → Environments), deployment
-branches: `main` only.
+Settings → Actions → General → Workflow permissions: **Read and write
+permissions**. Create the environment **`production`** (Settings →
+Environments), deployment branches: `main` only.
 
 | Kind | Name | Value |
 | --- | --- | --- |
-| Environment secret | `DENIS_GHCR_TOKEN` | the PAT (pushes images) |
-| Environment secret | `DENIS_DEPLOY_TOKEN` | the PAT (pushes to the deploy repo) |
 | Environment secret | `PORTAINER_WEBHOOK_URL` | from step 5 |
 | Repository variable | `DENIS_DEPLOY_ENABLED` | `true` (CD is skipped until set) |
-| Repository variable | `DENIS_DEPLOY_REPO` | `konstantinosmpouros/genai-summit-denis` |
-| Repository variable | `DENIS_SITE_URL` | public URL, e.g. `https://audit.magenticx.com` |
+| Repository variable | `DENIS_SITE_URL` | public URL, e.g. `https://mnamon.magenticx.com` |
 | Repository variable | `DENIS_LANGFUSE_URL` | Dennis' Langfuse UI URL (baked into the frontend's trace links) |
 | Repository variable | `DENIS_LANGFUSE_PROJECT_ID` | the project id from step 4 |
-| Repository variable | `GHCR_NAMESPACE` | optional, default `konstantinosmpouros` |
-| Repository variable | `CD_RUNNER` | optional: `ubuntu-24.04-arm` to build natively (default cross-builds on `ubuntu-latest` with QEMU, slower) |
+| Repository variable | `CD_RUNNER` | optional: `ubuntu-24.04-arm` to build natively (public repos, or a plan with ARM runners); default cross-builds on `ubuntu-latest` with QEMU, slower |
+
+### 3. (reserved)
+
+No token step: CD uses the built-in `GITHUB_TOKEN`.
 
 ### 4. Langfuse on Dennis
 
@@ -88,10 +87,10 @@ Stacks → Add stack → **Repository**:
 | Field | Value |
 | --- | --- |
 | Name | `genai-summit` |
-| Repository URL | `https://github.com/konstantinosmpouros/genai-summit-denis` |
-| Reference | `refs/heads/main` |
+| Repository URL | `https://github.com/konstantinosmpouros/genai-summit-2026` |
+| Reference | `refs/heads/denis-deploy` |
 | Compose path | `docker-compose-denis.yaml` |
-| Authentication | on: your GitHub user + a token with `repo` read |
+| Authentication | on: your GitHub user + your own token (`repo` read; entered only here) |
 | GitOps updates | on, mechanism **Webhook**: copy the URL into `PORTAINER_WEBHOOK_URL` |
 | Environment variables | the table below |
 
