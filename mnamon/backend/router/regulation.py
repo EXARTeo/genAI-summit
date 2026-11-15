@@ -34,6 +34,7 @@ from utils.regulation import (
     document_text,
     edit_demo_mirror,
     get_change,
+    invalidate_sources_cache,
     list_changes,
     list_sources,
     override_system,
@@ -158,6 +159,7 @@ async def check_now(caller: CallerDep, _limited: Limited, payload: CheckNowIn | 
     body = (payload or CheckNowIn()).model_dump(exclude_none=True)
     timeout = settings.reg_memory.check_timeout_seconds if body.get("wait") else None
     out = await reg_call("POST", "/v1/watch/check-now", json=body, timeout=timeout)
+    invalidate_sources_cache()  # a check may have fetched new versions
     logger.info("regulation_check_now", "reg-memory check started", wait=bool(body.get("wait")))
     return out
 

@@ -170,8 +170,37 @@ def map_source(source: dict[str, Any], versions_log: list[dict[str, Any]] | None
     }
 
 
+# list_sources fans out one reg-memory call per source (~64), and reg-memory allows 240 reads a
+# minute: uncached, four page loads a minute answered 429. Keep the answer briefly, share one
+# fetch between concurrent callers, and drop it when a check may have brought new versions.
+_SOURCES_TTL_SECONDS = 60.0
+_sources_cache: tuple[float, list[dict[str, Any]]] | None = None
+_sources_lock = asyncio.Lock()
+
+
+def invalidate_sources_cache() -> None:
+    """Forget the cached source list (after a watch check)."""
+    global _sources_cache
+    _sources_cache = None
+
+
 async def list_sources() -> list[dict[str, Any]]:
-    """Every catalog source with its main document's versions."""
+    """Every catalog source with its main document's versions (cached for a minute)."""
+    global _sources_cache
+    loop = asyncio.get_running_loop()
+    cached = _sources_cache
+    if cached and loop.time() - cached[0] < _SOURCES_TTL_SECONDS:
+        return cached[1]
+    async with _sources_lock:
+        cached = _sources_cache
+        if cached and loop.time() - cached[0] < _SOURCES_TTL_SECONDS:
+            return cached[1]
+        items = await _fetch_sources()
+        _sources_cache = (loop.time(), items)
+        return items
+
+
+async def _fetch_sources() -> list[dict[str, Any]]:
     sources = (await reg_call("GET", "/v1/sources")).get("items", [])
 
     async def versions(source_id: str) -> list[dict[str, Any]] | None:

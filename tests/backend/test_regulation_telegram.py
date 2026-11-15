@@ -44,6 +44,14 @@ class FakeBot:
         return [body for m, body in self.calls if m == method]
 
 
+@pytest.fixture(autouse=True)
+def _fresh_sources_cache():
+    """``list_sources`` caches for a minute; each test mocks reg-memory its own way."""
+    regulation.invalidate_sources_cache()
+    yield
+    regulation.invalidate_sources_cache()
+
+
 @pytest.fixture
 def bot(monkeypatch, session_factory):
     fake = FakeBot()
