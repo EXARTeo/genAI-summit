@@ -15,6 +15,9 @@ interface UiState {
   /** Mobile drawer. */
   mobileNavOpen: boolean;
   commandOpen: boolean;
+  /** The page fills the content area edge to edge (no padding, no max width, no scroll): a canvas page. */
+  fullBleed: boolean;
+  setFullBleed: (on: boolean) => void;
   toggleSidebar: () => void;
   setMobileNavOpen: (open: boolean) => void;
   setCommandOpen: (open: boolean) => void;
@@ -24,6 +27,8 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarCollapsed: readCollapsed(),
   mobileNavOpen: false,
   commandOpen: false,
+  fullBleed: false,
+  setFullBleed: (fullBleed) => set({ fullBleed }),
   toggleSidebar: () =>
     set((s) => {
       const next = !s.sidebarCollapsed;

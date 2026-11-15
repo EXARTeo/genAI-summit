@@ -1,9 +1,10 @@
-import { Hand, Play, Square } from 'lucide-react';
+import { ChevronRight, Hand, Play, Square } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { ApprovalDrawer } from '@/features/approvals/components/ApprovalDrawer';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
+import { useUiStore } from '@/shared/stores/ui';
 import { cn } from '@/shared/lib/utils';
 import {
   AnimatedNumber,
@@ -19,10 +20,10 @@ import { ArtifactPanel } from '../components/ArtifactPanel';
 import { AuditPipeline } from '../components/AuditPipeline';
 import { PipelineFlow } from '../components/PipelineFlow';
 import { StepFacts } from '../components/StepFacts';
-import { PipelineHeader, type RunChip } from '../components/pipeline_parts/PipelineHeader';
+import { PipelineHeader, RunStatusCard, type RunChip } from '../components/pipeline_parts/PipelineHeader';
 import { TraceLink } from '../components/artifact_parts/common';
 import { useAudit } from '../hooks/useAudits';
-import { useFillHeight } from '../hooks/useFillHeight';
+import { useElementHeight } from '../hooks/useElementHeight';
 import { useReplay } from '../hooks/useReplay';
 import { TONE_CLASSES, verdictStyle } from '../lib/styling';
 import {
@@ -74,7 +75,7 @@ function RunSkeleton() {
   );
 }
 
-/** The hero page: live pipeline on the left, the selected step's artifact on the right. */
+/** The hero page: on wide screens the whole page is the pipeline graph (title and controls float on it, a step opens in a side panel); phones get the step list with the step below it. */
 export function AuditRunPage() {
   const { auditId } = useParams();
   const { data, isLoading, error, refetch } = useAudit(auditId);
@@ -87,7 +88,8 @@ export function AuditRunPage() {
   const [drawer, setDrawer] = useState(false);
   // Wide screens: the picked step opens in a side panel beside the graph (a deep link opens it too).
   const [panel, setPanel] = useState(!!pinned);
-  const canvas = useFillHeight<HTMLDivElement>(560, 44);
+  const overlay = useElementHeight<HTMLElement>();
+  const setFullBleed = useUiStore((s) => s.setFullBleed);
 
   // Follow the live step until the user picks one.
   const live = audit ? defaultSelectedStage(audit) : null;
@@ -97,6 +99,12 @@ export function AuditRunPage() {
 
   // Wide screens get the pipeline graph; phones keep the vertical step list.
   const wide = useMediaQuery('(min-width: 1024px)');
+  // Wide + loaded: the page becomes a full-screen canvas (the shell drops its padding).
+  const canvasPage = wide && !!audit;
+  useEffect(() => {
+    setFullBleed(canvasPage);
+    return () => setFullBleed(false);
+  }, [canvasPage, setFullBleed]);
   const openReview = useCallback(() => setDrawer(true), []);
   const pick = useCallback(
     (id: string) => {
@@ -142,89 +150,208 @@ export function AuditRunPage() {
     ? `All ${STAGES.length} steps${elapsed > 0 ? ` · ${formatDuration(elapsed)}` : ''}`
     : `Step ${cur + 1} of ${STAGES.length}${elapsed > 0 ? ` · ${formatDuration(elapsed)}` : ''}`;
 
+  const onFollow = () => {
+    setFollow(true);
+    setParams({}, { replace: true });
+  };
+
+  const titleText = (
+    <>
+      {audit.data.systemName ?? audit.systemId}
+      <span className="font-normal text-muted"> · {audit.data.title ?? 'Audit'}</span>
+    </>
+  );
+  const statusPill = (
+    <StatusPill
+      status={replaying ? 'running' : waiting ? 'needs_approval' : audit.status}
+      label={replaying ? 'Replay' : statusLabel(audit.status)}
+    />
+  );
+  const metaLine = (
+    <span className="num flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
+      <span>{audit.systemId}</span>
+      {auditKbVersion(audit) && <span>kb {auditKbVersion(audit)}</span>}
+      {auditCardVersion(audit) != null && <span>card v{auditCardVersion(audit)}</span>}
+      {audit.data.trigger && audit.data.trigger !== 'manual' && (
+        <span className="font-sans">Triggered by {audit.data.trigger}</span>
+      )}
+    </span>
+  );
+  const actions = (
+    <>
+      <TraceLink traceId={audit.data.traceId} label="Full trace" variant="button" />
+      <ChatAboutButton systemId={audit.systemId} auditId={audit.id} label="Chat about this audit" />
+      {data?.status === 'done' &&
+        (replaying ? (
+          <Button variant="secondary" leftIcon={<Square />} onClick={stop}>
+            Stop replay
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            leftIcon={<Play />}
+            onClick={() => {
+              setFollow(true);
+              start();
+            }}
+          >
+            Replay run
+          </Button>
+        ))}
+      {waiting && !replaying && (
+        <Button variant="warning" leftIcon={<Hand />} onClick={() => setDrawer(true)}>
+          Review & decide
+        </Button>
+      )}
+    </>
+  );
+  const verdicts = (
+    [
+      ['indicates_gap', summary?.gaps],
+      ['supports_compliance', summary?.supports],
+      ['inconclusive', summary?.inconclusive],
+      ['not_assessable_by_testing', summary?.notAssessable],
+    ] as const
+  ).map(([v, n]) => ({ v, n: n ?? 0, st: verdictStyle(v) }));
+  const showSummary = done && !!summary && !replaying;
+  const stepPanel = (
+    <ArtifactPanel
+      stage={stage}
+      state={state}
+      artifacts={audit.artifacts}
+      traceId={audit.data.stageTraces?.[stage.id]}
+      duration={audit.data.stageDurations?.[stage.id]}
+      index={STAGES.indexOf(stage)}
+      onReview={() => setDrawer(true)}
+      facts={<StepFacts audit={audit} stage={stage} state={state} />}
+      showHeader={!wide}
+    />
+  );
+  const approvals = (
+    <ApprovalDrawer auditId={audit.id} gate={gate} open={drawer && !replaying} onOpenChange={setDrawer} />
+  );
+
+  if (wide) {
+    // The page is the canvas: the graph fills the whole content area; title, actions, run
+    // status, legend and zoom controls float on it (a soft fade under the title lets the graph
+    // slide beneath it when panned).
+    return (
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-0">
+          <PipelineFlow
+            audit={audit}
+            selected={stage.id}
+            onSelect={pick}
+            onReview={openReview}
+            coveredRight={panel ? PANEL_PX : 0}
+            insetTop={overlay.height}
+          />
+        </div>
+        <div
+          className="pg-topfade pointer-events-none absolute inset-x-0 top-0"
+          style={{ height: Math.max(overlay.height - 8, 0) }}
+          aria-hidden
+        />
+        <header
+          ref={overlay.ref}
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-6 px-8 pb-6 pt-6"
+        >
+          <div className="pointer-events-auto min-w-0">
+            <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1 text-xs text-muted">
+              <Link to="/audits" className="transition-colors hover:text-text">
+                Audits
+              </Link>
+              <ChevronRight className="size-3 opacity-60" />
+              <span className="truncate text-text/80">{auditLabel(audit)}</span>
+            </nav>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{titleText}</h1>
+              {statusPill}
+            </div>
+            <div className="mt-1 text-muted">{metaLine}</div>
+            {showSummary && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {verdicts.map(({ v, n, st }) => (
+                  <span
+                    key={v}
+                    className="pg-float inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
+                  >
+                    <span className={cn('size-1.5 rounded-full', TONE_CLASSES[st.tone].dot)} />
+                    <span
+                      className={cn('num font-semibold', v === 'indicates_gap' && n > 0 && 'text-danger')}
+                    >
+                      {n}
+                    </span>
+                    <span className="text-muted">{st.label}</span>
+                  </span>
+                ))}
+                <span className="pg-float num inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs">
+                  <span className="font-semibold">{formatDuration(elapsed)}</span>
+                  <span className="text-muted">agent time</span>
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="pointer-events-auto flex shrink-0 flex-col items-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+            <RunStatusCard
+              chip={chip}
+              stepText={stepText}
+              progress={pct}
+              follow={follow}
+              onFollow={onFollow}
+            />
+          </div>
+        </header>
+
+        <Sheet
+          open={panel}
+          onOpenChange={setPanel}
+          modal={false}
+          keepOpenOn={(t) => !!t.closest('.react-flow__node-step, [role="dialog"]')}
+          width="w-[min(42rem,100vw)]"
+          title={
+            <span className="flex items-center gap-2">
+              {stage.label}
+              <StatusPill status={STATE_PILL[state]} />
+            </span>
+          }
+          description={stage.description}
+        >
+          {stepPanel}
+        </Sheet>
+        {approvals}
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
         breadcrumbs={[{ label: 'Audits', to: '/audits' }, { label: auditLabel(audit) }]}
-        title={
-          <>
-            {audit.data.systemName ?? audit.systemId}
-            <span className="font-normal text-muted"> · {audit.data.title ?? 'Audit'}</span>
-          </>
-        }
-        meta={
-          <StatusPill
-            status={replaying ? 'running' : waiting ? 'needs_approval' : audit.status}
-            label={replaying ? 'Replay' : statusLabel(audit.status)}
-          />
-        }
-        description={
-          <span className="num flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
-            <span>{audit.systemId}</span>
-            {auditKbVersion(audit) && <span>kb {auditKbVersion(audit)}</span>}
-            {auditCardVersion(audit) != null && <span>card v{auditCardVersion(audit)}</span>}
-            {audit.data.trigger && audit.data.trigger !== 'manual' && (
-              <span className="font-sans">Triggered by {audit.data.trigger}</span>
-            )}
-          </span>
-        }
-        actions={
-          <>
-            <TraceLink traceId={audit.data.traceId} label="Full trace" variant="button" />
-            <ChatAboutButton systemId={audit.systemId} auditId={audit.id} label="Chat about this audit" />
-            {data?.status === 'done' &&
-              (replaying ? (
-                <Button variant="secondary" leftIcon={<Square />} onClick={stop}>
-                  Stop replay
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  leftIcon={<Play />}
-                  onClick={() => {
-                    setFollow(true);
-                    start();
-                  }}
-                >
-                  Replay run
-                </Button>
-              ))}
-            {waiting && !replaying && (
-              <Button variant="warning" leftIcon={<Hand />} onClick={() => setDrawer(true)}>
-                Review & decide
-              </Button>
-            )}
-          </>
-        }
+        title={titleText}
+        meta={statusPill}
+        description={metaLine}
+        actions={actions}
       />
 
-      {done && summary && !replaying && (
+      {showSummary && (
         <Card className="mb-4 grid grid-cols-2 divide-border sm:grid-cols-5 sm:divide-x">
-          {(
-            [
-              ['indicates_gap', summary.gaps],
-              ['supports_compliance', summary.supports],
-              ['inconclusive', summary.inconclusive],
-              ['not_assessable_by_testing', summary.notAssessable],
-            ] as const
-          ).map(([v, n]) => {
-            const st = verdictStyle(v);
-            return (
-              <div key={v} className="px-4 py-3">
-                <div className="flex items-center gap-1.5 text-xs text-muted">
-                  <span className={cn('size-1.5 rounded-full', TONE_CLASSES[st.tone].dot)} />
-                  {st.label}
-                </div>
-                <AnimatedNumber
-                  value={n ?? 0}
-                  className={cn(
-                    'num mt-0.5 block text-2xl font-semibold',
-                    v === 'indicates_gap' && (n ?? 0) > 0 && 'text-danger',
-                  )}
-                />
+          {verdicts.map(({ v, n, st }) => (
+            <div key={v} className="px-4 py-3">
+              <div className="flex items-center gap-1.5 text-xs text-muted">
+                <span className={cn('size-1.5 rounded-full', TONE_CLASSES[st.tone].dot)} />
+                {st.label}
               </div>
-            );
-          })}
+              <AnimatedNumber
+                value={n}
+                className={cn(
+                  'num mt-0.5 block text-2xl font-semibold',
+                  v === 'indicates_gap' && n > 0 && 'text-danger',
+                )}
+              />
+            </div>
+          ))}
           <div className="col-span-2 border-t border-border px-4 py-3 sm:col-span-1 sm:border-t-0">
             <div className="text-xs text-muted">Agent time</div>
             <div className="num mt-0.5 text-2xl font-semibold">{formatDuration(elapsed)}</div>
@@ -232,96 +359,30 @@ export function AuditRunPage() {
         </Card>
       )}
 
-      {wide ? (
-        <div className="space-y-4">
-          {/* The run as one canvas filling the rest of the screen: status strip on top, the graph below. */}
-          <Card ref={canvas.ref} className="flex flex-col overflow-hidden" style={{ height: canvas.height }}>
-            <PipelineHeader
-              chip={chip}
-              stepText={stepText}
-              progress={pct}
-              follow={follow}
-              onFollow={() => {
-                setFollow(true);
-                setParams({}, { replace: true });
-              }}
-            />
-            <div className="relative min-h-0 flex-1 border-t border-border">
-              <PipelineFlow
-                audit={audit}
-                selected={stage.id}
-                onSelect={pick}
-                onReview={openReview}
-                coveredRight={panel ? PANEL_PX : 0}
-              />
-            </div>
-          </Card>
-          <Sheet
-            open={panel}
-            onOpenChange={setPanel}
-            modal={false}
-            keepOpenOn={(t) => !!t.closest('.react-flow__node-step, [role="dialog"]')}
-            width="w-[min(42rem,100vw)]"
-            title={
-              <span className="flex items-center gap-2">
-                {stage.label}
-                <StatusPill status={STATE_PILL[state]} />
-              </span>
-            }
-            description={stage.description}
-          >
-            <ArtifactPanel
-              showHeader={false}
-              stage={stage}
-              state={state}
-              artifacts={audit.artifacts}
-              traceId={audit.data.stageTraces?.[stage.id]}
-              duration={audit.data.stageDurations?.[stage.id]}
-              index={STAGES.indexOf(stage)}
-              onReview={() => setDrawer(true)}
-              facts={<StepFacts audit={audit} stage={stage} state={state} />}
-            />
-          </Sheet>
-        </div>
-      ) : (
-        <div className="grid items-start gap-4">
-          <Card className="overflow-hidden">
-            <PipelineHeader
-              chip={chip}
-              stepText={stepText}
-              progress={pct}
-              follow={follow}
-              onFollow={() => {
-                setFollow(true);
-                setParams({}, { replace: true });
-              }}
-            />
-            <div className="px-3 pb-4">
-              <AuditPipeline audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
-            </div>
-          </Card>
-          <Card
-            className={cn(
-              'min-w-0 p-5',
-              state === 'active' && 'glow-border border-primary/30',
-              state === 'needs-approval' && 'border-warning/40',
-            )}
-          >
-            <ArtifactPanel
-              stage={stage}
-              state={state}
-              artifacts={audit.artifacts}
-              traceId={audit.data.stageTraces?.[stage.id]}
-              duration={audit.data.stageDurations?.[stage.id]}
-              index={STAGES.indexOf(stage)}
-              onReview={() => setDrawer(true)}
-              facts={<StepFacts audit={audit} stage={stage} state={state} />}
-            />
-          </Card>
-        </div>
-      )}
-
-      <ApprovalDrawer auditId={audit.id} gate={gate} open={drawer && !replaying} onOpenChange={setDrawer} />
+      <div className="grid items-start gap-4">
+        <Card className="overflow-hidden">
+          <PipelineHeader
+            chip={chip}
+            stepText={stepText}
+            progress={pct}
+            follow={follow}
+            onFollow={onFollow}
+          />
+          <div className="px-3 pb-4">
+            <AuditPipeline audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
+          </div>
+        </Card>
+        <Card
+          className={cn(
+            'min-w-0 p-5',
+            state === 'active' && 'glow-border border-primary/30',
+            state === 'needs-approval' && 'border-warning/40',
+          )}
+        >
+          {stepPanel}
+        </Card>
+      </div>
+      {approvals}
     </div>
   );
 }

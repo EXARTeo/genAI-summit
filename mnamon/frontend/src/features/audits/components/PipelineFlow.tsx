@@ -195,9 +195,18 @@ export interface PipelineFlowProps {
   onReview: () => void;
   /** Width (px) of a side panel covering the right of the screen: the graph slides so the selected node stays in view. */
   coveredRight?: number;
+  /** Height (px) of chrome floating over the top of the canvas (the page title): the resting view starts below it. */
+  insetTop?: number;
 }
 
-export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight = 0 }: PipelineFlowProps) {
+export function PipelineFlow({
+  audit,
+  selected,
+  onSelect,
+  onReview,
+  coveredRight = 0,
+  insetTop = 0,
+}: PipelineFlowProps) {
   const reduced = !!useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
   const flow = useRef<ReactFlowInstance | null>(null);
@@ -230,17 +239,22 @@ export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight
   const focus = layout.positions[live ?? selected];
   const focusBottom = focus ? focus.y + focus.height : 0;
   const rest = useMemo(() => {
-    const avail = height - LEGEND_H;
-    const fit = Math.min(1, (avail - CANVAS_PAD) / layout.height, (width - CANVAS_PAD * 2) / layout.width);
+    // The band the graph may use: below the floating title, above the legend.
+    const top = insetTop || CANVAS_PAD * 0.75;
+    const avail = height - LEGEND_H - top;
+    const fit = Math.min(
+      1,
+      (avail - CANVAS_PAD / 2) / layout.height,
+      (width - CANVAS_PAD * 2) / layout.width,
+    );
     const zoom = Math.max(fit, REST_MIN_ZOOM);
     const x = (width - layout.width * zoom) / 2;
-    if (layout.height * zoom <= avail - CANVAS_PAD) {
-      return { x, y: (avail - layout.height * zoom) / 2, zoom };
+    if (layout.height * zoom <= avail) {
+      return { x, y: top + (avail - layout.height * zoom) / 2, zoom };
     }
-    const top = CANVAS_PAD * 0.75;
-    const overflow = top + focusBottom * zoom - (avail - CANVAS_PAD);
+    const overflow = focusBottom * zoom - (avail - CANVAS_PAD / 2);
     return { x, y: top - Math.max(0, overflow), zoom };
-  }, [width, height, layout.width, layout.height, focusBottom]);
+  }, [width, height, layout.width, layout.height, focusBottom, insetTop]);
   const stateKey = Object.values(states).join();
   const summaries = useMemo(
     () => Object.fromEntries(STAGES.map((s) => [s.id, stepSummary(s.id, audit)])),

@@ -504,6 +504,18 @@
   }
 }
 
+/* Floating chrome on the full-screen graph (run status, legend) and the fade under the
+   page title, so the graph slides under the header when panned. */
+.pg-float {
+  border: 1px solid rgb(var(--border) / 0.8);
+  background: rgb(var(--surface) / 0.86);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 28px -18px rgb(var(--foreground) / 0.45);
+}
+.pg-topfade {
+  background: linear-gradient(180deg, var(--shell-card) 35%, transparent);
+}
+
 /* Legend, floating on the canvas. */
 .pg-legend {
   border: 1px solid rgb(var(--border) / 0.8);

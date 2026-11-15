@@ -2,6 +2,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { cn } from '@/shared/lib/utils';
 import { ErrorBoundary } from '@/error_boundary';
 import { pageTransition } from '@/shared/lib/motion';
 import { useUiStore } from '@/shared/stores/ui';
@@ -36,6 +37,9 @@ export function WorkspaceShell() {
   const location = useLocation();
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
+  // A canvas page (the audit run graph) asks for the whole content area: no padding, no
+  // max width, and it does its own panning instead of the card scrolling.
+  const fullBleed = useUiStore((s) => s.fullBleed);
   // Animate between top-level sections only (/chat, /audits, /systems…). Keyed by the first
   // segment alone: with the id in the key, opening another chat or audit remounted the whole
   // page (the chat list rebuilt and every message faded in again on each click).
@@ -62,10 +66,18 @@ export function WorkspaceShell() {
 
       <div
         data-testid="main-card"
-        className="relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-shell-card lg:my-3 lg:mr-3 lg:rounded-shell lg:border lg:border-border/60 lg:shadow-shell"
+        className={cn(
+          'relative flex min-w-0 flex-1 flex-col bg-shell-card lg:my-3 lg:mr-3 lg:rounded-shell lg:border lg:border-border/60 lg:shadow-shell',
+          fullBleed ? 'overflow-hidden' : 'overflow-y-auto',
+        )}
       >
         <TopBar />
-        <main className="mx-auto w-full max-w-content flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main
+          className={cn(
+            'w-full flex-1',
+            fullBleed ? 'flex min-h-0 flex-col' : 'mx-auto max-w-content px-4 py-6 lg:px-8 lg:py-8',
+          )}
+        >
           <ErrorBoundary resetKey={location.pathname}>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -74,6 +86,7 @@ export function WorkspaceShell() {
                 initial="initial"
                 animate="animate"
                 exit="exit"
+                className={cn(fullBleed && 'flex min-h-0 flex-1 flex-col')}
               >
                 <Suspense fallback={<PageFallback />}>
                   <Outlet />

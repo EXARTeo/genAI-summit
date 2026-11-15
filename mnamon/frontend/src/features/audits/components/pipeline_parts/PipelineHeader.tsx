@@ -69,3 +69,61 @@ export function PipelineHeader({
     </div>
   );
 }
+
+/** The run's status as a compact card floating on the full-screen graph (top right). */
+export function RunStatusCard({
+  chip,
+  stepText,
+  progress,
+  follow,
+  onFollow,
+}: {
+  chip: RunChip;
+  stepText: string;
+  /** 0..1 */
+  progress: number;
+  follow: boolean;
+  onFollow: () => void;
+}) {
+  const c = CHIP[chip];
+  return (
+    <div className="pg-float w-72 rounded-2xl px-4 py-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+            c.cls,
+          )}
+        >
+          <span className="relative flex size-1.5">
+            {c.pulse && (
+              <span
+                className={cn('absolute inset-0 rounded-full opacity-60 motion-safe:animate-ping', c.dot)}
+              />
+            )}
+            <span className={cn('relative size-1.5 rounded-full', c.dot)} />
+          </span>
+          {c.label}
+        </span>
+        <span className="num ml-auto text-xs text-muted">{stepText}</span>
+      </div>
+      <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-surface-sunken">
+        <div
+          className={cn(
+            'h-full rounded-full transition-[width] duration-500 ease-out',
+            chip === 'waiting' ? 'bg-warning' : chip === 'failed' ? 'bg-danger' : 'bg-primary',
+          )}
+          style={{ width: `${Math.round(progress * 100)}%` }}
+        />
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[11.5px] text-muted">
+        <span>{follow ? 'Following the live step' : 'Showing the step you picked'}</span>
+        {!follow && (
+          <button type="button" className="font-medium text-primary hover:underline" onClick={onFollow}>
+            Follow live
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
