@@ -101,6 +101,8 @@ services:
       AGENTS_SERVICE_URL: ${AGENTS_SERVICE_URL:-http://agents:8003}
       # A new audit starts its pipeline on the agents service (POST /audits/{id}/run).
       AUDIT_PIPELINE_AUTOSTART: ${AUDIT_PIPELINE_AUTOSTART:-true}
+      # The risk classifier (POST /systems/{id}/classify) is awaited this long (s).
+      CLASSIFY_TIMEOUT_S: ${CLASSIFY_TIMEOUT_S:-120}
       # Background-task consumers (mirror, wake-ups, reconcile loop).
       ASYNC_TASKS_ENABLED: ${ASYNC_TASKS_ENABLED:-true}
       AGENTS_SERVICE_SECRET: ${AGENTS_INTERNAL_SECRET:-genai-summit-dev-internal}
