@@ -12,7 +12,7 @@ import { getClientId } from '@/shared/lib/client-id';
 import { env } from '@/shared/lib/env';
 import { buildUrl } from '@/shared/lib/api';
 import { chatApi } from './routes';
-import type { RunFrame } from './types';
+import type { ConversationFrame, RunFrame, TaskSocketFrame } from './types';
 
 export type Unsubscribe = () => void;
 
@@ -42,6 +42,32 @@ export function subscribeRun(runId: string, handlers: RunSocketHandlers): Unsubs
     };
   }
 
+  return subscribeSocket<RunFrame>(chatApi.runSocket(runId), {
+    onFrame: handlers.onFrame,
+    onGiveUp: handlers.onGiveUp,
+    isTerminal: (frame) => frame.type === 'terminal',
+    notFound: 'Run not found',
+    lost: 'Lost the connection to the run',
+  });
+}
+
+interface SocketOptions<F> {
+  onFrame: (frame: F) => void;
+  onGiveUp?: (reason: string) => void;
+  /** The server's last frame: the socket closes after it and is not reopened. */
+  isTerminal?: (frame: F) => boolean;
+  notFound: string;
+  lost: string;
+}
+
+/**
+ * One reconnecting subscription (`subscribe` with the last `seq` as `since`, so a reconnect loses
+ * and repeats nothing). Shared by the run, conversation and task sockets.
+ */
+function subscribeSocket<F extends { type: string; seq?: string }>(
+  path: string,
+  options: SocketOptions<F>,
+): Unsubscribe {
   let socket: WebSocket | null = null;
   let since: string | null = null;
   let done = false;
@@ -49,32 +75,32 @@ export function subscribeRun(runId: string, handlers: RunSocketHandlers): Unsubs
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const connect = () => {
-    socket = new WebSocket(socketUrl(chatApi.runSocket(runId)));
+    socket = new WebSocket(socketUrl(path));
     socket.onopen = () => {
       retries = 0;
       socket?.send(JSON.stringify({ type: 'subscribe', since }));
     };
     socket.onmessage = (msg) => {
-      let frame: RunFrame;
+      let frame: F;
       try {
-        frame = JSON.parse(String(msg.data)) as RunFrame;
+        frame = JSON.parse(String(msg.data)) as F;
       } catch {
         return;
       }
-      if (frame.type === 'event' && frame.seq) since = frame.seq;
-      if (frame.type === 'terminal') done = true;
-      handlers.onFrame(frame);
+      if (typeof frame.seq === 'string' && frame.seq) since = frame.seq;
+      if (options.isTerminal?.(frame)) done = true;
+      options.onFrame(frame);
     };
     socket.onclose = (e) => {
       if (done) return;
       if (e.code === 4404 || e.code === 4403) {
         done = true;
-        handlers.onGiveUp?.('Run not found');
+        options.onGiveUp?.(options.notFound);
         return;
       }
       if (retries >= MAX_RETRIES) {
         done = true;
-        handlers.onGiveUp?.('Lost the connection to the run');
+        options.onGiveUp?.(options.lost);
         return;
       }
       retries += 1;
@@ -88,4 +114,40 @@ export function subscribeRun(runId: string, handlers: RunSocketHandlers): Unsubs
     clearTimeout(timer);
     socket?.close();
   };
+}
+
+/**
+ * The conversation channel (`WS /v1/inference/conversations/{id}/ws`): background-task status
+ * changes, runs the server started on its own (a task wake-up, the queued message being sent) and
+ * the composer queue. Nothing in mock mode.
+ */
+export function subscribeConversation(
+  conversationId: string,
+  onFrame: (frame: ConversationFrame) => void,
+): Unsubscribe {
+  if (env.useMocks) return () => undefined;
+  return subscribeSocket<ConversationFrame>(chatApi.conversationSocket(conversationId), {
+    onFrame,
+    notFound: 'Conversation not found',
+    lost: 'Lost the connection to the conversation',
+  });
+}
+
+/**
+ * One background task's events (`WS /v1/tasks/{id}/ws`): a `snapshot` (with the stored `events`
+ * once it has settled), live `event` frames, then `terminal`. Nothing in mock mode.
+ */
+export function subscribeTask(
+  taskId: string,
+  onFrame: (frame: TaskSocketFrame) => void,
+  onGiveUp?: (reason: string) => void,
+): Unsubscribe {
+  if (env.useMocks) return () => undefined;
+  return subscribeSocket<TaskSocketFrame>(chatApi.taskSocket(taskId), {
+    onFrame,
+    onGiveUp,
+    isTerminal: (frame) => frame.type === 'terminal',
+    notFound: 'Task not found',
+    lost: 'Lost the connection to the task',
+  });
 }

@@ -37,6 +37,7 @@ export const chatApi = {
   conversationSocket: (id: string) => `/v1/inference/conversations/${enc(id)}/ws`,
   queued: (id: string) => `/v1/inference/conversations/${enc(id)}/queued-message`,
   cancelTask: (taskId: string) => `/v1/tasks/${enc(taskId)}/cancel`,
+  taskSocket: (taskId: string) => `/v1/tasks/${enc(taskId)}/ws`,
   search: '/v1/search',
   download: (conv: string, msg: string, blob: string) =>
     `/v1/attachments/download/${enc(conv)}/${enc(msg)}/${enc(blob)}`,

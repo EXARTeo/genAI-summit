@@ -234,3 +234,15 @@ export interface TaskOut {
   started_at?: string | null;
   settled_at?: string | null;
 }
+
+/** One frame of the conversation socket (`WS /v1/inference/conversations/{id}/ws`). */
+export type ConversationFrame =
+  | { type: 'task'; seq?: string; event: 'TASK_STARTED' | 'TASK_STATUS' | 'TASK_SETTLED'; task: TaskOut }
+  | { type: 'run_started'; seq?: string; run: InferenceRunOut; from_queue?: boolean }
+  | { type: 'queue'; seq?: string; queued_message: QueuedMessage | null };
+
+/** One frame of a task's socket (`WS /v1/tasks/{id}/ws`). */
+export type TaskSocketFrame =
+  | { type: 'snapshot'; seq?: string; task: TaskOut; events?: RawEvent[] }
+  | { type: 'event'; seq: string; event: RawEvent }
+  | { type: 'terminal'; seq?: string; status: string };

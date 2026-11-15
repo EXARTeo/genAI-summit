@@ -25,7 +25,7 @@ export function useRunOverview(chat: Pick<ChatController, 'path' | 'runView' | '
   const conversationId = chat.detail?.id ?? null;
   const working = Boolean(activeRun) || Boolean(chat.detail?.hasActiveTasks);
   const tasks = useQuery({
-    queryKey: [...chatKeys.all, 'tasks', conversationId ?? ''],
+    queryKey: chatKeys.tasks(conversationId ?? ''),
     queryFn: () => listTasks(conversationId as string),
     enabled: Boolean(conversationId),
     refetchInterval: (query) =>

@@ -27,6 +27,7 @@ import type {
 } from '../lib/types';
 import { chatKeys } from './keys';
 import { attachRun, bindQueryClient, patchCachedMessage, seedRun, useRunStore } from './runStore';
+import { useConversationChannel } from './useConversationChannel';
 import { useConversation } from './useConversations';
 
 export interface ChatSubject {
@@ -75,6 +76,13 @@ export function useChat(
   const [queued, setQueued] = useState<string | null>(null);
   const runs = useRunStore((s) => s.runs);
   const decided = useRunStore((s) => s.decided);
+
+  // Wake-ups, task status and the composer queue, live for the open conversation.
+  const onQueue = useCallback(
+    (q: { content?: string | null } | null) => setQueued(q ? (q.content ?? '') : null),
+    [],
+  );
+  useConversationChannel(conversationId, onQueue);
 
   // A new conversation starts on its newest branch (or the one a task is working on).
   useEffect(() => {
