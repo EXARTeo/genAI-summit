@@ -78,6 +78,7 @@ from utils.inference import (
     resolve_inference_message_path,
     serialise_message_for_agent,
 )
+from utils.notification_echo import strip_notification_echo
 from utils.tracing import RunTrace, start_run_trace
 from utils.validators import load_conversation_full
 
@@ -1117,7 +1118,7 @@ async def _finish_run(
         now = _now()
         run.streaming_status = status_value
         run.streaming_completed_at = now
-        run.content = runtime.content or (
+        run.content = strip_notification_echo(runtime.content) or (
             "An error occurred while generating the response." if is_error else ""
         )
         run.reasoning_steps = deepcopy(runtime.thoughts) or None
