@@ -94,12 +94,16 @@ jobs:
       - name: Check the deploy settings
         env:
           WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        # No webhook yet (first run, before the Portainer stack exists): still
+        # publish the denis-deploy branch the stack is created from, skip the rest.
         run: |
-          missing=0
-          for v in SITE WEBHOOK; do
-            if [ -z "${!v}" ]; then echo "::error::$v is not set (docs/guides/deploy-denis.md)"; missing=1; fi
-          done
-          exit "$missing"
+          if [ -z "$SITE" ]; then echo "::error::DENIS_SITE_URL is not set (docs/guides/deploy-denis.md)"; exit 1; fi
+          if [ -z "$WEBHOOK" ]; then
+            echo "::warning::PORTAINER_WEBHOOK_URL is not set: publishing the denis-deploy branch only. Create the Portainer stack from it, add the webhook secret, then re-run."
+            echo "HAS_WEBHOOK=false" >> "$GITHUB_ENV"
+          else
+            echo "HAS_WEBHOOK=true" >> "$GITHUB_ENV"
+          fi
       - name: Render the stack for this release
         run: |
           tag="sha-${GITHUB_SHA::12}"
@@ -135,10 +139,12 @@ jobs:
             git push origin "HEAD:${DEPLOY_BRANCH}"
           fi
       - name: Tell Portainer to pull and redeploy
+        if: env.HAS_WEBHOOK == 'true'
         env:
           WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
         run: curl -fsS --max-time 60 --retry 3 --retry-all-errors -X POST -o /dev/null "$WEBHOOK"
       - name: Wait until the release is live
+        if: env.HAS_WEBHOOK == 'true'
         run: |
           deadline=$((SECONDS + 1200))
           while :; do
