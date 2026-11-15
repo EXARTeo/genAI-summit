@@ -7,21 +7,22 @@ import { inForce, previewEntries, riskLabel } from '../lib/classification';
 
 /**
  * Obligations tab without an audit (plan 02 §5): the obligations reg-memory activates for the
- * approved classification. `fallback` is shown when nothing is approved yet.
+ * system card, from the approved classification when there is one (else the card's declared
+ * class, e.g. a seeded system). `fallback` is shown for an unclassified card.
  */
 export function ObligationsPreview({ systemId, fallback }: { systemId: string; fallback: ReactNode }) {
   const runs = useClassifications(systemId);
   const approved = inForce(runs.data ?? []);
-  const preview = useObligationsPreview(systemId, !!approved);
+  const preview = useObligationsPreview(systemId, true);
 
-  if (runs.isLoading || (approved && preview.isLoading)) {
+  if (runs.isLoading || preview.isLoading) {
     return (
       <Card className="p-5">
         <SkeletonText lines={5} />
       </Card>
     );
   }
-  if (!approved) return <>{fallback}</>;
+  if (preview.error && !approved) return <>{fallback}</>;
   if (preview.error) {
     return (
       <ErrorState
@@ -31,24 +32,36 @@ export function ObligationsPreview({ systemId, fallback }: { systemId: string; f
       />
     );
   }
-  const entries = previewEntries(preview.data?.items ?? []);
+  if (!preview.data || preview.data.classified === false) return <>{fallback}</>;
+  const entries = previewEntries(preview.data.items ?? []);
   const applicable = entries.filter((e) => e.applicable !== false);
-  const risk = riskLabel(approved.result?.risk_class);
-  const kb = preview.data?.kb_version ?? approved.kbVersion;
+  const declared = String(preview.data.query?.risk_class ?? '');
+  const risk = riskLabel(
+    approved?.result?.risk_class ?? (declared && !declared.endsWith('_risk') ? `${declared}_risk` : declared),
+  );
+  const kb = preview.data.kb_version ?? approved?.kbVersion;
 
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-sm font-semibold">Obligations that follow from the approved classification</h2>
+        <h2 className="text-sm font-semibold">
+          {approved
+            ? 'Obligations that follow from the approved classification'
+            : 'Obligations that follow from the system card'}
+        </h2>
         <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
           Preview, no audit yet ·<Badge tone={risk.tone}>{risk.label}</Badge>
-          {approved.status === 'stale' && <Badge tone="warning">Stale</Badge>}
-          <span className="font-mono">{approved.id}</span>
+          {approved?.status === 'stale' && <Badge tone="warning">Stale</Badge>}
+          {approved ? (
+            <span className="font-mono">{approved.id}</span>
+          ) : (
+            <span>declared class, not yet classified by the agent</span>
+          )}
           {kb && <span className="num font-mono">· kb {kb}</span>}
         </p>
       </div>
 
-      {preview.data?.prohibited && (
+      {preview.data.prohibited && (
         <div
           role="status"
           className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/[0.05] p-3.5 text-sm"

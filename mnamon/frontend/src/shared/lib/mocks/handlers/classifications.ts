@@ -487,7 +487,7 @@ const HIGH_ROWS: [string, string, string][] = [
 function preview(systemId: string) {
   const runs = list(systemId);
   const cur = runs.find((r) => r.status === 'approved' || r.status === 'stale');
-  if (!cur?.result) return mockError(404, 'No approved classification');
+  if (!cur?.result) return { systemId, classified: false, total: 0, items: [] };
   const res = cur.result;
   const high = res.risk_class === 'high_risk';
   const exempt = !!res.art6_3?.holds;
