@@ -107,6 +107,9 @@ async def reg_call(
             "reg_memory_error", "reg-memory answered an error", path=path, code=response.status_code
         )
         detail = _json_or_text(response)
+        # reg-memory answers {"detail": "..."}: pass the reason itself on, not the wrapper.
+        if isinstance(detail, dict) and isinstance(detail.get("detail"), str):
+            detail = detail["detail"]
         if 400 <= response.status_code < 500:
             raise HTTPException(status_code=response.status_code, detail=detail)
         raise RegMemoryUnavailable(f"reg-memory answered {response.status_code}.")
