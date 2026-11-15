@@ -21,7 +21,9 @@ import {
   provisionLabel,
   riskLabel,
 } from '../../lib/classification';
-import type { ClassificationResult, Screening } from '../../lib/types';
+import { irisFor } from '../../lib/iris';
+import type { ClassificationResult, IrisClaim, IrisClaimGroup, Screening } from '../../lib/types';
+import { IrisChecks, IrisChip } from './IrisChecks';
 
 /** A titled block of the proposal. */
 export function Block({
@@ -62,7 +64,19 @@ function Provision({ id }: { id: string }) {
 }
 
 /** One screened provision: applies (✓) or not (–), and why. `danger`: applying is bad news. */
-function ScreeningList({ items, empty, danger }: { items: Screening[]; empty: string; danger?: boolean }) {
+function ScreeningList({
+  items,
+  empty,
+  danger,
+  claims,
+  group,
+}: {
+  items: Screening[];
+  empty: string;
+  danger?: boolean;
+  claims?: IrisClaim[];
+  group: IrisClaimGroup;
+}) {
   if (!items.length) return <p className="text-sm text-muted">{empty}</p>;
   return (
     <ul className="space-y-2.5">
@@ -82,8 +96,11 @@ function ScreeningList({ items, empty, danger }: { items: Screening[]; empty: st
           >
             {s.applies ? <Check /> : <Minus />}
           </span>
-          <div className="min-w-0">
-            <Provision id={s.provision_id} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <Provision id={s.provision_id} />
+              <IrisChip claim={irisFor(claims, s.provision_id, group)} />
+            </div>
             {s.why && <p className="mt-0.5 text-xs leading-5 text-muted">{s.why}</p>}
           </div>
         </li>
@@ -111,14 +128,20 @@ function Art63Block({ r }: { r: ClassificationResult }) {
         <div className="space-y-2 text-sm">
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
             <dt className="text-muted">Condition</dt>
-            <dd>{conditionLabel(a.condition)}</dd>
+            <dd className="flex items-start justify-between gap-2">
+              <span>{conditionLabel(a.condition)}</span>
+              <IrisChip claim={irisFor(r.iris_claims, 'condition', 'art6_3')} />
+            </dd>
             <dt className="text-muted">Profiling</dt>
-            <dd className={cn(a.profiling === 'yes' && 'font-medium text-danger')}>
-              {a.profiling === 'yes'
-                ? 'Yes: the derogation can never apply'
-                : a.profiling === 'no'
-                  ? 'No'
-                  : 'Not established'}
+            <dd className="flex items-start justify-between gap-2">
+              <span className={cn(a.profiling === 'yes' && 'font-medium text-danger')}>
+                {a.profiling === 'yes'
+                  ? 'Yes: the derogation can never apply'
+                  : a.profiling === 'no'
+                    ? 'No'
+                    : 'Not established'}
+              </span>
+              <IrisChip claim={irisFor(r.iris_claims, 'profiling', 'art6_3')} />
             </dd>
           </dl>
           {a.why && <p className="text-xs leading-5 text-muted">{a.why}</p>}
@@ -141,9 +164,10 @@ function TransparencyBlock({ r }: { r: ClassificationResult }) {
           {t?.provisions?.length ? (
             <div className="mt-1 flex flex-wrap gap-1">
               {t.provisions.map((p) => (
-                <Badge key={p} tone="warning">
-                  {provisionLabel(p)}
-                </Badge>
+                <span key={p} className="inline-flex items-center gap-1">
+                  <Badge tone="warning">{provisionLabel(p)}</Badge>
+                  <IrisChip claim={irisFor(r.iris_claims, p, 'art50')} />
+                </span>
               ))}
             </div>
           ) : (
@@ -211,7 +235,7 @@ const ASK_LABEL: Record<string, string> = {
 };
 
 /** Everything the classifier returned, in reading order: why, what could overturn it, what to do. */
-export function ResultDetails({ r }: { r: ClassificationResult }) {
+export function ResultDetails({ r, irisId }: { r: ClassificationResult; irisId?: string }) {
   return (
     <div className="space-y-4">
       {r.reasoning && (
@@ -230,10 +254,21 @@ export function ResultDetails({ r }: { r: ClassificationResult }) {
       <div className="grid gap-3 lg:grid-cols-2">
         <Art63Block r={r} />
         <Block title="Annex III areas considered" icon={<ListTodo />}>
-          <ScreeningList items={r.annex_iii_considered} empty="No Annex III area came up." />
+          <ScreeningList
+            items={r.annex_iii_considered}
+            empty="No Annex III area came up."
+            claims={r.iris_claims}
+            group="annex_iii"
+          />
         </Block>
         <Block title="Art. 5 screening" icon={<ShieldAlert />}>
-          <ScreeningList items={r.art5_screening} empty="No prohibited practice flagged." danger />
+          <ScreeningList
+            items={r.art5_screening}
+            empty="No prohibited practice flagged."
+            danger
+            claims={r.iris_claims}
+            group="art5"
+          />
         </Block>
         <TransparencyBlock r={r} />
       </div>
@@ -243,7 +278,10 @@ export function ResultDetails({ r }: { r: ClassificationResult }) {
           <ul className="space-y-2.5">
             {r.counter_arguments.map((c, i) => (
               <li key={i} className="text-sm">
-                <p className="leading-5">{c.argument}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="leading-5">{c.argument}</p>
+                  <IrisChip claim={irisFor(r.iris_claims, String(i + 1), 'counter')} />
+                </div>
                 {c.would_change_to && (
                   <p className="mt-1 text-xs text-muted">
                     Would make it{' '}
@@ -288,6 +326,8 @@ export function ResultDetails({ r }: { r: ClassificationResult }) {
           )}
         </Block>
       </div>
+
+      <IrisChecks r={r} id={irisId} />
 
       {(r.next_steps.length > 0 || r.key_dates.length > 0) && (
         <div className="grid gap-3 lg:grid-cols-2">

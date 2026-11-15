@@ -1,6 +1,7 @@
 // Pure helpers for the risk-classification UI: normalise the backend rows, pick the run to
 // show, and turn result codes into plain words.
 import type { BadgeTone } from '@/shared/ui';
+import { toIrisClaims } from './iris';
 import type {
   Citation,
   Classification,
@@ -50,6 +51,8 @@ export function toResult(raw: unknown): ClassificationResult | null {
     needs_human_reasons: arr(r.needs_human_reasons),
     verifier_problems: arr(r.verifier_problems),
     confidence: typeof r.confidence === 'number' ? r.confidence : 0,
+    iris_claims: toIrisClaims(r.iris_claims),
+    iris_summary: isObj(r.iris_summary) ? (r.iris_summary as ClassificationResult['iris_summary']) : null,
   } as ClassificationResult;
 }
 

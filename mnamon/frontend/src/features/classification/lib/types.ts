@@ -69,6 +69,38 @@ export interface IrisCheck {
   profiling?: number | null;
 }
 
+export type IrisClaimGroup =
+  | 'annex_iii'
+  | 'art5'
+  | 'art6_3'
+  | 'art50'
+  | 'role'
+  | 'annex_i'
+  | 'assumption'
+  | 'counter';
+
+/** One article-level claim or assumption, put to Oumi Iris as a yes/no question. */
+export interface IrisClaim {
+  /** `annex_iii:AIA.ANNEX_III.4.a`, `art6_3:condition`, `role`, `assumption:ai_system`, `counter:1`. */
+  key: string;
+  group: IrisClaimGroup;
+  provision_id: string | null;
+  /** The exact statement Iris was asked. */
+  statement: string;
+  /** The classifier's answer. */
+  agent: boolean;
+  /** Iris's P(true); null when Iris did not run. */
+  iris: number | null;
+  agrees: boolean | null;
+  strong_disagreement: boolean;
+}
+
+export interface IrisSummary {
+  checked: number;
+  agree: number;
+  disagree: number;
+}
+
 export interface ClassificationResult {
   risk_class: ResultRiskClass | string;
   route: Route | string;
@@ -94,6 +126,9 @@ export interface ClassificationResult {
   key_dates: KeyDate[];
   iris?: IrisCheck | null;
   agreement?: boolean | null;
+  /** Iris on every claim and assumption (missing on older runs). */
+  iris_claims?: IrisClaim[];
+  iris_summary?: IrisSummary | null;
   needs_human: boolean;
   needs_human_reasons: string[];
   verifier_problems: string[];

@@ -267,14 +267,25 @@ API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../f
   dates and citations (*Non-binding guidance* / *Draft* badges), with **Approve** (shows the card keys it
   writes; optional note) and **Reject** (reason required, ≤ 2,000 chars; the next run reads it); approved /
   stale / rejected → the summary with *Re-classify* (`previousId` = the stale or rejected run) and the full
-  proposal on demand; failed → *Retry*. *History* opens a sheet with every run and its append-only events.
+  proposal on demand; failed → *Retry*. **Oumi Iris per claim** (`result.iris_claims` / `iris_summary`,
+  missing on older runs → hidden; helpers `irisFor`, `groupClaims`, `collapseGroups`, `irisSummaryOf` in
+  `lib/iris.ts`, tested): an `IrisChip` (*Iris ✓ 93%* success / *Iris ✗ 12%* warning, danger on a strong
+  disagreement / *Iris —* not run; the percent is Iris's support for the agent's answer, the tooltip shows the
+  exact statement and "Agent: yes · Iris P(yes) = 0.93", the aria-label spells the verdict out) next to each
+  Annex III and Art. 5 row (by `provision_id`), the Art. 6(3) condition and profiling, each Art. 50 provision,
+  the AI Act role and each counter-argument (`counter:<n>`); the *Independent check (Iris)* cell adds "N of M
+  claims agree" with *See the checks* (expands the proposal and scrolls to the section); the section
+  *Independent checks (Oumi Iris)* lists strong disagreements first (danger accent), then the claims grouped
+  (Annex III, Art. 5, Art. 6(3), Art. 50, Role, Annex I, Assumptions, Counter-arguments; disagreements first),
+  each with the agent's Yes/No, Iris's P(yes) bar and the chip; over six agreeing claims it collapses to the
+  disagreements + six, *Show all N*. *History* opens a sheet with every run and its append-only events.
   The header shows a *proposed* / *stale* dot next to the risk badge (`ClassificationDot`). The Obligations
   tab, when no audit has an obligation map yet, previews `GET /v1/systems/{id}/obligations`: from the approved
   (or stale) classification, else from the card's declared class (seeded systems); an unclassified card keeps
   the "No obligation map yet" state (`ObligationsPreview`). Rows are read in camelCase (`ClassificationOut`) or snake_case;
   the `result` is the agents' snake_case `ClassificationResult` (`lib/types.ts`). Mocks
   (`mocks/handlers/classifications.ts`, `onboarding.ts`): SYS-001 approved then stale (RC-2026.11.15-1 on
-  AIA.6.3), SYS-002 a `needs_human` proposal, SYS-003 unclassified, a registered CV Parser gets the
+  AIA.6.3), SYS-002 a `needs_human` proposal (13 Iris claims, one strong disagreement), SYS-003 unclassified, a registered CV Parser gets the
   Art. 6(3)(a) proposal after ~9 s (high risk 4(a) after a rejection).
 
 API used: `POST /v1/systems`, `GET|POST /v1/systems/{id}/classifications`, `POST .../classifications/{cid}/decision`,

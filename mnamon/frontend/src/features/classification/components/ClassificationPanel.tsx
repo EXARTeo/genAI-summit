@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, ChevronDown, History, RefreshCw, Scale, Sparkles, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { formatDateTime, formatRelative } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import {
@@ -30,9 +30,11 @@ import {
   routeLabel,
   staleReason,
 } from '../lib/classification';
+import { irisFor } from '../lib/iris';
 import type { Classification, ClassificationResult } from '../lib/types';
 import { DecisionDialog } from './parts/DecisionDialog';
 import { HistorySheet } from './parts/HistorySheet';
+import { IrisChip, IrisClaimsLine } from './parts/IrisChecks';
 import { IrisLine, ResultDetails } from './parts/ResultDetails';
 import { RunProgress } from './parts/RunProgress';
 
@@ -46,7 +48,18 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** Class, route and the four facts a reviewer reads first. */
-function Summary({ c, r, actions }: { c: Classification; r: ClassificationResult; actions?: ReactNode }) {
+function Summary({
+  c,
+  r,
+  actions,
+  onShowChecks,
+}: {
+  c: Classification;
+  r: ClassificationResult;
+  actions?: ReactNode;
+  /** Open and scroll to the "Independent checks (Oumi Iris)" section. */
+  onShowChecks?: () => void;
+}) {
   const risk = riskLabel(r.risk_class);
   return (
     <div className="overflow-hidden rounded-lg border border-border">
@@ -66,6 +79,7 @@ function Summary({ c, r, actions }: { c: Classification; r: ClassificationResult
         </Fact>
         <Fact label="AI Act role">
           <span className="capitalize">{r.role}</span>
+          <IrisChip claim={irisFor(r.iris_claims, 'role', 'role')} />
         </Fact>
         <Fact label="Confidence">
           <Badge tone={confidenceTone(r.confidence)} className="num">
@@ -75,6 +89,7 @@ function Summary({ c, r, actions }: { c: Classification; r: ClassificationResult
         </Fact>
         <Fact label="Independent check (Iris)">
           <IrisLine r={r} />
+          <IrisClaimsLine r={r} onShow={r.iris_claims?.length ? onShowChecks : undefined} />
         </Fact>
       </dl>
     </div>
@@ -168,11 +183,27 @@ export function ClassificationPanel({ systemId }: { systemId: string }) {
   const [dialog, setDialog] = useState<'approve' | 'reject' | null>(null);
   const [history, setHistory] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [scrollToChecks, setScrollToChecks] = useState(false);
 
   const runs = data ?? [];
   const last = latestRun(runs);
   const current = inForce(runs);
   const r = last?.result ?? null;
+  const irisId = last ? `iris-checks-${last.id}` : undefined;
+
+  // "See the checks": expand the proposal if needed, then bring the Iris section into view.
+  useEffect(() => {
+    if (!scrollToChecks || !irisId) return;
+    const el = document.getElementById(irisId);
+    if (!el) return;
+    setScrollToChecks(false);
+    el.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    el.focus({ preventScroll: true });
+  }, [scrollToChecks, expanded, irisId]);
+  const showChecks = () => {
+    setExpanded(true);
+    setScrollToChecks(true);
+  };
 
   const classify = (previousId?: string) =>
     start.mutate(previousId, {
@@ -245,6 +276,7 @@ export function ClassificationPanel({ systemId }: { systemId: string }) {
         <Summary
           c={last}
           r={r}
+          onShowChecks={showChecks}
           actions={
             <>
               <Button variant="outline" size="sm" leftIcon={<X />} onClick={() => setDialog('reject')}>
@@ -258,7 +290,7 @@ export function ClassificationPanel({ systemId }: { systemId: string }) {
         />
         <NeedsHuman r={r} />
         {current && current !== last && <InForceLine c={current} />}
-        <ResultDetails r={r} />
+        <ResultDetails r={r} irisId={irisId} />
       </div>
     );
   } else {
@@ -287,7 +319,12 @@ export function ClassificationPanel({ systemId }: { systemId: string }) {
             {rejected ? `“${rejected}”` : 'No reason recorded.'} The next run reads the reason.
           </Banner>
         )}
-        <Summary c={last} r={r} actions={last.status === 'approved' ? reclassify() : undefined} />
+        <Summary
+          c={last}
+          r={r}
+          onShowChecks={showChecks}
+          actions={last.status === 'approved' ? reclassify() : undefined}
+        />
         {last.status === 'rejected' && current && <InForceLine c={current} />}
         <div>
           <Button
@@ -301,7 +338,7 @@ export function ClassificationPanel({ systemId }: { systemId: string }) {
           </Button>
           {expanded && (
             <div className="mt-3">
-              <ResultDetails r={r} />
+              <ResultDetails r={r} irisId={irisId} />
             </div>
           )}
         </div>

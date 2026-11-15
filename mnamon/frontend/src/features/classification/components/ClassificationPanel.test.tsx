@@ -95,6 +95,56 @@ describe('ClassificationPanel', () => {
     expect(screen.getByText('Non-binding guidance')).toBeInTheDocument();
   });
 
+  it('shows Iris chips per claim and the grouped checks, strong disagreements first', async () => {
+    const claim = (key: string, statement: string, agent: boolean, iris: number | null, strong = false) => ({
+      key,
+      group: key.split(':')[0],
+      provision_id: key.includes('AIA.') ? key.split(':')[1] : null,
+      statement,
+      agent,
+      iris,
+      agrees: iris === null ? null : iris >= 0.5 === agent,
+      strong_disagreement: strong,
+    });
+    h.rows = [
+      row('proposed', {
+        result: {
+          ...RESULT,
+          iris_claims: [
+            claim('annex_iii:AIA.ANNEX_III.4.a', 'It is used in recruitment.', true, 0.93),
+            claim('art6_3:condition', 'It performs a narrow procedural task.', true, 0.12, true),
+            claim('role', 'The organisation is the provider.', true, null),
+          ],
+          iris_summary: { checked: 2, agree: 1, disagree: 1 },
+        },
+      }),
+    ];
+    setup();
+    expect(await screen.findByText('1 of 2 claims agree')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('img', {
+        name: /Iris agrees with the agent \(93% support\): It is used in recruitment/,
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole('img', { name: /Iris strongly disagrees with the agent \(12% support\)/ }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole('img', { name: /Iris did not run on: The organisation/ }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText('Independent checks (Oumi Iris)')).toBeInTheDocument();
+    expect(screen.getByText('Strong disagreements')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'See the checks' }));
+  });
+
+  it('hides the Iris claims on an older run', async () => {
+    h.rows = [row('proposed')];
+    setup();
+    await screen.findByText('Minimal risk');
+    expect(screen.queryByText(/claims agree/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Independent checks (Oumi Iris)')).not.toBeInTheDocument();
+  });
+
   it('a rejection needs a reason', async () => {
     h.rows = [row('proposed')];
     setup();

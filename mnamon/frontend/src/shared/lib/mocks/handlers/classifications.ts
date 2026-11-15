@@ -1,8 +1,9 @@
 // Mock of the risk-classification API (plan 02 §7.3): runs, approve / reject, stale, and the
 // obligations preview. Fixtures: SYS-001 approved then stale, SYS-002 a needs_human proposal,
 // SYS-003 never classified; a newly registered CV Parser gets the Art. 6(3)(a) proposal.
+// SYS-002's proposal and the CV Parser's carry `iris_claims` (Iris per claim and assumption).
 import { parse, stringify } from 'yaml';
-import type { ClassificationResult } from '@/features/classification/lib/types';
+import type { ClassificationResult, IrisClaim, IrisClaimGroup } from '@/features/classification/lib/types';
 import type { SystemCard } from '@/features/systems/lib/types';
 import { mockSystems, writeFile } from '../fixtures/systems';
 import { mockTime } from '../time';
@@ -73,6 +74,150 @@ const BASE = {
   decided_by: 'gemini+iris',
   verifier_problems: [],
 };
+
+/** One claim put to Iris: agrees when Iris's P(true) lands on the agent's side of 0.5. */
+function claim(key: string, statement: string, agent: boolean, iris: number | null): IrisClaim {
+  const group = key.split(':')[0] as IrisClaimGroup;
+  const ref = key.split(':')[1] ?? null;
+  const agrees = iris === null ? null : iris >= 0.5 === agent;
+  return {
+    key,
+    group,
+    provision_id: ref?.startsWith('AIA.') ? ref : null,
+    statement,
+    agent,
+    iris,
+    agrees,
+    strong_disagreement: agrees === false && (agent ? iris! <= 0.2 : iris! >= 0.8),
+  };
+}
+
+function irisSummary(claims: IrisClaim[]) {
+  const agree = claims.filter((c) => c.agrees === true).length;
+  const disagree = claims.filter((c) => c.agrees === false).length;
+  return { checked: agree + disagree, agree, disagree };
+}
+
+const PARSER_CLAIMS: IrisClaim[] = [
+  claim(
+    'annex_iii:AIA.ANNEX_III.4.a',
+    'The system is intended to be used for the recruitment or selection of natural persons (Annex III 4(a)).',
+    true,
+    0.88,
+  ),
+  claim(
+    'art5:AIA.5.1.f',
+    'The system infers the emotions of natural persons in the workplace (Art. 5(1)(f)).',
+    false,
+    0.06,
+  ),
+  claim('art6_3:condition', 'The system only performs a narrow procedural task (Art. 6(3)(a)).', true, 0.71),
+  claim(
+    'art6_3:profiling',
+    'The system profiles natural persons within the meaning of Art. 4(4) GDPR (Art. 6(3), last subparagraph).',
+    false,
+    0.24,
+  ),
+  claim('art50:AIA.50.1', 'The system interacts directly with natural persons (Art. 50(1)).', false, 0.12),
+  claim(
+    'role',
+    'The organisation is the provider: it develops the system and puts it into service under its own name (Art. 3(3)).',
+    true,
+    0.93,
+  ),
+  claim(
+    'annex_i',
+    'The system is a safety component of a product covered by Annex I Union harmonisation legislation.',
+    false,
+    0.02,
+  ),
+  claim('assumption:ai_system', 'The system is an AI system within the meaning of Art. 3(1).', true, 0.9),
+  claim('assumption:no_ranking', 'The system does not score, rank or filter candidates.', true, 0.46),
+  claim(
+    'assumption:no_traits',
+    'The system does not infer personal traits (fit, personality, reliability) from the CV.',
+    true,
+    0.85,
+  ),
+  claim('assumption:human_check', 'Recruiters check every extracted field before it is used.', true, 0.77),
+  claim(
+    'counter:1',
+    'The parser’s output order or field completeness is used to filter or shortlist candidates.',
+    false,
+    0.55,
+  ),
+];
+
+const CREDIT_CLAIMS: IrisClaim[] = [
+  claim(
+    'annex_iii:AIA.ANNEX_III.5.b',
+    'The system is intended to be used to evaluate the creditworthiness of natural persons or establish their credit score (Annex III 5(b)).',
+    true,
+    0.91,
+  ),
+  claim(
+    'art5:AIA.5.1.c',
+    'The score leads to detrimental treatment in social contexts unrelated to where the data was collected (social scoring, Art. 5(1)(c)).',
+    false,
+    0.22,
+  ),
+  claim(
+    'art5:AIA.5.1.f',
+    'The system infers the emotions of natural persons in the workplace (Art. 5(1)(f)).',
+    false,
+    0.04,
+  ),
+  claim(
+    'art6_3:condition',
+    'The system only performs a narrow procedural or preparatory task (Art. 6(3)(a)-(d)).',
+    false,
+    0.34,
+  ),
+  claim(
+    'art6_3:profiling',
+    'The system profiles natural persons within the meaning of Art. 4(4) GDPR (Art. 6(3), last subparagraph).',
+    true,
+    0.81,
+  ),
+  claim('art50:AIA.50.1', 'The system interacts directly with natural persons (Art. 50(1)).', false, 0.18),
+  claim(
+    'role',
+    'The organisation is the provider: it develops the system and puts it into service under its own name (Art. 3(3)).',
+    true,
+    0.95,
+  ),
+  claim(
+    'annex_i',
+    'The system is a safety component of a product covered by Annex I Union harmonisation legislation.',
+    false,
+    0.03,
+  ),
+  claim('assumption:ai_system', 'The system is an AI system within the meaning of Art. 3(1).', true, 0.97),
+  claim(
+    'assumption:consumer_lending',
+    'The score is used for consumer lending decisions, not only to detect financial fraud.',
+    true,
+    0.08,
+  ),
+  claim(
+    'assumption:human_review',
+    'A credit officer reviews every declined application before the decision is final.',
+    true,
+    0.41,
+  ),
+  claim(
+    'assumption:natural_persons',
+    'The applicants scored are natural persons, not companies.',
+    true,
+    0.89,
+  ),
+  claim(
+    'counter:1',
+    'The score is used only to detect financial fraud, so point 5(b) excepts it.',
+    false,
+    0.58,
+  ),
+];
 
 /** A CV parser that only structures CVs: Annex III 4(a) considered, Art. 6(3)(a) holds. */
 function parserResult(): ClassificationResult {
@@ -159,6 +304,8 @@ function parserResult(): ClassificationResult {
       profiling: 0.12,
     },
     agreement: true,
+    iris_claims: PARSER_CLAIMS,
+    iris_summary: irisSummary(PARSER_CLAIMS),
     needs_human: false,
     needs_human_reasons: [],
     trace_id: null,
@@ -168,8 +315,19 @@ function parserResult(): ClassificationResult {
 function highRiskResult(point: '4.a' | '5.b', opts: { needsHuman?: boolean } = {}): ClassificationResult {
   const recruit = point === '4.a';
   const annexId = `AIA.ANNEX_III.${point}`;
+  const claims = !recruit && opts.needsHuman ? CREDIT_CLAIMS : null;
   return {
     ...BASE,
+    ...(!recruit && {
+      art5_screening: [
+        {
+          provision_id: 'AIA.5.1.c',
+          applies: false,
+          why: 'The score is used only for the lending decision it was built for, not in unrelated contexts.',
+        },
+        ...BASE.art5_screening,
+      ],
+    }),
     risk_class: 'high_risk',
     route: 'art6_2_annex_iii',
     annex_basis: recruit ? 'Annex III 4(a)' : 'Annex III 5(b)',
@@ -252,9 +410,14 @@ function highRiskResult(point: '4.a' | '5.b', opts: { needsHuman?: boolean } = {
           profiling: 0.9,
         },
     agreement: true,
+    ...(claims && { iris_claims: claims, iris_summary: irisSummary(claims) }),
     needs_human: !!opts.needsHuman,
     needs_human_reasons: opts.needsHuman
-      ? ['Classifier confidence 58% is below 60%.', 'Iris confidence 52% is below 60%.']
+      ? [
+          'Classifier confidence 58% is below 60%.',
+          'Iris confidence 52% is below 60%.',
+          'Iris strongly disagrees that the score is used for consumer lending.',
+        ]
       : [],
     trace_id: null,
   } as ClassificationResult;
