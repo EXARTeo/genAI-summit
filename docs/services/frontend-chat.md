@@ -24,7 +24,11 @@ src/features/chat/
 │   ├── cotTitle.ts, toolPresentation.ts   CoT block titles and per-tool step titles/icons (magenticx ports)
 │   ├── streamScroll.ts   stick-to-bottom state while streaming (magenticx streamScroll.ts)
 │   ├── tableExport.ts, codeExport.ts, download.ts, messageFormat.ts   copy/download helpers, clock/usage format
-│   ├── transport.ts      run WebSocket with subscribe/since replay + reconnect (mock bus in mock mode)
+│   ├── transport.ts      run, conversation and task WebSockets with subscribe/since replay + reconnect (mock bus in mock mode)
+│   ├── answerGroups.ts   consecutive AI messages (answer + wake-up replies) as one stacked answer (magenticx port)
+│   ├── taskMarkers.ts    task marker words ("General Purpose finished · 22s", "Sent an update to …")
+│   ├── taskTranscript.ts a background task's event log → its turns (instruction, follow-ups, replies)
+│   ├── notificationEcho.ts   hides a task notification the model echoed into its answer
 │   ├── routes.ts         UI + API paths
 │   ├── mockRuns.ts       mock mode: conversation store + scripted AG-UI runs
 │   └── mockRoutes.ts     mock REST routes (registered by shared/lib/mocks/handlers/chat.ts)
@@ -32,6 +36,9 @@ src/features/chat/
 ├── hooks/
 │   ├── runStore.ts       live runs app-wide (zustand), socket lifecycle, cache patching on terminal frames
 │   ├── useChat.ts        the controller: visible branch, active run, send/edit/retry/stop/decide/answer/rate
+│   ├── useConversationChannel.ts   the conversation socket: wake-up runs (`run_started`), task frames, queue state
+│   ├── useTaskTranscript.ts, useTaskRecord.ts   one task's live event log (task socket); one task from the task list
+│   ├── useAgentMapNav.ts "open this task in the agent map" from a chat marker (zustand)
 │   ├── useComposer.ts    draft + attachments with read progress (a failed read stays as a red chip)
 │   ├── useAttachmentActions.tsx   a sent file's bytes, Download, "Save to <system> folder" for the shared chip / preview
 │   ├── useSidebarUi.ts   section fold state (localStorage) + the chat search panel's open state (zustand)
@@ -54,7 +61,8 @@ src/features/chat/
     └── message_parts/   ChatMarkdown (GFM + highlight.js, code header with copy/download), MarkdownTable (copy,
                          CSV/Markdown download), ThinkingBlock + CoTStep (CoT), ToolCallView (+ sources), SubagentCard
                          (nested sub-agents inside their parent's card on a connector rail), SubagentStatusChip,
-                         RunBlocks (artifact, task rows), MessageAttachments (shared FileChip + ImageGrid), ActionBars, BranchControls,
+                         RunBlocks (artifact, task launch card), ConversationMarkers (TaskMarker, TaskUpdateMarker on a
+                         wavy rule), TaskNoticeRow (wake-up input row), TaskSettledMarker (result pulled inline), MessageAttachments (shared FileChip + ImageGrid), ActionBars, BranchControls,
                          MessageUsage (usage gauge + tooltip)
 ```
 
@@ -145,8 +153,34 @@ something to show; each opens a modal panel (`ComposerPanel`).
   instruction) inside the parent's `SUBAGENT_EVENT` envelope; parents are resolved by namespace prefix
   (`lib/subagentTree.ts`). **Background tasks** (Mnamon runs every sub-agent as one with
   `ASYNC_SUBAGENTS_ENABLED`) come from `GET /v1/conversations/{id}/tasks`, polled every 3 s while a run or a task
-  works, nested by `parent_task_id` under the answer in `spawned_by_message_id` / `root_run_id`; their detail shows
-  the description as the instruction and `result_preview` (or the error) as the reply.
+  works and kept live by the conversation socket's `task` frames, nested by `parent_task_id` under the answer in
+  `spawned_by_message_id` / `root_run_id`. Their detail shows the task's **whole conversation** from its own event
+  stream (`WS /v1/tasks/{id}/ws`, `hooks/useTaskTranscript.ts` → `lib/taskTranscript.ts`): the description as the
+  first instruction bubble ("Mnamon Copilot → General Purpose"), its thinking, tool steps and reply, then every
+  follow-up the orchestrator sent (`update_async_task`, a `TASK_INPUT` event, "· follow-up") followed by the reply
+  to it, in order. Each run of a task restarts `seq`, so the fold drops `seq` and trusts the stream order.
+
+## Background tasks in the conversation
+
+Ported from magenticx (`lib/answerGroups.ts`, `ChatBody.tsx`, `TaskNoticeRow`, `TaskSettledMarker`,
+`ConversationMarkers`, `TaskRefBlockView`).
+
+- **Live wake-ups:** `hooks/useConversationChannel.ts` keeps `WS /v1/inference/conversations/{id}/ws` open for the
+  open chat. `run_started` (a task's wake-up, or the queued message being sent) refetches the conversation (the
+  notice row and the new answer join the branch, which follows `activeRunId`) and attaches the run socket, so the
+  orchestrator's reply streams in without a reload. `task` frames update the task list; `queue` frames the composer queue.
+- **Markers** (`message_parts/ConversationMarkers.tsx`, one family: an italic headline over a wavy rule with the
+  outcome): the wake-up's input row (`kind = task_notification`, sender `user`) is `TaskNoticeRow`, "General
+  Purpose finished · 22s" / Finished, never a bubble; a result pulled into a busy run (`TASK_SETTLED_INLINE`) is
+  `TaskSettledMarker`; a follow-up (`TASK_LAUNCHED` with `action: update`) is `TaskUpdateMarker`, "Sent an update to
+  General Purpose" with what was sent. Each headline (and the launch card) opens that task's detail in the agent map
+  (`useAgentMapNav`). magenticx's compaction marker is not ported (no compaction data).
+- **Stacked answers** (`lib/answerGroups.ts`): consecutive AI messages with only notice rows between them are one
+  answer. The parts sit tight with the markers between them and only the last carries the action bar: Try again
+  regenerates the whole answer from its first part, Copy takes every part, the branch switcher switches whole answers.
+- **Echoed notifications:** some models (Gemini Flash Lite) copy the `<task-notification>` blocks into their reply.
+  The prompt forbids it, the backend strips them from the stored answer (`utils/notification_echo.py`) and the UI
+  hides them in streamed blocks (`lib/notificationEcho.ts`).
 - **Plan** (`plan_parts/`, `lib/conversationPlans.ts`, `lib/planTiming.ts`): the main agent's `write_todos`
   checklist per answer, the latest open on top and earlier plans folded below; the same plan rewritten by a later
   answer updates in place. Steps on a rail: done (filled check + how long it took, from successive
@@ -167,9 +201,8 @@ something to show; each opens a modal panel (`ComposerPanel`).
   delegation rows); one live run store instead of `useInferenceRuns` + `useBackgroundTasks`.
 - **Dropped** (no backend or out of scope): login/accounts, sharing, voice, automations/workflows, agent builder,
   incognito, effort/model pickers, context-compaction control and gauge, charts (`RENDER_CHART`),
-  inline citation pills (sources show as chips on the search step instead), conversation rail/markers, favicons
-  (initial letter instead), the conversation-channel socket (task frames, queue state) and the task drill-down
-  socket.
+  inline citation pills (sources show as chips on the search step instead), the conversation rail, the
+  compaction marker, favicons (initial letter instead).
 
 ## Backend gaps found
 

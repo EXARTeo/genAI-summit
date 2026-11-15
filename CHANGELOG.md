@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Background tasks in the chat, live and stacked** (ported from mAgenticX): the open chat keeps the conversation socket open, so a task's wake-up run (and the queued message) streams in without a reload. The wake-up's input row is a marker ("General Purpose finished · 22s" over a wavy Finished rule), never a bubble; a result pulled into a busy run and a follow-up ("Sent an update to General Purpose") are markers of the same family, and each opens the task in the agent map. An answer and its wake-up replies stack as one answer with one action bar at the end (Try again regenerates it from its first part, Copy takes every part).
+- **A background task's whole conversation in the agent map:** its detail streams the task's own events (`WS /v1/tasks/{id}/ws`): the instruction, thinking, tool steps and reply, then every follow-up the orchestrator sent with `update_async_task` as another bubble and the reply to it, in order. A follow-up that joins a first run that had not started is now announced (`TASK_INPUT`) too.
 - **Folder tab as one explorer with in-tree uploads:** the separate "Add files for the agent" card is gone. Hovering (or focusing) a folder or the root row shows an "Add files" button that uploads into that folder, and files dropped on a folder row land there (closed folders open on drag-over; a spinner on the row, then a toast, and the new file is selected). Tree pane with file-type icons, per-folder counts and version / size on hover; the viewer fills the height and wraps long lines (`CodeBlock` gains `wrap`). Re-uploading a path refreshes the open file and its versions at once.
 - **Plugins tab, simpler cards:** each card shows the name, its step and access type in plain words ("Step 2 of 3, MLflow model"), one sentence on what it does, a strip with its neighbours in the pipeline, the model as a one-line chip (full URI in a tooltip) and three facts (returns, rate limit, timeout). Expected behaviour (must / must never / known limitations as a checklist), the connection and the test hints move to a Details side panel with a link to edit `plugin.yaml` in the Folder tab. The header gets a count and an "Open folder" link.
 
@@ -39,6 +41,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- **Raw task notifications in wake-up answers:** Gemini Flash Lite copied the `<task-notification>` blocks it was woken with into its reply. The orchestrator prompt now forbids it, the backend strips them from the stored answer and the chat hides them while streaming.
 - The theme menu opens from the collapsed sidebar: `Tooltip` now forwards its ref and props to its trigger, so it works as another `asChild` trigger (the menu's click handler was lost).
 
 ### Changed
