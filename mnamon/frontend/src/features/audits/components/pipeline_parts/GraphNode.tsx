@@ -77,7 +77,7 @@ export function GraphNode({ stage, state, summary, selected, onReview }: GraphNo
         </div>
         <div
           className={cn(
-            'truncate text-[11.5px] leading-4',
+            'mt-0.5 line-clamp-2 text-[12px] leading-[16px]',
             state === 'active' && 'text-shimmer font-medium',
             state === 'needs-approval' && 'font-medium text-warning',
             state === 'blocked' && 'font-medium text-danger',

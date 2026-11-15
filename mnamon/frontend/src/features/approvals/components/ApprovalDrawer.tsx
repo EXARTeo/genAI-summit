@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, MessageSquareWarning, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ArtifactBody } from '@/features/audits/components/ArtifactPanel';
-import { TraceLink } from '@/features/audits/components/artifact_parts/common';
 import { PublicCandidatesView, ReviewNote } from '@/features/audits/components/artifact_parts/PlanViews';
 import { GateCards, ProvenanceYaml } from '@/features/audits/components/artifact_parts/SpecViews';
 import { useAudit, useDecideGate } from '@/features/audits/hooks/useAudits';
@@ -227,11 +226,6 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
               <div className="num flex items-center gap-3">
                 <span>{auditLabel(audit)}</span>
                 <span className="font-mono">kb {auditKbVersion(audit) ?? '–'}</span>
-                <TraceLink
-                  className="ml-auto"
-                  traceId={audit.data.stageTraces?.[stage?.id ?? ''] ?? audit.data.traceId}
-                  label="Step trace"
-                />
               </div>
               {audit.data.trigger && audit.data.trigger !== 'manual' && (
                 <div className="truncate">Triggered by {audit.data.trigger}</div>

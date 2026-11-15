@@ -3,8 +3,6 @@
 interface ImportMetaEnv {
   readonly VITE_USE_MOCKS?: string;
   readonly VITE_DEV_BACKEND_URL?: string;
-  readonly VITE_LANGFUSE_URL?: string;
-  readonly VITE_LANGFUSE_PROJECT_ID?: string;
 }
 
 interface ImportMeta {

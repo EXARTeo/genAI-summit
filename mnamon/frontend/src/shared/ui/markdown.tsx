@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { plainMath } from '@/shared/lib/math';
 import { cn } from '@/shared/lib/utils';
 
 export interface MarkdownProps {
@@ -19,7 +20,7 @@ export function Markdown({ children, className, streaming }: MarkdownProps) {
           a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer noopener" />,
         }}
       >
-        {children}
+        {plainMath(children)}
       </ReactMarkdown>
       {streaming && <span className="stream-caret" aria-hidden />}
     </div>

@@ -18,8 +18,15 @@ describe('pipeline graph', () => {
     const l = graphLayout(1100, (id) => id === 'approve_datasets');
     expect(l.positions.load_context.y).toBe(l.positions.profile_model.y);
     expect(l.positions.plan_scenarios.y).toBe(l.positions.approve_scenarios.y);
-    expect(l.positions.find_public_data.x).toBe(l.positions.load_context.x);
-    expect(l.positions.draft_spec.x).toBeCloseTo(l.positions.find_public_data.x + l.colWidth);
+    // Each phase's row is centred in its band (short phases spread out, not left-aligned).
+    const centre = (first: string, last: string) =>
+      (l.positions[first].x + l.positions[last].x + l.positions[last].width) / 2;
+    expect(centre('load_context', 'profile_model')).toBeCloseTo(l.width / 2);
+    expect(centre('plan_scenarios', 'approve_scenarios')).toBeCloseTo(l.width / 2);
+    expect(centre('run_inference', 'report')).toBeCloseTo(l.width / 2);
+    expect(l.positions.draft_spec.x).toBeCloseTo(
+      l.positions.find_public_data.x + l.positions.find_public_data.width,
+    );
     expect(l.positions.find_public_data.y).toBeGreaterThan(l.positions.approve_scenarios.y);
     expect(l.positions.approve_datasets.height).toBe(GRAPH.box + GRAPH.label + GRAPH.action);
     expect(l.positions.load_context.height).toBe(GRAPH.box + GRAPH.label);

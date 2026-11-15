@@ -21,7 +21,6 @@ import {
   toTestResults,
 } from '../lib/adapters';
 import type { Artifact } from '../lib/types';
-import { TraceLink } from './artifact_parts/common';
 import { CriticView, FindingsView, ReportView } from './artifact_parts/FindingViews';
 import { ModelProfileView } from './artifact_parts/ModelProfileView';
 import {
@@ -110,14 +109,12 @@ function StepHeader({
   state,
   index,
   duration,
-  traceId,
   compact,
 }: {
   stage: StageDef;
   state: StepState;
   index: number;
   duration?: number;
-  traceId?: string;
   /** The title lives in a surrounding panel header: show only the position, time and trace. */
   compact?: boolean;
 }) {
@@ -129,9 +126,6 @@ function StepHeader({
           {stage.gate && ' · Human gate'}
         </span>
         {state === 'done' && duration != null && <span className="num">· {formatDuration(duration)}</span>}
-        <span className="ml-auto">
-          {state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}
-        </span>
       </div>
     );
   }
@@ -147,7 +141,6 @@ function StepHeader({
       </div>
       <div className="flex items-center gap-3 pt-1 text-xs text-muted">
         {state === 'done' && duration != null && <span className="num">{formatDuration(duration)}</span>}
-        {state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}
       </div>
     </div>
   );
@@ -157,7 +150,6 @@ export interface ArtifactPanelProps {
   stage: StageDef;
   state: StepState;
   artifacts: Artifact[];
-  traceId?: string;
   /** Seconds the step took. */
   duration?: number;
   /** Position in STAGES. */
@@ -173,7 +165,6 @@ export function ArtifactPanel({
   stage,
   state,
   artifacts,
-  traceId,
   duration,
   index = 0,
   onReview,
@@ -287,14 +278,7 @@ export function ArtifactPanel({
         animate="animate"
         exit="exit"
       >
-        <StepHeader
-          stage={stage}
-          state={state}
-          index={index}
-          duration={duration}
-          traceId={traceId}
-          compact={!showHeader}
-        />
+        <StepHeader stage={stage} state={state} index={index} duration={duration} compact={!showHeader} />
         {facts}
         {body}
       </motion.div>

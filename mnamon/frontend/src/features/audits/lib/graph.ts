@@ -37,7 +37,7 @@ export const GRAPH = {
   padX: 16,
   header: 40,
   box: 60,
-  label: 56,
+  label: 72,
   action: 40,
   padBottom: 16,
   groupGap: 34,
@@ -51,23 +51,30 @@ export function phaseOf(stageId: string): number {
 
 export interface GraphLayout {
   width: number;
+  /** Width of the widest phase's columns (the densest row). */
   colWidth: number;
   height: number;
   groups: { id: string; y: number; height: number }[];
   /** Node frame (column-wide); the icon box sits centred at its top. */
-  positions: Record<string, { x: number; y: number; height: number }>;
+  positions: Record<string, { x: number; y: number; width: number; height: number }>;
 }
 
 /** Phase bands stacked top to bottom; `hasAction(stage)` = the node carries a decision button. */
 export function graphLayout(width: number, hasAction: (stageId: string) => boolean): GraphLayout {
   const w = Math.max(width, GRAPH.minWidth);
-  const colWidth = (w - GRAPH.padX * 2) / GRAPH.columns;
+  const inner = w - GRAPH.padX * 2;
+  const colWidth = inner / GRAPH.columns;
+  // A short phase must not look half empty: its steps spread over the band (up to 1.5 columns
+  // each) and the row is centred, so every phase reads as one deliberate row.
+  const maxCol = colWidth * 1.5;
   const positions: GraphLayout['positions'] = {};
   let y = 0;
   const groups = PHASES.map((p) => {
     const rowH = GRAPH.box + GRAPH.label + (p.stages.some(hasAction) ? GRAPH.action : 0);
+    const col = Math.min(inner / p.stages.length, maxCol);
+    const left = GRAPH.padX + (inner - col * p.stages.length) / 2;
     p.stages.forEach((id, i) => {
-      positions[id] = { x: GRAPH.padX + i * colWidth, y: y + GRAPH.header, height: rowH };
+      positions[id] = { x: left + i * col, y: y + GRAPH.header, width: col, height: rowH };
     });
     const g = { id: p.id, y, height: GRAPH.header + rowH + GRAPH.padBottom };
     y += g.height + GRAPH.groupGap;

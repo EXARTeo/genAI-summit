@@ -6,7 +6,6 @@ import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
 import { AgentThinking, Card, EmptyState, ErrorState, PageHeader, Skeleton, StatusPill } from '@/shared/ui';
 import { StartAuditMenu } from '@/features/systems/components/StartAuditButton';
-import { TraceLink } from '../components/artifact_parts/common';
 import { useAudits } from '../hooks/useAudits';
 import { STAGES, progress, stageIndex, statusLabel } from '../lib/pipeline';
 import { auditLabel } from '@/shared/lib/labels';
@@ -20,7 +19,7 @@ export function AuditsListPage() {
     <div>
       <PageHeader
         title="Audits"
-        description="Agent audit runs: context, scenarios, synthetic data, tests, findings and reports, each step traced in Langfuse."
+        description="Agent audit runs: context, scenarios, synthetic data, tests, findings and reports."
         actions={<StartAuditMenu />}
       />
       {error && <ErrorState error={error} onRetry={() => void refetch()} />}
@@ -84,7 +83,6 @@ export function AuditsListPage() {
                       <div className="num mt-0.5 flex items-center gap-2 truncate text-2xs text-muted">
                         <span>{auditLabel(a)}</span>
                         {a.data.kbVersion && <span className="font-mono">kb {a.data.kbVersion}</span>}
-                        <TraceLink traceId={a.data.traceId} label="trace" />
                       </div>
                     </div>
                     <div className="min-w-0 text-xs">

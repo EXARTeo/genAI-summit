@@ -301,7 +301,7 @@ export function PipelineFlow({
           type: 'step',
           ariaLabel: `Step ${i + 1}: ${s.label}${s.gate ? ' (human gate)' : ''}, ${STATE_WORD[states[s.id]]}. Press Enter to open.`,
           position: { x: pos.x, y: pos.y },
-          style: { width: layout.colWidth, height: pos.height, ['--pg-delay' as string]: `${i * 45}ms` },
+          style: { width: pos.width, height: pos.height, ['--pg-delay' as string]: `${i * 45}ms` },
           data: {
             stage: s,
             state: states[s.id],
@@ -352,7 +352,7 @@ export function PipelineFlow({
   // slide back to the resting view when it closes.
   const sel = layout.positions[selected];
   const hasSel = !!sel;
-  const selX = sel ? sel.x + layout.colWidth / 2 : 0;
+  const selX = sel ? sel.x + sel.width / 2 : 0;
   useEffect(() => {
     const rf = flow.current;
     const el = wrap.current;

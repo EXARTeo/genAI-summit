@@ -37,7 +37,15 @@ ${styles}
   body { padding: 0; margin: 0; }
   .report-print-root { max-width: 100%; padding: 0; }
   .print\\:hidden, [data-print="hide"] { display: none !important; }
-  article, section, table, tr, li { break-inside: avoid; }
+  /* Small blocks stay whole; whole sections may break across pages (forcing them whole
+     scrambled long ones). Each report section after the first starts on a new page. */
+  article, table, tr, li, .rounded-lg { break-inside: avoid; }
+  .report-section + .report-section { break-before: page; }
+  .report-section > div:first-child { margin-top: 4mm; }
+  h2, h3 { break-after: avoid; }
+  /* Room for two-digit list numbers (10., 11. were cut off at the edge). */
+  .markdown ol { padding-left: 2.2em; }
+  .markdown ul { padding-left: 1.6em; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 </style>
 </head>

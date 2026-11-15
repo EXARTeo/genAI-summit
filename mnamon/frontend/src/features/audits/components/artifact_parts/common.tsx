@@ -1,8 +1,7 @@
-import { BookMarked, ExternalLink, Scale } from 'lucide-react';
+import { Scale } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Tooltip } from '@/shared/ui';
-import { traceUrl } from '../../lib/langfuse';
 import { TONE_CLASSES, confidenceLabel, verdictStyle, type Tone } from '../../lib/styling';
 import type { Citation } from '../../lib/types';
 
@@ -65,40 +64,6 @@ export function CitationChip({ c }: { c: Citation }) {
         </Badge>
       </span>
     </Tooltip>
-  );
-}
-
-export function TraceLink({
-  traceId,
-  label = 'Langfuse trace',
-  className,
-  variant = 'link',
-}: {
-  traceId?: string | null;
-  label?: string;
-  className?: string;
-  /** `button`: a secondary button (page headers); `link`: inline text link. */
-  variant?: 'link' | 'button';
-}) {
-  const url = traceUrl(traceId);
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className={cn(
-        variant === 'button'
-          ? 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-text shadow-card transition-colors hover:bg-surface-muted [&_svg]:size-3.5'
-          : 'inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-primary [&_svg]:size-3',
-        className,
-      )}
-    >
-      <BookMarked className={variant === 'button' ? 'text-muted' : ''} />
-      {label}
-      <ExternalLink className="opacity-60" />
-    </a>
   );
 }
 

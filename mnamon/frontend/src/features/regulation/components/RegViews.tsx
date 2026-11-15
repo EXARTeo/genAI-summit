@@ -10,7 +10,6 @@ import {
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { TraceLink } from '@/features/audits/components/artifact_parts/common';
 import { TONE_CLASSES } from '@/features/audits/lib/styling';
 import { formatBytes, formatDateTime, formatRelative } from '@/shared/lib/format';
 import { listItem, staggerList } from '@/shared/lib/motion';
@@ -232,7 +231,6 @@ export function RegChangeCard({ c }: { c: RegChange }) {
               {p}
             </Badge>
           ))}
-          <TraceLink traceId={c.traceId} className="ml-auto" />
         </div>
 
         {c.judge === 'running' && (

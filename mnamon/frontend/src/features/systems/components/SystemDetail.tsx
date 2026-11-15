@@ -1,8 +1,11 @@
 import { BookText, FolderTree, ListChecks, Puzzle, ScrollText } from 'lucide-react';
+import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorState, Skeleton, SkeletonText, Tabs } from '@/shared/ui';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
+import { useAudits } from '@/features/audits/hooks/useAudits';
 import { useSystem } from '../hooks/useSystems';
+import { withLastAudits } from '../lib/adapters';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
 import { StartAuditButton } from './StartAuditButton';
 import { FolderTab } from './detail_parts/FolderTab';
@@ -21,7 +24,11 @@ export function SystemDetail() {
   const { systemId = '', tab } = useParams();
   const navigate = useNavigate();
   const active: SystemTab = SYSTEM_TABS.includes(tab as SystemTab) ? (tab as SystemTab) : 'overview';
-  const { data: system, isLoading, error, refetch } = useSystem(systemId);
+  const { data: raw, isLoading, error, refetch } = useSystem(systemId);
+  // The backend does not send `last_audit`; fill it from the audits list exactly as the
+  // Systems list does, so the header and Overview agree with it.
+  const { data: audits } = useAudits();
+  const system = useMemo(() => (raw ? withLastAudits([raw], audits ?? [])[0] : raw), [raw, audits]);
 
   if (error) {
     return <ErrorState title={`Could not load ${systemId}`} error={error} onRetry={() => refetch()} />;

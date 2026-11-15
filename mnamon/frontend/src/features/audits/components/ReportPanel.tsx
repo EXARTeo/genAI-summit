@@ -1,6 +1,7 @@
 import { AlertTriangle, FileDown, Scale } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
 import { formatDateTime } from '@/shared/lib/format';
+import { plainMath } from '@/shared/lib/math';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Button, Card, EmptyState, Markdown, Skeleton } from '@/shared/ui';
 import { useAuditFindings } from '../hooks/useAudits';
@@ -25,7 +26,7 @@ function ReportSection({
   note?: ReactNode;
 }) {
   return (
-    <section id={`report-${id}`} className="scroll-mt-20 break-inside-avoid">
+    <section id={`report-${id}`} className="report-section scroll-mt-20">
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-2">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         {note && <span className="text-xs text-muted">{note}</span>}
@@ -73,7 +74,7 @@ function Management({ data, derived }: { data: ReportData; derived: boolean }) {
           <h3 className="mb-1 text-sm font-semibold">Decisions needed</h3>
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {data.decisions!.map((d) => (
-              <li key={d}>{d}</li>
+              <li key={d}>{plainMath(d)}</li>
             ))}
           </ul>
         </div>
@@ -81,11 +82,12 @@ function Management({ data, derived }: { data: ReportData; derived: boolean }) {
       {(data.nextSteps?.length ?? 0) > 0 && (
         <div>
           <h3 className="mb-1 text-sm font-semibold">Next steps</h3>
-          <ul className="list-disc space-y-1 pl-5 text-sm">
+          {/* The report numbers its steps itself ("1. …"): keep one numbering, the list's. */}
+          <ol className="list-decimal space-y-1 pl-6 text-sm">
             {data.nextSteps!.map((d) => (
-              <li key={d}>{d}</li>
+              <li key={d}>{plainMath(d.replace(/^\s*\d+[.)]\s+/, ''))}</li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
     </div>

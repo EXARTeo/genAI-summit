@@ -26,7 +26,6 @@ import { AuditPipeline } from '../components/AuditPipeline';
 import { PipelineFlow } from '../components/PipelineFlow';
 import { StepFacts } from '../components/StepFacts';
 import { PipelineHeader, RunStatusCard, type RunChip } from '../components/pipeline_parts/PipelineHeader';
-import { TraceLink } from '../components/artifact_parts/common';
 import { useAudit, useRetryAudit } from '../hooks/useAudits';
 import { useElementHeight } from '../hooks/useElementHeight';
 import { useReplay } from '../hooks/useReplay';
@@ -219,7 +218,6 @@ export function AuditRunPage() {
   );
   const actions = (
     <>
-      <TraceLink traceId={audit.data.traceId} label="Full trace" variant="button" />
       <ChatAboutButton systemId={audit.systemId} auditId={audit.id} label="Chat about this audit" />
       {data?.status === 'done' &&
         (replaying ? (
@@ -274,7 +272,6 @@ export function AuditRunPage() {
       stage={stage}
       state={state}
       artifacts={audit.artifacts}
-      traceId={audit.data.stageTraces?.[stage.id]}
       duration={audit.data.stageDurations?.[stage.id]}
       index={STAGES.indexOf(stage)}
       onReview={() => setDrawer(true)}

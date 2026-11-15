@@ -48,10 +48,11 @@ export function withLastAudits(systems: System[], audits: AuditRow[]): System[] 
           id: a.id,
           status: a.status === 'waiting_approval' ? 'awaiting_approval' : a.status,
           at: a.updatedAt,
+          // The obligation pipeline counts `gap` / `pass`; older runs `indicates_gap` / `supports_compliance`.
           findings: v
             ? {
-                gaps: n('indicates_gap'),
-                supports: n('supports_compliance'),
+                gaps: n('gap') + n('indicates_gap'),
+                supports: n('pass') + n('supports_compliance'),
                 inconclusive: n('inconclusive'),
               }
             : undefined,
