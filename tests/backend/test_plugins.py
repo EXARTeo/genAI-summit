@@ -248,3 +248,46 @@ async def test_engineer_builds_the_pipeline_from_an_empty_system(client):
     assert gone.status_code == 200
     assert len(gone.json()["edges"]) == 1
     assert (await client.delete(f"{base}/plugins/components/SYS-009.nope")).status_code == 404
+
+
+async def test_fill_example_from_the_seed_case_copies_its_files(client, tmp_path, monkeypatch):
+    """A model with a seed plugin: the defaults carry it as `example`; saving with
+    copy_example_files copies its data dictionary and docs into the new plugin."""
+    seed = tmp_path / "systems" / "SYS-001" / "plugins" / "cv-ranker"
+    (seed / "data").mkdir(parents=True)
+    (seed / "plugin.yaml").write_text(
+        "id: SYS-001.cv-ranker\nname: Candidate ranker\n"
+        "access: {type: mlflow_model, uri: 'models:/sys-001-cv-ranker@champion'}\n"
+        "expected_behaviour: {task: Rank applicants, must: [score in 0..1]}\n",
+        encoding="utf-8",
+    )
+    (seed / "data" / "data-dictionary.yaml").write_text(
+        "version: 2\nfields: {}\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(plugins_util.settings.workspace, "seed_cases_dir", str(tmp_path))
+    await _seed(client)
+
+    out = (
+        await client.get(f"{BASE}/plugins/defaults", params={"component": "SYS-001.cv-ranker"})
+    ).json()
+    assert out["example"]["name"] == "Candidate ranker"
+    assert out["example_files"] == ["data/data-dictionary.yaml"]
+
+    card = {**out["example"], "access": out["example"]["access"]}
+    res = await client.put(
+        f"{BASE}/plugins/ranker",
+        json={"card": card, "component": "SYS-001.cv-ranker", "copy_example_files": True},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["files_copied"] == ["plugins/ranker/data/data-dictionary.yaml"]
+    copied = await client.get(f"{BASE}/files/plugins/ranker/data/data-dictionary.yaml")
+    assert copied.status_code == 200
+    again = await client.put(
+        f"{BASE}/plugins/ranker",
+        json={"card": card, "component": "SYS-001.cv-ranker", "copy_example_files": True},
+    )
+    assert again.json()["files_copied"] == []
+    none = (
+        await client.get(f"{BASE}/plugins/defaults", params={"model": "models:/other@champion"})
+    ).json()
+    assert none["example"] is None and none["example_files"] == []

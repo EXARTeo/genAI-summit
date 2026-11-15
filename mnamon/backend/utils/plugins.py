@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -328,6 +329,43 @@ def build_defaults(
     }
 
 
+#: Seed plugin files the "Fill example" copies (the plugin card itself is merged by the form).
+_EXAMPLE_SKIP = {"plugin.yaml", "plugin.yml"}
+
+
+def _model_key(uri: str | None) -> str | None:
+    """``models:/name@alias`` and ``models:/name/3`` -> ``name`` (the registered model)."""
+    match = _MODEL_URI.match(uri or "")
+    return match.group(1) if match else None
+
+
+def seed_example(model_uri: str | None) -> tuple[dict[str, Any], Path] | None:
+    """The seed case plugin (card + folder) that wraps this MLflow model, if any.
+
+    The seed cases (``SEED_CASES_DIR``) hold a hand-written plugin per demo model: the form's
+    "Fill example" uses its card, and saving with ``copy_example_files`` copies its docs and
+    data dictionary into the new plugin."""
+    key = _model_key(model_uri)
+    base = Path(settings.workspace.seed_cases_dir)
+    if not key or not base.is_dir():
+        return None
+    if (base / "systems").is_dir():
+        base = base / "systems"
+    for card_path in sorted(base.glob("*/plugins/*/plugin.yaml")):
+        card = _yaml(card_path.read_text(encoding="utf-8", errors="replace"))
+        if _model_key((card.get("access") or {}).get("uri")) == key:
+            return card, card_path.parent
+    return None
+
+
+def _example_files(folder: Path) -> list[str]:
+    return sorted(
+        f.relative_to(folder).as_posix()
+        for f in folder.rglob("*")
+        if f.is_file() and f.name not in _EXAMPLE_SKIP and not f.name.startswith(".")
+    )
+
+
 async def plugin_defaults(
     db: AsyncSession,
     system_id: str,
@@ -353,12 +391,15 @@ async def plugin_defaults(
         model or (component or {}).get("model") or ((existing or {}).get("access") or {}).get("uri")
     )
     info = await mlflow_model_info(model_uri)
+    example = seed_example(model_uri)
     return {
         "name": plugin_name,
         "component": component["id"] if component else None,
         "defaults": build_defaults(system_id, plugin_name, component, graph, model_uri, info),
         "existing": existing,
         "mlflow": info,
+        "example": example[0] if example else None,
+        "example_files": _example_files(example[1]) if example else [],
     }
 
 
@@ -431,6 +472,7 @@ async def save_plugin(
     reason: str | None = None,
     upstream: list[str] | None = None,
     downstream: list[str] | None = None,
+    copy_example_files: bool = False,
 ) -> dict[str, Any]:
     if not _NAME.match(name):
         raise HTTPException(status_code=422, detail="Plugin name: lowercase letters, digits, '-'.")
@@ -462,12 +504,16 @@ async def save_plugin(
         actor=actor,
         reason=reason or "plugin configured in the Plugins tab",
     )
+    copied = (
+        await _copy_example_files(db, system_id, name, card, actor) if copy_example_files else []
+    )
     return {
         "name": name,
         "path": row.path,
         "version": row.version,
         "changed": changed,
         "card": card,
+        "files_copied": copied,
         "architecture_updated": linked,
     }
 
@@ -623,3 +669,30 @@ async def remove_component(
         arch.pop("end_to_end_entry")
     await _write_arch(db, system_id, arch, actor, f"{component_id} removed from the graph")
     return await system_graph(db, system_id)
+
+
+async def _copy_example_files(
+    db: AsyncSession, system_id: str, name: str, card: dict[str, Any], actor: str
+) -> list[str]:
+    """Copy the seed plugin's docs and data (data dictionary, training-data notes...) into
+    ``plugins/<name>/``; a file the plugin already has is left alone."""
+    example = seed_example((card.get("access") or {}).get("uri"))
+    if not example:
+        return []
+    folder = example[1]
+    have = {row.path for row in await list_tree(db, system_namespace(system_id), f"plugins/{name}")}
+    copied = []
+    for rel in _example_files(folder):
+        path = f"plugins/{name}/{rel}"
+        if path in have:
+            continue
+        await put_file(
+            db,
+            namespace=system_namespace(system_id),
+            path=path,
+            content=(folder / rel).read_bytes(),
+            actor=actor,
+            reason="example files copied from the seed plugin",
+        )
+        copied.append(path)
+    return copied

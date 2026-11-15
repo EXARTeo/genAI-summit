@@ -70,6 +70,9 @@ class PluginDefaultsOut(BaseModel):
     #: The saved plugin.yaml, when the plugin exists.
     existing: dict[str, Any] | None = None
     mlflow: MlflowModelInfo
+    #: The seed case plugin for this model ("Fill example"), and its other files.
+    example: dict[str, Any] | None = None
+    example_files: list[str] = Field(default_factory=list)
 
 
 class PluginIn(BaseModel):
@@ -82,6 +85,8 @@ class PluginIn(BaseModel):
     #: Edges to add for this model: components before it / after it in the pipeline.
     upstream: list[str] = Field(default_factory=list, max_length=20)
     downstream: list[str] = Field(default_factory=list, max_length=20)
+    #: Copy the seed plugin's docs and data dictionary (after "Fill example").
+    copy_example_files: bool = False
 
 
 class PluginWriteOut(BaseModel):
@@ -91,6 +96,7 @@ class PluginWriteOut(BaseModel):
     changed: bool
     card: dict[str, Any]
     architecture_updated: bool = False
+    files_copied: list[str] = Field(default_factory=list)
 
 
 class ComponentIn(BaseModel):

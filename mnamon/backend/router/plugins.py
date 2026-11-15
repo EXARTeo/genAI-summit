@@ -104,6 +104,7 @@ async def put_plugin(
         reason=payload.reason,
         upstream=payload.upstream,
         downstream=payload.downstream,
+        copy_example_files=payload.copy_example_files,
     )
     await db.commit()
     logger.info(
