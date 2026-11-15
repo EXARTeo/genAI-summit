@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isQuietTool,
   provisionLabel,
+  toolFailureLine,
   toolImages,
   toolSummary,
   basename,
@@ -129,5 +130,16 @@ describe('quiet tools', () => {
     const result = JSON.stringify([{ type: 'image', preview_base64: 'AAAA', mime_type: 'image/jpeg' }]);
     expect(toolImages(result)).toEqual([{ src: 'data:image/jpeg;base64,AAAA', alt: 'Image' }]);
     expect(toolImages('plain text')).toEqual([]);
+  });
+});
+
+describe('quiet tool failures', () => {
+  it('hides Python exceptions behind a plain line', () => {
+    expect(
+      toolFailureLine("Tool 'lookup_provision' failed: AttributeError: 'str' object has no attribute 'get'"),
+    ).toBe("Couldn't complete this step");
+    expect(toolFailureLine('Could not read AIA.10.2: not found.')).toBe(
+      'Could not read AIA.10.2: not found.',
+    );
   });
 });

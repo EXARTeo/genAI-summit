@@ -38,6 +38,7 @@ import {
   parseCommandOutput,
   parseToolArgs,
   toolDurationLabel,
+  toolFailureLine,
   toolImages,
   toolMeta,
   toolSummary,
@@ -242,9 +243,9 @@ export function ToolCallView({ tool, isLast = false }: { tool: ToolStep; isLast?
             ? (TOOL_ICONS[tool.name] ?? Wrench)
             : PulsingClock;
 
-  // Read / list / search tools: a one-line summary, no Parameters / Result panes.
-  if (isQuietTool(tool.name) && !failed && !face) {
-    const summary = toolSummary(tool.name, tool.result);
+  // Read / list / search tools: a one-line summary, no Parameters / Result panes, even on failure.
+  if (isQuietTool(tool.name) && !face) {
+    const summary = failed ? toolFailureLine(tool.result) : toolSummary(tool.name, tool.result);
     const images = toolImages(tool.result);
     return (
       <CoTStep
@@ -259,7 +260,7 @@ export function ToolCallView({ tool, isLast = false }: { tool: ToolStep; isLast?
           </span>
         }
       >
-        {summary && <p className="text-xs text-muted">{summary}</p>}
+        {summary && <p className={cn('text-xs', failed ? 'text-danger' : 'text-muted')}>{summary}</p>}
         {images.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">
             {images.map((img, i) => (

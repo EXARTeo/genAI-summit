@@ -271,6 +271,16 @@ export const toolSummary = (name: string, result: string | undefined): string | 
   return undefined;
 };
 
+/**
+ * A failed quiet tool's one line: the error without the "Tool 'x' failed:" prefix or a
+ * Python exception class, e.g. "Couldn't read it (AttributeError)" → "Couldn't complete this step".
+ */
+export const toolFailureLine = (result: string | undefined): string => {
+  const text = (result ?? '').trim().replace(/^Tool '[^']+' failed:\s*/i, '');
+  if (!text || /^[A-Z]\w*(Error|Exception)\b/.test(text)) return "Couldn't complete this step";
+  return clip(text, 140);
+};
+
 /** Image thumbnails a tool result carries (`preview_base64` blocks, e.g. view_image). */
 export const toolImages = (result: string | undefined): { src: string; alt: string }[] => {
   if (!result || !result.includes('preview_base64')) return [];
