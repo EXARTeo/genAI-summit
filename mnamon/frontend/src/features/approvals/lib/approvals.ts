@@ -122,3 +122,38 @@ export function toApprovalIn(
 export function publicDataEdits(selected: string | null): Record<string, unknown> {
   return selected ? { selected } : {};
 }
+
+/** The reason the pipeline records when the reviewer leaves "Why exclude?" empty. */
+export const DEFAULT_EXCLUDE_REASON = 'excluded by the reviewer';
+
+/**
+ * The scenarios gate's default selection: every scenario except the ones the scenario judge
+ * (Iris or Gemini) reviewed as `not_relevant`. Plan order is kept.
+ */
+export function defaultScenarioSelection(
+  scenarios: { id: string; review?: { verdict: string } }[],
+): string[] {
+  return scenarios.filter((s) => s.review?.verdict !== 'not_relevant').map((s) => s.id);
+}
+
+/**
+ * The scenarios gate's edits for a partial approval (agents/pipeline/graph.py _keep_approved):
+ * `approved_scenarios` lists the kept ids in plan order, `excluded` maps every other id to the
+ * reviewer's reason (empty reason -> the default). Everything approved -> `{}` (no selection,
+ * the pipeline keeps every scenario). Zero approved is not a valid approval; the UI asks for
+ * "Request changes" instead.
+ */
+export function scenarioEdits(
+  approved: string[],
+  all: string[],
+  reasons: Record<string, string> = {},
+): Record<string, unknown> {
+  const keep = new Set(approved);
+  const kept = all.filter((id) => keep.has(id));
+  const dropped = all.filter((id) => !keep.has(id));
+  if (dropped.length === 0) return {};
+  return {
+    approved_scenarios: kept,
+    excluded: Object.fromEntries(dropped.map((id) => [id, reasons[id]?.trim() || DEFAULT_EXCLUDE_REASON])),
+  };
+}

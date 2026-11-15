@@ -195,6 +195,13 @@ const scenarios: ScenariosData = {
       n: 800,
       priority: 'low',
       rationale: 'cv-parser drops fields on scanned PDFs (plugin notes); the ranker must degrade gracefully.',
+      review: {
+        model: 'iris',
+        verdict: 'not_relevant',
+        rationale: 'The parser sits upstream of the ranker; its field drops are tested on the parser plugin.',
+        suggestedChange: null,
+        confidence: 0.64,
+      },
     },
   ],
 };

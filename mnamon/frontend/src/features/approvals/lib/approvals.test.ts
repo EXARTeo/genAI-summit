@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { buildMockAudits } from '@/features/audits/lib/mocks';
-import { EMPTY_DRAFT, REASONS, openGates, publicDataEdits, toApprovalIn, validateDraft } from './approvals';
+import {
+  DEFAULT_EXCLUDE_REASON,
+  EMPTY_DRAFT,
+  REASONS,
+  defaultScenarioSelection,
+  openGates,
+  publicDataEdits,
+  scenarioEdits,
+  toApprovalIn,
+  validateDraft,
+} from './approvals';
 
 describe('open gates', () => {
   it('lists audits paused at a HITL gate', () => {
@@ -83,5 +93,47 @@ describe('public_data gate', () => {
     );
     expect(body.edits).toEqual({ selected: 'uci:597' });
     expect(publicDataEdits(null)).toEqual({});
+  });
+});
+
+describe('scenarios gate', () => {
+  const all = ['SC-01', 'SC-02', 'SC-03', 'SC-04'];
+
+  it('sends no selection when every scenario is approved', () => {
+    expect(scenarioEdits(all, all)).toEqual({});
+    expect(scenarioEdits(['SC-04', 'SC-01', 'SC-03', 'SC-02'], all)).toEqual({});
+  });
+
+  it('sends the kept ids in plan order and a reason for every excluded one', () => {
+    const edits = scenarioEdits(['SC-03', 'SC-01'], all, { 'SC-02': '  no such field  ', 'SC-04': ' ' });
+    expect(edits).toEqual({
+      approved_scenarios: ['SC-01', 'SC-03'],
+      excluded: { 'SC-02': 'no such field', 'SC-04': DEFAULT_EXCLUDE_REASON },
+    });
+    const body = toApprovalIn(
+      'scenarios',
+      { decision: 'approved', reasonCategory: 'other', comment: '' },
+      'a',
+      edits,
+    );
+    expect(body.edits).toBe(edits);
+  });
+
+  it('ignores ids that are not in the plan', () => {
+    expect(scenarioEdits(['SC-01', 'SC-99'], ['SC-01', 'SC-02'])).toEqual({
+      approved_scenarios: ['SC-01'],
+      excluded: { 'SC-02': DEFAULT_EXCLUDE_REASON },
+    });
+  });
+
+  it('starts with everything checked except what the judge found not relevant', () => {
+    expect(
+      defaultScenarioSelection([
+        { id: 'SC-01', review: { verdict: 'relevant' } },
+        { id: 'SC-02', review: { verdict: 'not_relevant' } },
+        { id: 'SC-03', review: { verdict: 'needs_change' } },
+        { id: 'SC-04' },
+      ]),
+    ).toEqual(['SC-01', 'SC-03', 'SC-04']);
   });
 });

@@ -89,6 +89,40 @@ export function mockGet(id: string): AuditDetail | undefined {
   return l ? tick(l) : undefined;
 }
 
+/**
+ * A partial approval at the scenarios gate, as the pipeline does it (graph.py _keep_approved):
+ * keep `edits.approved_scenarios`, record the rest under `excluded` with the reviewer's reason.
+ * No selection, an empty one, or one that keeps everything leaves the plan as it is.
+ */
+export function applyScenarioSelection(
+  data: Record<string, unknown>,
+  edits: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const approved = edits.approved_scenarios;
+  const scenarios = Array.isArray(data.scenarios) ? (data.scenarios as Record<string, unknown>[]) : [];
+  if (!Array.isArray(approved)) return data;
+  const keep = new Set(approved.map(String));
+  const kept = scenarios.filter((s) => keep.has(String(s.id)));
+  if (!kept.length || kept.length === scenarios.length) return data;
+  const reasons = (edits.excluded && typeof edits.excluded === 'object' ? edits.excluded : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...data,
+    scenarios: kept,
+    approved_ids: kept.map((s) => s.id),
+    excluded: scenarios
+      .filter((s) => !keep.has(String(s.id)))
+      .map((s) => ({
+        id: s.id,
+        obligation_id: s.obligation_id ?? s.obligationId ?? null,
+        metric: s.metric ?? null,
+        reason: String(reasons[String(s.id)] || 'excluded by the reviewer'),
+      })),
+  };
+}
+
 export function mockDecide(id: string, body: ApprovalIn): ApprovalResult | undefined {
   const l = db().get(id);
   if (!l) return undefined;
@@ -111,6 +145,11 @@ export function mockDecide(id: string, body: ApprovalIn): ApprovalResult | undef
   const reviewed = new Set<string>(STAGES[gateIdx]?.gate?.reviews ?? []);
   const status = body.decision === 'approved' ? 'approved' : body.decision;
   l.pool = l.pool.map((x) => (reviewed.has(x.kind) ? { ...x, status, updatedAt: now } : x));
+  if (body.gate === 'scenarios' && body.decision === 'approved') {
+    l.pool = l.pool.map((x) =>
+      x.kind === 'scenarios' ? { ...x, data: applyScenarioSelection(x.data, body.edits) } : x,
+    );
+  }
   if (body.decision === 'approved' && gateIdx >= 0) {
     l.audit.status = 'running';
     l.audit.stage = STAGES[gateIdx + 1].id;

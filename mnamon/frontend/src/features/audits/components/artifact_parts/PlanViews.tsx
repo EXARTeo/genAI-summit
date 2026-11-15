@@ -129,14 +129,28 @@ export function MemoryCitation({ paths }: { paths: string[] }) {
 }
 
 export function ScenariosView({ data }: { data: ScenariosData }) {
+  const excluded = data.excluded ?? [];
+  const out = new Set(excluded.map((x) => x.id));
+  // The pipeline drops excluded scenarios from the list; filter anyway in case a copy keeps them.
+  const kept = data.scenarios.filter((s) => !out.has(s.id));
   return (
     <div>
-      {data.scenarios.length === 0 ? (
+      {excluded.length > 0 && (
+        <p className="num mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <Badge tone="success" icon={<CheckCircle2 />}>
+            {kept.length} of {kept.length + excluded.length} approved at the gate
+          </Badge>
+          <span className="text-xs text-muted">
+            {excluded.length} excluded by the reviewer; only the approved scenarios are tested.
+          </span>
+        </p>
+      )}
+      {kept.length === 0 ? (
         <p className="text-sm text-muted">No scenarios {DASH}</p>
       ) : (
         <SimpleTable
           head={['Test', 'Groups', 'N', 'Why']}
-          rows={data.scenarios.map((s) => [
+          rows={kept.map((s) => [
             <div className="min-w-[13rem] max-w-[22rem]">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-muted">{s.id}</span>
@@ -167,6 +181,32 @@ export function ScenariosView({ data }: { data: ScenariosData }) {
             </div>,
           ])}
         />
+      )}
+      {excluded.length > 0 && (
+        <>
+          <SubHeading>Excluded at the gate</SubHeading>
+          <ul className="space-y-1.5">
+            {excluded.map((x) => (
+              <li
+                key={x.id}
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-dashed border-border bg-surface-muted/40 px-3 py-2 text-sm text-muted"
+              >
+                <MinusCircle className="size-3.5 shrink-0" aria-hidden />
+                <span className="font-mono text-xs line-through">{x.id}</span>
+                {x.metric && <span className="font-mono text-2xs">{x.metric}</span>}
+                {x.obligationId && (
+                  <Badge className="h-auto max-w-full whitespace-normal py-0.5 font-mono [overflow-wrap:anywhere]">
+                    {x.obligationId}
+                  </Badge>
+                )}
+                <span className="basis-full text-xs sm:basis-auto">
+                  <span className="sr-only">Reason: </span>
+                  {x.reason}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {data.notTestable && data.notTestable.length > 0 && (
         <>

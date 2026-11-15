@@ -166,6 +166,8 @@ export interface Scenario {
   priority?: 'high' | 'medium' | 'low';
   rationale?: string;
   metric?: string;
+  /** The tested obligation this scenario covers (pipeline attaches one to every scenario). */
+  obligationId?: string;
   /** Memory entry paths this scenario follows ("learned from memory"). */
   memoryApplied?: string[];
   /** Relevance review by the scenario judge (Oumi Iris or Gemini); absent on older audits. */
@@ -182,10 +184,22 @@ export interface ScenarioReview {
   confidence?: number | null;
 }
 
+/** A scenario the reviewer left out at the scenarios gate (partial approval). */
+export interface ExcludedScenario {
+  id: string;
+  reason: string;
+  obligationId?: string;
+  metric?: string;
+}
+
 export interface ScenariosData {
   scenarios: Scenario[];
   notTestable?: string[];
   assumptions?: string[];
+  /** Ids kept at the scenarios gate; present only after a partial approval. */
+  approvedIds?: string[];
+  /** Scenarios excluded at the gate, with the reviewer's reason. */
+  excluded?: ExcludedScenario[];
 }
 
 export interface ScenarioAnalysisData {

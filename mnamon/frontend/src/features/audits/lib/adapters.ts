@@ -335,6 +335,8 @@ const RawScenarios = obj({
       priority: str,
       rationale: str,
       metric: str,
+      obligation_id: str,
+      obligationId: str,
       expected_behaviour: str,
       protected: strList,
       proxies: strList,
@@ -346,6 +348,9 @@ const RawScenarios = obj({
   ),
   not_testable: strList,
   assumptions: z.unknown(),
+  approved_ids: strList,
+  approvedIds: strList,
+  excluded: list(obj({ id: str, reason: str, obligation_id: str, obligationId: str, metric: str })),
 });
 
 const REVIEW_VERDICTS: ReviewVerdict[] = ['relevant', 'needs_change', 'not_relevant'];
@@ -400,11 +405,27 @@ export function toScenarios(data: unknown): ScenariosData {
         priority: PRIORITIES.includes(s.priority as Priority) ? (s.priority as Priority) : undefined,
         rationale: s.rationale,
         metric: s.metric,
+        obligationId: first(s.obligation_id, s.obligationId),
         memoryApplied: [...s.memory_applied, ...s.memoryApplied],
         review: toScenarioReview(s.review),
       })),
     notTestable: d.not_testable,
     assumptions: parse(strList, d.assumptions),
+    ...(d.approved_ids.length || d.approvedIds.length
+      ? { approvedIds: d.approved_ids.length ? d.approved_ids : d.approvedIds }
+      : {}),
+    ...(d.excluded.some((x) => x.id)
+      ? {
+          excluded: d.excluded
+            .filter((x) => x.id)
+            .map((x) => ({
+              id: x.id!,
+              reason: x.reason || 'excluded by the reviewer',
+              obligationId: first(x.obligation_id, x.obligationId),
+              metric: x.metric,
+            })),
+        }
+      : {}),
   };
 }
 

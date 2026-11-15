@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockDecide, mockGet, resetMockStore } from './mockStore';
+import { applyScenarioSelection, mockDecide, mockGet, resetMockStore } from './mockStore';
+import { toScenarios } from './adapters';
 
 describe('mock audit store', () => {
   beforeEach(() => {
@@ -43,5 +44,33 @@ describe('mock audit store', () => {
       status: 'waiting_approval',
       stage: 'approve_datasets',
     });
+  });
+
+  it('a partial scenarios approval keeps the approved ones and records the excluded with a reason', () => {
+    const plan = {
+      scenarios: [
+        { id: 'SC-01', metric: 'flip_rate', obligation_id: 'OBL.AIA.10.2.f' },
+        { id: 'SC-02', metric: 'selection_rate_ratio' },
+        { id: 'SC-03', metric: 'edge_case_failure_rate' },
+      ],
+    };
+    const out = applyScenarioSelection(plan, {
+      approved_scenarios: ['SC-02'],
+      excluded: { 'SC-01': 'covered by SC-02' },
+    });
+    const view = toScenarios(out);
+    expect(view.scenarios.map((s) => s.id)).toEqual(['SC-02']);
+    expect(view.approvedIds).toEqual(['SC-02']);
+    expect(view.excluded).toEqual([
+      { id: 'SC-01', reason: 'covered by SC-02', obligationId: 'OBL.AIA.10.2.f', metric: 'flip_rate' },
+      {
+        id: 'SC-03',
+        reason: 'excluded by the reviewer',
+        obligationId: undefined,
+        metric: 'edge_case_failure_rate',
+      },
+    ]);
+    expect(applyScenarioSelection(plan, {})).toBe(plan);
+    expect(applyScenarioSelection(plan, { approved_scenarios: [] })).toBe(plan);
   });
 });

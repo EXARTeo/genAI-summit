@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, MessageSquareWarning, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ArtifactBody } from '@/features/audits/components/ArtifactPanel';
-import { PublicCandidatesView, ReviewNote } from '@/features/audits/components/artifact_parts/PlanViews';
+import { PublicCandidatesView } from '@/features/audits/components/artifact_parts/PlanViews';
 import { GateCards, ProvenanceYaml } from '@/features/audits/components/artifact_parts/SpecViews';
 import { useAudit, useDecideGate } from '@/features/audits/hooks/useAudits';
 import {
@@ -10,7 +10,6 @@ import {
   toDatasetAnalysis,
   toGenerationSpec,
   toPublicCandidates,
-  reviewedScenarios,
   toScenarioAnalysis,
   toScenarios,
 } from '@/features/audits/lib/adapters';
@@ -23,12 +22,15 @@ import {
   DECISIONS,
   EMPTY_DRAFT,
   REASONS,
+  defaultScenarioSelection,
   publicDataEdits,
+  scenarioEdits,
   toApprovalIn,
   validateDraft,
   type DecisionDraft,
 } from '../lib/approvals';
 import { auditLabel } from '@/shared/lib/labels';
+import { ScenarioChecklist } from './ScenarioChecklist';
 
 export interface ApprovalDrawerProps {
   auditId: string | null;
@@ -123,6 +125,8 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
   const [touched, setTouched] = useState(false);
   const [burst, setBurst] = useState(false);
   const [picked, setPick] = useState<string | null | undefined>(undefined);
+  const [chosen, setChosen] = useState<string[] | undefined>(undefined);
+  const [excludeWhy, setExcludeWhy] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) {
@@ -130,6 +134,8 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
       setTouched(false);
       setBurst(false);
       setPick(undefined);
+      setChosen(undefined);
+      setExcludeWhy({});
     }
   }, [open, auditId, gate]);
 
@@ -147,8 +153,13 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
     gate === 'public_data' && first('public_dataset_candidates')
       ? toPublicCandidates(first('public_dataset_candidates'))
       : undefined;
-  const reviews =
-    gate === 'scenarios' && first('scenarios') ? reviewedScenarios(toScenarios(first('scenarios'))) : [];
+  const planned = gate === 'scenarios' && first('scenarios') ? toScenarios(first('scenarios')).scenarios : [];
+  // Everything but the judge's not_relevant ones is approved until the person changes it.
+  const approvedIds = chosen ?? defaultScenarioSelection(planned);
+  const nApproved = planned.filter((s) => approvedIds.includes(s.id)).length;
+  const partial = planned.length > 0 && nApproved < planned.length;
+  const noScenario =
+    gate === 'scenarios' && draft.decision === 'approved' && planned.length > 0 && nApproved === 0;
   const reviewed = (stage?.gate?.reviews ?? []).flatMap((k) => by[k] ?? []);
   const blocked =
     gate === 'datasets' && datasetAnalysis && Object.keys(datasetAnalysis.gates).length > 0
@@ -166,14 +177,34 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
   const errors = [
     ...validateDraft(draft),
     ...(needsPick ? ['Pick a dataset to approve, or reject for zero-shot.'] : []),
+    ...(noScenario ? ['Approve at least one scenario, or use Request changes for a new plan.'] : []),
   ];
   const copy = (d: Decision) =>
-    gate === 'public_data' ? { ...DECISION_COPY[d], ...PUBLIC_DATA_COPY[d] } : DECISION_COPY[d];
+    gate === 'public_data'
+      ? { ...DECISION_COPY[d], ...PUBLIC_DATA_COPY[d] }
+      : gate === 'scenarios' && d === 'approved' && partial
+        ? {
+            ...DECISION_COPY[d],
+            effect: 'Only the checked scenarios go on.',
+            submit: `Approve ${nApproved} scenario${nApproved === 1 ? '' : 's'}`,
+          }
+        : DECISION_COPY[d];
 
   const submit = () => {
     setTouched(true);
     if (!gate || errors.length) return;
-    const edits = gate === 'public_data' && draft.decision === 'approved' ? publicDataEdits(pick) : {};
+    const edits =
+      draft.decision !== 'approved'
+        ? {}
+        : gate === 'public_data'
+          ? publicDataEdits(pick)
+          : gate === 'scenarios'
+            ? scenarioEdits(
+                approvedIds,
+                planned.map((s) => s.id),
+                excludeWhy,
+              )
+            : {};
     decide.mutate(toApprovalIn(gate, draft, reviewed[0]?.id, edits), {
       onSuccess: () => {
         if (draft.decision === 'approved') {
@@ -209,7 +240,7 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
             variant={draft.decision ? DECISION_VARIANT[draft.decision] : 'primary'}
             onClick={submit}
             loading={decide.isPending}
-            disabled={!draft.decision || (draft.decision === 'approved' && blocked)}
+            disabled={!draft.decision || (draft.decision === 'approved' && (blocked || noScenario))}
           >
             {draft.decision ? copy(draft.decision).submit : 'Choose a decision'}
           </Button>
@@ -285,22 +316,6 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                   <p className="rounded-lg border border-border bg-surface-muted/60 p-3 text-sm">
                     {scenarioAnalysis.summary ?? '–'}
                   </p>
-                )}
-                {gate === 'scenarios' && reviews.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">Scenario relevance review</div>
-                    <ul className="space-y-2">
-                      {reviews.map((s) => (
-                        <li key={s.id} className="rounded-lg border border-border p-3 text-sm">
-                          <div className="mb-1 flex flex-wrap items-baseline gap-x-2">
-                            <span className="font-mono text-xs text-muted">{s.id}</span>
-                            <span className="font-medium">{s.title ?? '–'}</span>
-                          </div>
-                          <ReviewNote review={s.review} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
                 )}
                 {gate === 'public_data' && candidates && (
                   <>
@@ -391,6 +406,32 @@ export function ApprovalDrawer({ auditId, gate, open, onOpenChange }: ApprovalDr
                   );
                 })}
               </div>
+              {gate === 'scenarios' && planned.length > 0 && (
+                <div className="space-y-1.5">
+                  {draft.decision && draft.decision !== 'approved' && (
+                    <p className="text-xs text-muted">The selection applies only when you approve.</p>
+                  )}
+                  <div
+                    className={cn(
+                      'transition-opacity duration-150',
+                      draft.decision && draft.decision !== 'approved' && 'opacity-60',
+                    )}
+                  >
+                    <ScenarioChecklist
+                      scenarios={planned}
+                      selected={approvedIds}
+                      onSelectedChange={setChosen}
+                      reasons={excludeWhy}
+                      onReasonChange={(id, why) => setExcludeWhy((x) => ({ ...x, [id]: why }))}
+                    />
+                  </div>
+                </div>
+              )}
+              {noScenario && (
+                <p className="text-xs text-danger">
+                  No scenario is checked. To get a new plan, choose Request changes instead.
+                </p>
+              )}
               <Field
                 label="Reason category"
                 error={touched && !draft.reasonCategory ? 'Required' : undefined}
