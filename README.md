@@ -22,7 +22,7 @@ cp .env.example .env        # the ONE env file (optional: dev defaults are built
 ./scripts/stack.sh up       # Windows: .\scripts\stack.ps1 up (uses WSL Docker if needed)
 ```
 
-Backend: <http://localhost:8100>. Langfuse: <http://localhost:3400> (dev login `admin@example.com` / `genai-summit-dev-1`).
+App: <http://localhost:8080> (`FRONTEND_PORT`). Backend: <http://localhost:8100>. Langfuse: <http://localhost:3400> (dev login `admin@example.com` / `genai-summit-dev-1`).
 
 Or run the setup script for the tooling steps above:
 
