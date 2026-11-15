@@ -29,6 +29,7 @@ src/features/chat/
 │   ├── taskMarkers.ts    task marker words ("General Purpose finished · 22s", "Sent an update to …")
 │   ├── taskTranscript.ts a background task's event log → its turns (instruction, follow-ups, replies)
 │   ├── notificationEcho.ts   hides a task notification the model echoed into its answer
+│   ├── mathText.ts       inline LaTeX in an answer (`$\le 0.02$`) as plain text (`≤ 0.02`), outside code; `$5` stays
 │   ├── routes.ts         UI + API paths
 │   ├── mockRuns.ts       mock mode: conversation store + scripted AG-UI runs
 │   └── mockRoutes.ts     mock REST routes (registered by shared/lib/mocks/handlers/chat.ts)

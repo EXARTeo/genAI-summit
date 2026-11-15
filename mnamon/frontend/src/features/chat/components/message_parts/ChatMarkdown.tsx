@@ -14,6 +14,7 @@ import { cn } from '@/shared/lib/utils';
 import { IconButton } from '@/shared/ui';
 import { codeFileName } from '../../lib/codeExport';
 import { triggerBrowserDownload } from '../../lib/download';
+import { plainMath } from '../../lib/mathText';
 import { MarkdownTable } from './MarkdownTable';
 
 const CODE_ACTION = 'size-6 text-muted hover:bg-hover hover:text-text [&_svg]:size-3.5';
@@ -97,7 +98,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
           table: MarkdownTable,
         }}
       >
-        {streaming ? closeOpenFence(text) : text}
+        {plainMath(streaming ? closeOpenFence(text) : text)}
       </ReactMarkdown>
       {streaming && <span className="stream-caret" aria-hidden />}
     </div>
