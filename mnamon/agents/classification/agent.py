@@ -77,8 +77,10 @@ STEP = "classify_risk"
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 #: Model role of the step (parameters, not prose).
 ROLE: ModelRole = "reasoning"
-#: Recursion cap of the step's agent loop (model + tool turns).
-RECURSION_LIMIT = 24
+#: Recursion cap of the step's agent loop (model + tool turns). A deep agent spends about two
+#: graph steps per tool call, and a recruitment system can need many regulation lookups
+#: (Annex III, Art. 6(3), guidelines, Art. 50), so 24 failed live with GraphRecursionError.
+RECURSION_LIMIT = 100
 #: Attempts of one agent run (a provider hiccup or a missing result is retried once).
 ATTEMPTS = 2
 #: Longest text value in the brief.
