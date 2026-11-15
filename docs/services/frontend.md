@@ -2,7 +2,7 @@
 
 The engineer workspace: `mnamon/frontend/` (Vite + React 18 + TypeScript + Tailwind, shadcn-style
 Radix primitives). Served by nginx in the `frontend` compose service, which also proxies `/api` to the
-backend. The audit, approvals and regulation pages are described in
+backend. The audit and regulation pages are described in
 [frontend-audit-workflow.md](frontend-audit-workflow.md); this page covers the scaffold, information
 architecture, design rules, motion, brand, mock mode, visual QA and the home and systems features.
 
@@ -44,16 +44,15 @@ src/
 
 ## Information architecture
 
-Sidebar: **Home, Systems, Audits, Approvals** (open-gate count), **Regulation, Chat**. No Settings page for now (theme toggle in
+Sidebar: **Home, Systems, Audits** (badge = open HITL gates), **Regulation, Chat**. There is no Approvals page: gates are decided on the audit page (or from Home / Telegram), and `/approvals` redirects to `/audits`. No Settings page for now (theme toggle in
 the top bar and the ⌘K palette). **Agent memory is not shown in the UI at all**: the agents decide what to remember;
 the UI shows files (system folders, business rules) and audit artifacts only.
 
 | Route | What |
 | --- | --- |
 | `/` | Home: what needs me now (decisions waiting, agents at work, recent findings, systems at risk, latest regulation change) |
-| `/systems`, `/systems/:id[/folder\|plugins\|rules]` | Systems table and system detail |
-| `/audits`, `/audits/:id[?step=<stage>]` | Audit runs table and the audit run console (`?step=` deep-links and pins a step) |
-| `/approvals` | Open HITL gates; opens the approval drawer |
+| `/systems`, `/systems/:id[/obligations\|folder\|plugins\|rules]` | Systems table and system detail |
+| `/audits`, `/audits/:id[?step=<stage>][&view=findings\|report]` | Audit runs table and the audit run console (`?step=` deep-links and pins a step; `?view=` opens the Findings or Report view) |
 | `/regulation[?tab=changes\|sources]` | Regulation-change inbox and sources |
 | `/chat`, `/chat/:id`, `/chat?system=&audit=` | Chat with the agents (streaming over AG-UI, tools, sub-agents, approvals, files; the agent map and plan panels beside the composer): see [frontend-chat.md](frontend-chat.md) |
 | `*` | 404 (also `/memory` and `/settings`, which were removed) |
@@ -210,9 +209,10 @@ every visual change.
 
 ## Home (`src/features/home`)
 
-`/`: one glance = what needs me now. Headline ("1 decision waiting for you" / "All clear"), **Needs your
-decision** (open gates, *Review* opens the approval drawer in place), **Agents at work** (live audits with the
-current step and progress), **Recent findings** (latest finished audit: verdict, metric, link to the step),
+`/`: one glance = what needs me now. Headline ("1 decision waiting for you" / "All clear"), **Waiting for
+you** (open gates; the row links to the audit at its gate step, *Review* opens the approval drawer in place),
+**Agents at work** (live audits with the current step and progress), **Recent findings** (latest finished audit's
+sealed findings, gaps first, link to its Findings view),
 **Systems at risk** (open gaps or high risk) and **Latest regulation change**.
 
 ## Systems feature (`src/features/systems`)
@@ -223,6 +223,10 @@ current step and progress), **Recent findings** (latest finished audit: verdict,
 - **Detail** (`/systems/:id/:tab`), tabs in the URL:
   - *Overview*: system card (`KeyValue`), last audit (`GlowCard` + `ProgressRing`), declared metrics,
     organisation thresholds (flagged as policy, not law), folder activity ledger (`Timeline`).
+  - *Obligations* (`ObligationsTab`, read-only): the latest audit's `obligation_map` artifact joined with the
+    system's current sealed findings (`GET /v1/systems/{id}/findings?current=true`): obligation (article + id),
+    applies?, why (+ decided by), in force from (in force / not yet), verification mode, latest verdict and a
+    *Stale* badge. Table on wide screens, one card per obligation on phones.
   - *Folder*: `FileTree` of `/systems/<id>/`, preview by type (YAML/JSON `CodeBlock`, Markdown, CSV
     `DataTable`, PDF/binary placeholder), version list (click to view an old version), upload `FileDropzone`
     into a chosen folder (each upload = a new version).
@@ -236,6 +240,34 @@ current step and progress), **Recent findings** (latest finished audit: verdict,
 
 API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../files/{path}?format=json[&version=]`,
 `GET .../files/{path}/versions`, `GET .../events`, `PUT .../files/{path}` (multipart, or JSON `{content, reason}` for an added rule).
+
+## Audit findings, report, pins and retry (`src/features/audits`)
+
+- **View tabs** on the audit page: *Pipeline* (the graph canvas), *Findings*, *Report* (`?view=`).
+- **Pins** (`AuditPins`): kb, dossier, config, model version and seeds from `audit.pins` (backend column,
+  copied from `data.pins`), falling back to `data.kbVersion` / card version.
+- **Findings** (`FindingsPanel`, `findings_parts/SealedFindingCard`): `GET /v1/audits/{id}/findings`; falls
+  back to the audit's `finding` artifacts (shown as *Not sealed*) when the table is empty. Per finding: verdict
+  (plan 01 vocabulary), severity, gap id, *Sealed* badge with hash, *Stale* / *Superseded*, article + obligation id,
+  reasoning, the three judges side by side (rule, Gemini, Iris; *Disagree · needs a human*), critic note,
+  counter-arguments, would-change-if, metrics, evidence (path, sha256, MLflow run link via `VITE_MLFLOW_URL`,
+  default `http://localhost:5500`), citations at their kb_version and the annotation thread
+  (`AnnotationThread`: contest / accept risk / remediation planned / comment). No edit controls. A focused re-run
+  shows its `delta_report` artifact on top (`DeltaReportCard`: old → new verdict per obligation, metric deltas,
+  reason).
+- **Report** (`ReportPanel`, model in `lib/report.ts`): incomplete-audit report (the pipeline's, or derived from a
+  failed audit's stage and error), management summary with traffic lights (derived from the findings when the
+  pipeline wrote none), engineer report, bias & fairness, Annex IV draft, gap list and evidence register (the
+  report's own, else derived from the sealed findings). **Export PDF** (`lib/print.ts`) opens the report in a print
+  window with the app CSS inlined (light theme) and calls the browser's print, so "Save as PDF" makes the file.
+- **Retry**: a `failed` audit shows *Retry* (`POST /v1/audits/{id}/retry`); the pipeline re-runs the failed step.
+
+## Regulation extras (`src/features/regulation`)
+
+**Simulate change** (`SimulateChangeDialog`, demo): find / replace on reg-memory's mirrored Art. 6 guideline page
+(`PUT /v1/regulation/demo/mirror` with `check: true`), so a real RegChange lands in the inbox. Change cards show the
+judge's `running` (polls every 3 s) and `failed` states, per affected system the obligations touched, the findings
+marked stale, the judge's counter-argument and links to the re-run audit and its delta report.
 
 ## How to add a feature
 
