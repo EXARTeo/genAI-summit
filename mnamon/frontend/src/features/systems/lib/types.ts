@@ -181,6 +181,9 @@ export interface PluginDefaults {
   defaults: PluginCard;
   existing?: PluginCard | null;
   mlflow: MlflowModelInfo;
+  /** The seed case plugin for this model ("Auto fill") and its other files. */
+  example?: PluginCard | null;
+  example_files?: string[];
 }
 
 export interface PluginWriteResult {
@@ -190,4 +193,5 @@ export interface PluginWriteResult {
   changed: boolean;
   card: PluginCard;
   architecture_updated: boolean;
+  files_copied?: string[];
 }

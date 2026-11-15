@@ -70,6 +70,7 @@ export const savePlugin = (
     reason?: string;
     upstream?: string[];
     downstream?: string[];
+    copy_example_files?: boolean;
   },
 ) => api.put<PluginWriteResult>(systemApi.plugin(id, name), body);
 

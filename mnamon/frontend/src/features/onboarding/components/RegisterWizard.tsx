@@ -124,7 +124,7 @@ export function RegisterWizard() {
         actions={
           !done && (
             <Button variant="secondary" size="sm" leftIcon={<Wand2 />} onClick={fillExample}>
-              Fill example
+              Auto fill
             </Button>
           )
         }
@@ -214,7 +214,7 @@ export function RegisterWizard() {
   );
 }
 
-/** The example's specification (what the demo uploads with "Fill example"). */
+/** The example's specification (what the demo uploads with "Auto fill"). */
 const EXAMPLE_SPEC = `# CV Parser: system specification
 
 ## 1. Purpose

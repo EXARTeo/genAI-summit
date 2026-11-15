@@ -48,6 +48,7 @@ export function useSavePlugin(systemId: string) {
       reason?: string;
       upstream?: string[];
       downstream?: string[];
+      copyExampleFiles?: boolean;
     }) =>
       savePlugin(systemId, v.name, {
         card: v.card,
@@ -55,6 +56,7 @@ export function useSavePlugin(systemId: string) {
         reason: v.reason,
         upstream: v.upstream,
         downstream: v.downstream,
+        copy_example_files: v.copyExampleFiles,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: pluginKeys.graph(systemId) });

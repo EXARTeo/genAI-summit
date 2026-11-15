@@ -250,7 +250,7 @@ API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../f
   *Deployment and people* (countries, users, status, affected persons, vulnerable groups, switches for
   `interacts_with_persons`, `generates_synthetic_content`, `emotion_recognition`, `biometric`, and a safety
   component of an Annex I product with its law), *Documents* (dropzone; `.md/.txt/.yaml/.json` are marked
-  *Read*, others *Stored, not read*), *Review* (each section with *Edit*). *Fill example* fills the demo's
+  *Read*, others *Stored, not read*), *Review* (each section with *Edit*). *Auto fill* fills the demo's
   CV Parser and its `system-specification.md`. **Create** = `POST /v1/systems {id, name, status: "draft",
   data: {card}}` → `PUT .../files/system-card.yaml` (`risk_class: unclassified`, `provenance: declared_by_pm`)
   → one `PUT .../files/docs/<name>` per document, in that order (a retry after a failed upload does not

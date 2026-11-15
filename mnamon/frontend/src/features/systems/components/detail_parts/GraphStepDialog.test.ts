@@ -18,7 +18,7 @@ const graph = (components: GraphComponent[]): PluginGraph => ({
   plugins: {},
 });
 
-describe('fill example for a graph step', () => {
+describe('auto fill for a graph step', () => {
   it('an empty graph gets the first seed model, with no connections', () => {
     const ex = exampleStep(graph([]), 'ml_model');
     expect(ex).toEqual({

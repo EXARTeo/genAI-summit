@@ -83,7 +83,7 @@ export const EMPTY_FORM: WizardForm = {
   annex_i_product: '',
 };
 
-/** The demo's "Fill example" (plan 02 §11): a CV parser that only structures CVs. */
+/** The demo's "Auto fill" (plan 02 §11): a CV parser that only structures CVs. */
 export function exampleForm(id: string): WizardForm {
   return {
     ...EMPTY_FORM,

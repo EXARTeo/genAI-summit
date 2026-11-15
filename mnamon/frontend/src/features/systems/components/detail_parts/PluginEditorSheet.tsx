@@ -189,6 +189,7 @@ export function PluginEditorSheet({
   const defaults = useMemo(() => formFromCard(data?.defaults), [data]);
   const [values, setValues] = useState<PluginFormValues>(emptyForm());
   const [touched, setTouched] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
 
   // Saved values that equal the default show as empty (grey), so overrides stand out.
   useEffect(() => {
@@ -200,7 +201,20 @@ export function PluginEditorSheet({
     }
     setValues(next);
     setTouched(false);
+    setAutoFilled(false);
   }, [data, defaults]);
+
+  /** Auto fill: the seed case's hand-written plugin for this model (behaviour, limits, output). */
+  const autoFill = () => {
+    if (!data?.example) return;
+    const ex = formFromCard(data.example);
+    const next = emptyForm();
+    for (const f of Object.keys(next) as FormField[]) {
+      next[f] = ex[f] && ex[f].trim() !== defaults[f].trim() ? ex[f] : '';
+    }
+    setValues(next);
+    setAutoFilled(true);
+  };
 
   useEffect(() => {
     if (!target) {
@@ -251,7 +265,16 @@ export function PluginEditorSheet({
       toast.error('Check the highlighted fields');
       return;
     }
-    const card = cardFromForm(values, data.defaults, data.existing);
+    // Auto fill also keeps the example's test hints and I/O (not shown as fields).
+    const base =
+      autoFilled && data.example
+        ? {
+            ...data.defaults,
+            io: data.example.io ?? data.defaults.io,
+            scenarios: data.example.scenarios ?? data.defaults.scenarios,
+          }
+        : data.defaults;
+    const card = cardFromForm(values, base, data.existing);
     save.mutate(
       {
         name,
@@ -260,11 +283,17 @@ export function PluginEditorSheet({
         reason: existing ? 'plugin updated' : 'plugin configured',
         upstream: standalone ? connection(upstream) : undefined,
         downstream: standalone ? connection(downstream) : undefined,
+        copyExampleFiles: autoFilled,
       },
       {
         onSuccess: (res) => {
-          toast.success(res.changed ? `Plugin saved: ${card.name}` : 'No changes', {
-            description: res.changed ? `${res.path} · version ${res.version}` : undefined,
+          const copied = res.files_copied?.length ?? 0;
+          toast.success(res.changed || copied ? `Plugin saved: ${card.name}` : 'No changes', {
+            description: copied
+              ? `${res.path} · ${copied} file${copied === 1 ? '' : 's'} added (data dictionary, docs)`
+              : res.changed
+                ? `${res.path} · version ${res.version}`
+                : undefined,
           });
           onOpenChange(false);
         },
@@ -363,7 +392,7 @@ export function PluginEditorSheet({
                 setDownstream('');
               }}
             >
-              <Wand2 /> Fill example
+              <Wand2 /> Auto fill
             </Button>
             <ConnectionFields
               graph={graph}
@@ -399,6 +428,29 @@ export function PluginEditorSheet({
         {data && (
           <>
             <MlflowBanner info={data.mlflow} uri={effective(values, defaults, 'uri')} />
+
+            {data.example && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3.5 py-3 text-sm">
+                <Wand2 className="size-4 shrink-0 text-primary" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">
+                    {autoFilled
+                      ? 'Filled from the ready-made plugin'
+                      : 'A ready-made plugin exists for this model'}
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Expected behaviour, limits and output
+                    {data.example_files?.length
+                      ? `, plus ${data.example_files.length} file${data.example_files.length === 1 ? '' : 's'} (data dictionary, docs) copied on save`
+                      : ''}
+                    .
+                  </p>
+                </div>
+                <Button variant={autoFilled ? 'ghost' : 'secondary'} size="sm" onClick={autoFill}>
+                  <Wand2 /> Auto fill
+                </Button>
+              </div>
+            )}
 
             {placement && placement.kind !== 'standalone' && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -544,7 +596,8 @@ export function PluginEditorSheet({
             {!existing && (
               <p className="text-xs text-muted">
                 Saved as <code className="font-mono">plugins/{name}/plugin.yaml</code>. After saving you can
-                add its docs and data dictionary here.
+                add its docs and data dictionary here
+                {autoFilled && data.example_files?.length ? ' (Auto fill adds them for you)' : ''}.
               </p>
             )}
           </>

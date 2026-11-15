@@ -66,7 +66,7 @@ describe('RegisterWizard', () => {
   it('fills the example and creates the system, card and documents in order', async () => {
     setup();
     await waitFor(() => expect(screen.getByLabelText('System id')).toHaveValue('SYS-004'));
-    await userEvent.click(screen.getByRole('button', { name: /Fill example/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Auto fill/ }));
     expect(screen.getByLabelText('Name')).toHaveValue('CV Parser');
     for (let i = 0; i < 4; i++) await userEvent.click(screen.getByRole('button', { name: /Next/ }));
     expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument();

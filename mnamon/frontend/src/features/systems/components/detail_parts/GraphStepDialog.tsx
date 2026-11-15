@@ -229,7 +229,7 @@ export function GraphStepDialog({
               setDownstream(ex.downstream);
             }}
           >
-            <Wand2 /> Fill example
+            <Wand2 /> Auto fill
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
