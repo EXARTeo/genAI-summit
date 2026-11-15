@@ -52,3 +52,4 @@ export {
   type PreviewFile,
 } from './file-preview';
 export { AgentMapIcon } from './agent-map-icon';
+export { FilterBar, type Facet, type FacetOption, type FilterBarProps } from './filter-bar';
