@@ -8,12 +8,13 @@
  *   the plan lives in the composer's plan panel, as in magenticx) at full column width (thinking, sub-agents,
  *   artifacts, tasks, the streamed answer), then the action bar: time · agent · usage · actions.
  */
-import { AlertTriangle, Bell, Check, CircleStop, X } from 'lucide-react';
+import { AlertTriangle, Check, CircleStop, X } from 'lucide-react';
 import { memo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { AgentThinking, Button, Textarea } from '@/shared/ui';
 import type { SiblingInfo } from '../lib/branches';
 import { formatClock } from '../lib/messageFormat';
+import { stripNotificationEcho } from '../lib/notificationEcho';
 import { isActiveRun, type LiveRun } from '../lib/runState';
 import { subagentTree } from '../lib/subagentTree';
 import { hasAgentSignal, timelineText, type SubagentBlock } from '../lib/timeline';
@@ -21,8 +22,9 @@ import type { MessageOut } from '../lib/types';
 import { AiActionBar, UserActionBar } from './message_parts/ActionBars';
 import { ChatMarkdown } from './message_parts/ChatMarkdown';
 import { MessageAttachments } from './message_parts/MessageAttachments';
-import { ArtifactCard, TaskRefRow, TaskSettledRow } from './message_parts/RunBlocks';
+import { ArtifactCard, TaskRefRow } from './message_parts/RunBlocks';
 import { SubagentCard } from './message_parts/SubagentCard';
+import { TaskSettledMarker } from './message_parts/TaskSettledMarker';
 import { ThinkingBlock } from './message_parts/ThinkingBlock';
 
 interface BaseProps {
@@ -43,15 +45,6 @@ export const UserMessage = memo(function UserMessage({
   const [draft, setDraft] = useState(message.content ?? '');
   const [saving, setSaving] = useState(false);
   const text = message.content ?? '';
-
-  if (message.kind === 'task_notification') {
-    return (
-      <div className="-my-2 flex items-center justify-center gap-2 py-1 text-2xs text-muted md:-my-4">
-        <Bell className="size-3" />
-        {message.taskNotice?.name ?? 'A background task'} {message.taskNotice?.status ?? 'finished'}
-      </div>
-    );
-  }
 
   const submit = () => {
     if (!draft.trim() || busy || saving) return;
@@ -147,17 +140,26 @@ export const AssistantMessage = memo(function AssistantMessage({
   busy,
   onRetry,
   onRate,
+  showBar = true,
+  copyText,
 }: BaseProps & {
   run: LiveRun | null;
   /** Kept for callers; the bar now shows on every settled answer, as in magenticx. */
   isLast?: boolean;
   onRetry: () => void;
   onRate: (liked: boolean) => void;
+  /**
+   * False for an earlier part of a stacked answer (lib/answerGroups): only the group's last
+   * message carries the action bar.
+   */
+  showBar?: boolean;
+  /** What Copy takes: the whole group's text for a stacked answer. */
+  copyText?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const live = isActiveRun(run);
   const timeline = run?.timeline ?? null;
-  const text = timelineText(timeline) || (message.content ?? '');
+  const text = timelineText(timeline) || stripNotificationEcho(message.content ?? '');
   const status = String(run?.status ?? message.streamingStatus ?? 'completed');
   const lastBlock = timeline?.blocks[timeline.blocks.length - 1];
   const streamingText = live && lastBlock?.kind === 'content';
@@ -206,14 +208,14 @@ export const AssistantMessage = memo(function AssistantMessage({
                 }
               />
             );
-          case 'content':
+          case 'content': {
+            // A notification the model echoed is never the agent's words (lib/notificationEcho).
+            const shown = stripNotificationEcho(block.text);
+            if (!shown) return null;
             return (
-              <ChatMarkdown
-                key={block.id}
-                text={block.text}
-                streaming={streamingText && block === lastBlock}
-              />
+              <ChatMarkdown key={block.id} text={shown} streaming={streamingText && block === lastBlock} />
             );
+          }
           case 'subagent':
             if (tree.isNested(block)) return null;
             return (
@@ -231,13 +233,13 @@ export const AssistantMessage = memo(function AssistantMessage({
           case 'task_ref':
             return <TaskRefRow key={block.id} block={block} />;
           case 'task_settled':
-            return <TaskSettledRow key={block.id} block={block} />;
+            return <TaskSettledMarker key={block.id} block={block} />;
           default:
             return null;
         }
       })}
 
-      {!timeline && message.content ? <ChatMarkdown text={message.content} /> : null}
+      {!timeline && message.content ? <ChatMarkdown text={stripNotificationEcho(message.content)} /> : null}
 
       {(() => {
         const rest = [...uploads, ...generated.filter((a) => !usedFiles.has(a.id))];
@@ -262,9 +264,9 @@ export const AssistantMessage = memo(function AssistantMessage({
       )}
       {status === 'cancelling' && <AgentThinking size="sm" label="Stopping" />}
 
-      {!live && (
+      {!live && showBar && (
         <AiActionBar
-          text={text}
+          text={copyText ?? text}
           time={formatClock(run?.completedAt ?? message.created_at)}
           agentName={message.agentName ?? message.agentSlug ?? 'Agent'}
           liked={message.liked}

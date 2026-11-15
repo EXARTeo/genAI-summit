@@ -4,11 +4,16 @@
  * answer reaches the bottom edge, then rides the bottom (a spacer below the content keeps that
  * reachable). Any upward wheel, drag or scroll detaches it; coming back near the bottom
  * re-attaches. A round jump-to-latest button shows when the view is away from the bottom.
+ *
+ * An orchestrator's answer and the replies it gives as its background tasks finish stack as one
+ * answer (magenticx `lib/answerGroups.ts`): the wake-up's notice row is a marker between them, and
+ * only the last part carries the action bar (Try again redoes the whole answer, Copy takes it all).
  */
 import { ArrowDown } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import type { ChatController } from '../hooks/useChat';
+import { answerGroupText, groupAnswers } from '../lib/answerGroups';
 import { siblingInfo } from '../lib/branches';
 import { isActiveRun } from '../lib/runState';
 import {
@@ -17,7 +22,10 @@ import {
   RESTICK_DISTANCE,
   streamScrollTarget,
 } from '../lib/streamScroll';
+import { timelineText } from '../lib/timeline';
+import type { MessageOut } from '../lib/types';
 import { AssistantMessage, UserMessage } from './ChatMessage';
+import { TaskNoticeRow } from './message_parts/TaskNoticeRow';
 
 /** A scroll event within this many px of a value we just wrote is our own echo, not the user. */
 const ECHO_PX = 2;
@@ -37,6 +45,11 @@ export function ChatBody({ chat }: { chat: ChatController }) {
   const { path, messages, activeRun, runView, sending } = chat;
   const busy = sending || Boolean(activeRun);
   const tail = activeRun ? `${activeRun.id}:${activeRun.timeline.lastSeq}:${activeRun.status}` : '';
+
+  // The answers that read as one (an orchestrator's reply plus one per finished background
+  // task): stacked, with one action bar at the end (lib/answerGroups).
+  const groups = useMemo(() => groupAnswers(path), [path]);
+  const textOf = (m: MessageOut) => timelineText(runView(m)?.timeline) || (m.content ?? '');
 
   const last = path[path.length - 1];
   const liveReplyId = last && last.sender !== 'user' && isActiveRun(runView(last)) ? last.id : null;
@@ -178,10 +191,33 @@ export function ChatBody({ chat }: { chat: ChatController }) {
       >
         <div ref={column} className="mx-auto w-full max-w-3xl space-y-4 p-3 md:space-y-6 md:p-6">
           {path.map((m) => {
+            // A wake-up's input row: a marker, never a user bubble (no edit, copy or branch).
+            if (m.kind === 'task_notification') {
+              return (
+                <div
+                  key={m.id}
+                  data-message-id={m.id}
+                  // Pulled into the column's gap, so the marker sits close to the answers around it.
+                  className="-my-2 animate-[fade-in_200ms_ease-out] md:-my-4"
+                >
+                  <TaskNoticeRow message={m} />
+                </div>
+              );
+            }
             const siblings = siblingInfo(messages, m);
             const onBranch = (index: number) => chat.switchBranch(m, index);
+            const place = m.sender === 'user' ? undefined : groups.get(m.id);
+            const stacked = place && place.group.members.length > 1 ? place : null;
+            const head = stacked?.group.head ?? m;
             return (
-              <div key={m.id} data-message-id={m.id} className="animate-[fade-in_200ms_ease-out]">
+              <div
+                key={m.id}
+                data-message-id={m.id}
+                data-answer-part={
+                  stacked ? `${stacked.index + 1}/${stacked.group.members.length}` : undefined
+                }
+                className="animate-[fade-in_200ms_ease-out]"
+              >
                 {m.sender === 'user' ? (
                   <UserMessage
                     message={m}
@@ -194,11 +230,15 @@ export function ChatBody({ chat }: { chat: ChatController }) {
                   <AssistantMessage
                     message={m}
                     run={runView(m)}
-                    siblings={siblings}
-                    onBranch={onBranch}
+                    // A stacked answer's bar switches between alternatives of the whole answer.
+                    siblings={stacked ? siblingInfo(messages, head) : siblings}
+                    onBranch={stacked ? (index) => chat.switchBranch(head, index) : onBranch}
                     busy={busy}
-                    onRetry={() => void chat.retry(m.id)}
+                    // Try again regenerates the whole answer, from its first part.
+                    onRetry={() => void chat.retry(head.id)}
                     onRate={(liked) => void chat.rate(m, liked)}
+                    showBar={!stacked || stacked.isTail}
+                    copyText={stacked?.isTail ? answerGroupText(stacked.group, textOf) : undefined}
                   />
                 )}
               </div>
