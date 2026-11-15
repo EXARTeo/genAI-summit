@@ -225,7 +225,7 @@ Requirements `REQ.AIA.<art>.<para>.<point>.<slug>` with `source` (provision id),
 `obligation`, `testability` (`model_and_data_test | documentation | process`), `test_templates`,
 `provenance: drafted_by_agent`, `review: pending`. MVP scope, drafted from the downloaded consolidated
 text: provider obligations for high-risk systems Art. 6(2)/(4), 9, 10 (+ Art. 4a special-category
-data), 11, 12, 13, 14, 15, 17 and Art. 50 (SYS-004), 32 requirements. Eight test templates
+data), 11, 12, 13, 14, 15, 17 and Art. 50, 32 requirements. Eight test templates
 (`TT.fairness.group_metrics`, `TT.fairness.counterfactual`, `TT.data.representation`,
 `TT.robustness.perturbation`, `TT.robustness.edge_cases`, `TT.accuracy.subgroup`,
 `TT.transparency.ai_disclosure`, `TT.security.prompt_injection`) with `supports`, `needs`,

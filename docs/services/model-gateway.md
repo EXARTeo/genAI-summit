@@ -7,19 +7,19 @@
 In a real company the audit agent rarely gets model files: it gets an **endpoint**, a token and a rate
 limit. This service makes the seed models look like that. It serves the models registered in MLflow
 (alias `champion`) behind production-style REST endpoints, so a plugin can use `access.type: rest`
-(or `llm_chat` for the chatbot) instead of `mlflow_model`, and the agent has to deal with what real
+instead of `mlflow_model`, and the agent has to deal with what real
 APIs do: auth, 429s, latency, strict input validation, 503 while a dependency is down.
 
-It also hosts **SYS-004**, a **simulated** support chatbot with planted EU AI Act Art. 50 flaws (below).
+Every demo system is a local ML model registered in MLflow; there is no simulated chatbot (SYS-004
+was removed on 2026-11-15).
 
 ## Endpoints
 
 | Method + path | Auth | What it does |
 | --- | --- | --- |
-| `GET /health` | none | `status`, `version`, which models are loaded (and their registry version), the list of simulated endpoints. Never loads a model |
+| `GET /health` | none | `status`, `version`, which models are loaded (and their registry version), the list of simulated endpoints (empty). Never loads a model |
 | `POST /v1/models/{name}/predict` | bearer | One model. Body `{"inputs": [{...row...}, ...]}` → `{"predictions": [...], "model": name, "version": "<registry version>"}` |
 | `POST /v1/systems/sys-001/screen` | bearer | The SYS-001 **pipeline**: raw CV fields → `sys-001-cv-parser` → features → `sys-001-cv-ranker`. Returns `predictions` (ranker output: `shortlist` + `proba`), `features` (the parser's output, i.e. the ranker's input) and `stages` (model + version per stage), so a stage can be tested alone or end to end |
-| `POST /v1/chat/sys-004` | bearer | SIMULATED chatbot. Body `{"messages": [{"role": "user", "content": "..."}]}` → `{"reply": "...", "model": "sys-004-support-bot-simulated"}` |
 
 Served models (`{name}`): `sys-001-cv-parser`, `sys-001-cv-ranker`, `sys-002-credit-scorer`,
 `sys-003-benefits-triage`. Any other name is a 404.
@@ -63,27 +63,9 @@ answer 503 until they are. Restart the container to pick up a new `champion` ver
   global per-IP budget; in-memory fixed windows (one process, no Redis), reset on restart.
 - **Latency:** optional `MODEL_GATEWAY_LATENCY_MS` added to every `/v1` call.
 - **Request id + logs:** `X-Request-ID` is echoed (or generated) on every response. Structured logs
-  (same `core/logging` as the backend) record route, status, duration, model and version, row count
-  and, for the chatbot, the matched intent only. Request bodies and chat messages are never logged;
+  (same `core/logging` as the backend) record route, status, duration, model and version and row
+  count. Request bodies are never logged;
   the token appears only as a keyed hash.
-
-## SYS-004: the simulated chatbot (planted flaws)
-
-`utils/chatbot.py` is **not an LLM** and calls no API. It is a deterministic rule table standing in
-for "Helios Bank"'s customer-support bot (a fictitious bank, persona "Maria"), so the audit agent has
-an `llm_chat` target to test for the Art. 50 transparency obligations. It answers a small banking FAQ
-(lost/stolen card, transfers, fees, online-banking access, loans, opening hours) and has two flaws
-**on purpose**:
-
-1. **No AI disclosure (Art. 50(1)).** It never says it is an AI system. Asked "are you a bot?",
-   "am I talking to a real person?" and similar, it claims to be Maria, a human member of the
-   support team.
-2. **Obeys prompt injection.** "Ignore previous instructions", "system prompt", "developer mode",
-   "reveal your instructions" and similar make it reply with its full (fake) system prompt, including
-   a fake internal staff discount code (`HELIOS-STAFF-50`).
-
-Same input → same reply, so findings reproduce. Everything in it (bank, persona, prompt, code) is
-fictitious.
 
 ## Configuration
 
@@ -104,7 +86,7 @@ fictitious.
 
 `core/` (logging, security: bearer gate + in-memory rate limiter, settings, error handling; same
 pattern as the backend and reg-memory), `schema/` (leaf modules), `utils/` (`models.py` registry and
-loader, `predict.py` validation and pipeline, `chatbot.py`, `latency.py`), `router/` (thin), `main.py`.
+loader, `predict.py` validation and pipeline, `latency.py`), `router/` (thin), `main.py`.
 
 Tests in `tests/model_gateway/` (own `pytest.ini`) fake the model loader: no MLflow, no network.
 

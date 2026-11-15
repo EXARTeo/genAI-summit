@@ -1,8 +1,0 @@
-# Open obligations without evidence (filled in by the deployer; the audit adds to it).
-system: SYS-004
-gaps:
-  - requirement: REQ.AIA.50.1.ai-disclosure
-    what: "No documented check that users are told they are talking to an AI system"
-    evidence_expected: transcript tests of the greeting and of identity questions
-    owner: Digital Banking
-    due: 2026-12-31

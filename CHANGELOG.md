@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- **Demo data is ML models only:** the simulated SYS-004 support chatbot is gone (its seed case, the gateway's `POST /v1/chat/sys-004` route and `utils/chatbot.py`, its tests, the sandbox self-check entry, the frontend mock and the doc sections). The demo systems are SYS-001 to SYS-003, each a local MLflow model; the gateway's `/health` lists no simulated endpoints. The Art. 50 requirements stay in the regulation corpus.
 - CD deploys from `konstantinosmpouros/genai-summit-2026` with the built-in GITHUB_TOKEN only: images to the owner's GHCR, Portainer pulls `deploy/denis/docker-compose-denis.yaml` from `main` and re-pulls the `:main` images on the webhook; no personal token in GitHub, no deploy repo or branch.
 
 ### Added

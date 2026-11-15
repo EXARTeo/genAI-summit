@@ -1,6 +1,6 @@
 # Requirements derived from the consolidated AI Act (02024R1689-20260727), MVP scope:
 # provider obligations for high-risk AI systems (Art. 6 basis, 9-15, 17; Art. 4a for
-# bias-detection data) and Art. 50 transparency (SYS-004). Schema: PDF §12.3,
+# bias-detection data) and Art. 50 transparency. Schema: PDF §12.3,
 # validated by engine/kb/corpus.py. `source` = the provision the obligation comes from
 # (ids from the provision parser); `obligation` paraphrases it, the verbatim text
 # lives in the provision. valid_from is filled per release from the source provision.
@@ -441,7 +441,7 @@
   provenance: drafted_by_agent
   review: pending
 
-# ---- Art. 50: transparency for certain AI systems (SYS-004) ------------------------------
+# ---- Art. 50: transparency for certain AI systems ----------------------------------------
 
 - id: REQ.AIA.50.1.ai-interaction-disclosure
   source: AIA.50.1

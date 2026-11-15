@@ -66,7 +66,7 @@ def test_register_load_and_idempotency(tmp_path, cases_dir, monkeypatch):
     assert list(out.columns) == ["eligible", "triage", "priority_score", "estimated_benefit_eur"]
 
 
-@pytest.mark.parametrize("system_id", ["SYS-001", "SYS-002", "SYS-003", "SYS-004"])
+@pytest.mark.parametrize("system_id", ["SYS-001", "SYS-002", "SYS-003"])
 def test_case_folder_is_complete(cases_dir, system_id):
     case = cases_dir / system_id
     for rel in REQUIRED:
@@ -80,15 +80,13 @@ def test_case_folder_is_complete(cases_dir, system_id):
         for rel in PLUGIN_FILES:
             assert (plugin / rel).is_file(), f"{plugin.name}/{rel}"
         access = yaml.safe_load((plugin / "plugin.yaml").read_text(encoding="utf-8"))["access"]
-        if access["type"] == "mlflow_model":
-            name = access["uri"].removeprefix("models:/").removesuffix("@champion")
-            assert name in CONTRACT
-            assert f"http://model-gateway:8000/v1/models/{name}/predict" in (
-                plugin / "plugin.yaml"
-            ).read_text(encoding="utf-8")
-        else:
-            assert access["type"] == "llm_chat"
-            assert access["url"] == "http://model-gateway:8000/v1/chat/sys-004"
+        # Every demo system is a local MLflow model (no simulated chatbot).
+        assert access["type"] == "mlflow_model"
+        name = access["uri"].removeprefix("models:/").removesuffix("@champion")
+        assert name in CONTRACT
+        assert f"http://model-gateway:8000/v1/models/{name}/predict" in (
+            plugin / "plugin.yaml"
+        ).read_text(encoding="utf-8")
 
 
 def test_findings_cite_requirements(cases_dir):

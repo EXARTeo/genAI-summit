@@ -144,7 +144,7 @@ def containers_status() -> StatusSvg:
         260,
         96,
         "model-gateway",
-        ["seed models as REST", "+ SYS-004 chatbot"],
+        ["seed models as REST", "MLflow models only"],
         "built",
         "built",
     )

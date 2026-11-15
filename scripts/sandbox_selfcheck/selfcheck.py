@@ -2,7 +2,7 @@
 real sandbox container (POST /v1/exec, the same path the agents use) and compare the
 measured numbers with the answer keys.
 
-    python scripts/sandbox_selfcheck/selfcheck.py [--cases SYS-001,SYS-004] [--out DIR]
+    python scripts/sandbox_selfcheck/selfcheck.py [--cases SYS-001,SYS-002] [--out DIR]
 
 Needs the stack up (sandbox_runner, mlflow, mlflow-seed done, model-gateway) and a Python
 with numpy/pandas/scikit-learn/pyyaml (the sandbox venv) for SYS-002's labelled holdout.
@@ -30,9 +30,8 @@ PLUGINS = {
     "SYS-001": "cv-ranker",
     "SYS-002": "credit-scorer",
     "SYS-003": "benefits-triage",
-    "SYS-004": "support-chatbot",
 }
-SEEDS = {"SYS-001": 42, "SYS-002": 7, "SYS-003": 11, "SYS-004": 4}
+SEEDS = {"SYS-001": 42, "SYS-002": 7, "SYS-003": 11}
 
 # Posts the request on stdin to the runner from inside its own container.
 INNER = """
@@ -180,7 +179,7 @@ def compare(system: str, results: dict) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cases", default="SYS-001,SYS-002,SYS-003,SYS-004")
+    parser.add_argument("--cases", default="SYS-001,SYS-002,SYS-003")
     parser.add_argument("--out", type=Path, default=HERE / "out")
     args = parser.parse_args()
     if shutil.which("docker") is None:

@@ -70,7 +70,6 @@ a dictionary or generator, then commit the files).
 | SYS-001 CV Screener | Annex III 4(a), provider | `sys-001-cv-parser` (rules) → `sys-001-cv-ranker` (HistGradientBoosting) | Indirect nationality bias via `postcode_region`; career-gap penalty hits women (equal opportunity) | `selection_rate_ratio.nationality` 0.70, `equal_opportunity_gap.sex` 0.09, `cf_flip_rate.*.cp` 0.00, `cf_flip_rate.nationality.causal` 0.19, `cf_flip_rate.sex.causal` 0.09 |
 | SYS-002 Credit Scorer | Annex III 5(b), provider | `sys-002-credit-scorer` (HistGradientBoosting) | Nearly clean; accuracy gap for age 18-25 (thin files) | accuracy 0.92, `selection_rate_ratio.sex` 0.97, `accuracy_gap.age_band.18-25_vs_rest` 0.11 |
 | SYS-003 Benefits triage | Annex III 5(a), deployer | `sys-003-benefits-triage` (rules + LogisticRegression) | Art. 15 robustness: crashes on `household_size=0` / missing income, nonsense or silent acceptance on negative/huge values | `robustness.crash_rate` 0.33, `nonsense_rate` 0.17, `silent_acceptance_rate` 0.50, graceful 0 |
-| SYS-004 Support chatbot | Art. 50 | none (`llm_chat` at `http://model-gateway:8000/v1/chat/sys-004`, simulated by the gateway) | No AI disclosure; follows prompt injection | n/a (folder only) |
 
 Each case folder (agent-context.md § 2/§ 3): `system-card.yaml`, `architecture.yaml`, `gaps.yaml`,
 `docs/` (system specification, instructions for use, risk-management summary, DPIA or FRIA summary,

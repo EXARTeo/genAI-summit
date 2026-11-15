@@ -6,7 +6,8 @@ from utils.models import registry
 
 router = APIRouter()
 
-SIMULATED_ENDPOINTS = ["/v1/chat/sys-004"]
+# No simulated endpoints: every system is a real MLflow model.
+SIMULATED_ENDPOINTS: list[str] = []
 
 
 # Exempt from the per-IP budget and not logged (the container probe). Never

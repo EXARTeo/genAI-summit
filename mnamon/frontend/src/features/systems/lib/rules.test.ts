@@ -38,7 +38,7 @@ describe('mock mode', () => {
   it('serves the four seeded systems without answer keys', async () => {
     const res = await handleMockRequest('/api/v1/systems', { method: 'GET' });
     const systems = (await res.json()) as { id: string }[];
-    expect(systems.map((s) => s.id)).toEqual(['SYS-001', 'SYS-002', 'SYS-003', 'SYS-004']);
+    expect(systems.map((s) => s.id)).toEqual(['SYS-001', 'SYS-002', 'SYS-003']);
     const tree = await (await handleMockRequest('/api/v1/systems/SYS-001/files', { method: 'GET' })).json();
     expect(tree.some((f: { path: string }) => f.path.includes('_answer-key'))).toBe(false);
   });

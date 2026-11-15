@@ -8,8 +8,6 @@ optional latency, request ids and structured logs on every call.
 
 - ``POST /v1/models/{name}/predict``: one model (signature-validated).
 - ``POST /v1/systems/sys-001/screen``: the SYS-001 pipeline, parser -> ranker.
-- ``POST /v1/chat/sys-004``: a SIMULATED support chatbot with planted flaws
-  (utils/chatbot.py); no LLM, no paid API.
 
 Models load lazily on first call; until MLflow has them, calls answer 503.
 """
@@ -27,7 +25,6 @@ from core.logging import (
 from core.security.client import get_caller
 from core.security.rate_limit import IpBudgetMiddleware, token_rate_limit
 from core.settings import settings
-from router.chat import router as chat_router
 from router.health import router as health_router
 from router.models import router as models_router
 from router.systems import router as systems_router
@@ -72,4 +69,3 @@ _GATED = [Depends(get_caller), Depends(token_rate_limit), Depends(inject_latency
 app.include_router(health_router)
 app.include_router(models_router, prefix="/v1/models", tags=["Models"], dependencies=_GATED)
 app.include_router(systems_router, prefix="/v1/systems", tags=["Systems"], dependencies=_GATED)
-app.include_router(chat_router, prefix="/v1/chat", tags=["Chat"], dependencies=_GATED)

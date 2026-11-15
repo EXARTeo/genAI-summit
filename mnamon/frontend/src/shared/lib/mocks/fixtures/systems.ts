@@ -39,7 +39,6 @@ const DEMO: Record<string, Pick<SystemCard, 'last_audit'> & { status: string }> 
     status: 'active',
     last_audit: { id: 'AUD-0006', status: 'running', at: mockTime('2026-11-14T11:20:00Z') },
   },
-  'SYS-004': { status: 'active', last_audit: null },
 };
 
 function contentType(path: string): string {

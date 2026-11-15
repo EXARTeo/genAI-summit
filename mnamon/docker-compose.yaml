@@ -369,7 +369,7 @@ services:
       additional_contexts:
         shared: ./shared   # modelaccess: the plugin access layer shared with the sandbox
     # The seed models (MLflow, alias `champion`) behind production-style REST
-    # endpoints, plus the SIMULATED SYS-004 chatbot (docs/services/model-gateway.md).
+    # endpoints (docs/services/model-gateway.md).
     # Models load lazily: calls answer 503 until MLflow has them.
     environment:
       APP_ENV: ${APP_ENV:-development}

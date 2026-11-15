@@ -16,7 +16,7 @@ async def test_health_needs_no_auth_and_reports_models(api, auth):
     assert resp.status_code == 200
     body = resp.json()
     assert body["models"]["sys-002-credit-scorer"] == {"loaded": False, "version": None}
-    assert body["simulated"] == ["/v1/chat/sys-004"]
+    assert body["simulated"] == []
 
     await api.post(SCORER, json={"inputs": [ROW]}, headers=auth)
     body = (await api.get("/health")).json()
