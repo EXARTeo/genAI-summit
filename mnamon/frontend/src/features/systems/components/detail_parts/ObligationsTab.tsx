@@ -12,6 +12,7 @@ import {
 import { auditLabel } from '@/shared/lib/labels';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Card, EmptyState, SkeletonText, Tooltip } from '@/shared/ui';
+import { ObligationsPreview } from '@/features/classification/components/ObligationsPreview';
 
 const MODE_LABEL: Record<string, string> = {
   test: 'Tested on the model',
@@ -92,14 +93,20 @@ export function ObligationsTab({ systemId }: { systemId: string }) {
     if (!byObligation.has(f.obligation_id)) byObligation.set(f.obligation_id, f);
 
   if (!latest || entries.length === 0) {
+    // No audit yet: preview the obligations of the approved classification (plan 02 §5), if any.
     return (
-      <Card className="p-2">
-        <EmptyState
-          icon={<ListChecks />}
-          title="No obligation map yet"
-          description="An audit maps the provider obligations that apply to this system (role, classification, Annex III point, features, date). Start an audit to see it here."
-        />
-      </Card>
+      <ObligationsPreview
+        systemId={systemId}
+        fallback={
+          <Card className="p-2">
+            <EmptyState
+              icon={<ListChecks />}
+              title="No obligation map yet"
+              description="An audit maps the provider obligations that apply to this system (role, classification, Annex III point, features, date). Approve a risk classification for a preview, or start an audit."
+            />
+          </Card>
+        }
+      />
     );
   }
   const applicable = entries.filter((e) => e.applicable).length;

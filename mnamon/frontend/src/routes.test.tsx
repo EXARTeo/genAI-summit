@@ -12,6 +12,8 @@ const ROUTES: [string, RegExp][] = [
   ['/', /Waiting for you/],
   ['/systems', /AI systems/],
   ['/systems/SYS-001', /CV Screener/],
+  ['/systems/new', /Register a system/],
+  ['/systems/SYS-002', /Needs a careful human review/],
   ['/systems/SYS-001/folder', /\/systems\/SYS-001/],
   ['/systems/SYS-001/plugins', /System graph/],
   ['/systems/SYS-001/rules', /Add rule/],

@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
-import { Boxes, Search } from 'lucide-react';
+import { Boxes, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { staggerList } from '@/shared/lib/motion';
 import {
   AnimatedNumber,
+  Button,
   Card,
   EmptyState,
   ErrorState,
@@ -15,6 +17,7 @@ import {
 import { useAudits } from '@/features/audits/hooks/useAudits';
 import { useSystems } from '../hooks/useSystems';
 import { withLastAudits } from '../lib/adapters';
+import { systemRoutes } from '../lib/routes';
 import { RISK_META } from '../lib/styles';
 import { SystemCard, SystemTableHeader } from './SystemCard';
 
@@ -56,6 +59,13 @@ export function SystemsGallery() {
       <PageHeader
         title="AI systems"
         description="Every system in scope of the AI Act, with its dossier, plugins and audit status."
+        actions={
+          <Button asChild>
+            <Link to={systemRoutes.register()}>
+              <Plus /> Register a system
+            </Link>
+          </Button>
+        }
       />
 
       <Card className="mb-6 grid grid-cols-2 divide-border lg:grid-cols-4 lg:divide-x">
@@ -110,7 +120,16 @@ export function SystemsGallery() {
           description={
             all.length
               ? 'Clear the search or pick another risk class.'
-              : 'Seed the demo systems (SYS-001..004) through the backend, or register one.'
+              : 'Seed the demo systems (SYS-001..003) through the backend, or register one.'
+          }
+          action={
+            !all.length && (
+              <Button asChild size="sm">
+                <Link to={systemRoutes.register()}>
+                  <Plus /> Register a system
+                </Link>
+              </Button>
+            )
           }
         />
       ) : (

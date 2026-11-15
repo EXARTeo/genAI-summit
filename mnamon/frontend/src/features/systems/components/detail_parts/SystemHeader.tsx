@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { formatDateTime, formatRelative } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/utils';
 import { Badge, StatusPill, type BadgeTone } from '@/shared/ui';
+import { ClassificationDot } from '@/features/classification/components/ClassificationDot';
 import { systemRoutes } from '../../lib/routes';
 import { riskMeta } from '../../lib/styles';
 import type { System } from '../../lib/types';
@@ -83,6 +84,7 @@ export function SystemHeader({
       <dl className="grid grid-cols-2 gap-px border-t border-border bg-border lg:grid-cols-4">
         <Fact label="Risk class">
           <Badge tone={risk.tone}>{risk.label}</Badge>
+          <ClassificationDot systemId={system.id} />
         </Fact>
         <Fact label="Legal basis">
           <span className="truncate font-mono text-xs" title={c.annex_basis}>

@@ -14,6 +14,7 @@ import {
   StatusPill,
   Timeline,
 } from '@/shared/ui';
+import { ClassificationPanel } from '@/features/classification/components/ClassificationPanel';
 import { RegisterStateCard } from '@/features/register/components/RegisterStateCard';
 import { useFileEvents } from '../../hooks/useSystems';
 import { systemRoutes } from '../../lib/routes';
@@ -104,6 +105,10 @@ export function OverviewTab({ system }: { system: System }) {
       animate="animate"
       className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
     >
+      <motion.div variants={listItem} className="min-w-0 md:col-span-2 xl:col-span-3">
+        <ClassificationPanel systemId={system.id} />
+      </motion.div>
+
       <motion.div variants={listItem} className="min-w-0 md:col-span-2">
         <Card className="h-full">
           <CardHeader

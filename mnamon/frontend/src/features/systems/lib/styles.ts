@@ -8,9 +8,11 @@ export const RISK_META: Record<string, { label: string; tone: BadgeTone; short: 
 };
 
 export function riskMeta(risk?: string) {
+  // A registered system's card says `unclassified` until a classification is approved (plan 02).
+  const known = risk && risk !== 'unclassified' ? risk : '';
   return (
-    RISK_META[risk ?? ''] ?? {
-      label: risk ? risk.replace(/_/g, ' ') : 'Unclassified',
+    RISK_META[known] ?? {
+      label: known ? known.replace(/_/g, ' ') : 'Unclassified',
       tone: 'neutral' as BadgeTone,
       short: '',
     }
