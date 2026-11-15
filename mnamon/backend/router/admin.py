@@ -14,7 +14,9 @@ from core.logging import get_logger
 from core.security.client import Caller, get_caller
 from core.security.rate_limit import workspace_rate_limit
 from core.settings import settings
+from schema.register import RebuildOut
 from schema.systems import SeedImportOut
+from utils.register import rebuild
 from utils.seed_import import import_seed
 
 router = APIRouter()
@@ -38,5 +40,31 @@ async def post_import_seed(
         "Seed cases imported",
         system_count=len(result.systems),
         files_written=sum(s.filesWritten for s in result.systems),
+    )
+    return result
+
+
+@router.post(
+    "/rebuild-register",
+    response_model=RebuildOut,
+    summary="Fold every finished audit into the findings register, oldest first",
+)
+async def post_rebuild_register(
+    _caller: Annotated[Caller, Depends(get_caller)],
+    _limited: Annotated[None, Depends(workspace_rate_limit)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    reset: bool = False,
+    systemId: str | None = None,  # noqa: N803
+) -> RebuildOut:
+    """``reset=true`` drops the register first (human closures are lost)."""
+    result = await rebuild(db, reset=reset, system_id=systemId)
+    await db.commit()
+    logger.info(
+        "register_rebuilt",
+        "Findings register rebuilt",
+        reset=reset,
+        system_id=systemId,
+        audits=len(result.audits_applied),
+        items=result.items,
     )
     return result

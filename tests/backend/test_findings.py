@@ -215,11 +215,12 @@ async def test_retry_forwards_to_the_agents_run(client, agents_service):
     assert (await client.post(url)).status_code == 409
 
 
-def test_migration_0006_is_the_single_head():
+def test_migration_0006_is_in_the_single_chain():
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "core/database/migrations"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0006_sealed_findings"]
+    assert script.get_heads() == ["0007_finding_register"]
+    assert script.get_revision("0007_finding_register").down_revision == "0006_sealed_findings"
     source = Path(script.get_revision("0006_sealed_findings").path).read_text(encoding="utf-8")
     for needle in ("findings", "finding_annotations", "finding_status_events", "pins"):
         assert f'"{needle}"' in source

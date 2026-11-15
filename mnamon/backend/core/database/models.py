@@ -757,3 +757,46 @@ for _table in (
                 "FOR EACH ROW EXECUTE FUNCTION reject_append_only_change()"
             ).execute_if(dialect="postgresql"),
         )
+
+
+# --- Findings register (migration 0007) ---------------------------------------
+#
+# The system's current state per obligation, across audits: an issue tracker
+# over the sealed findings. Mutable on purpose (state moves), with an
+# append-only ``history`` list inside the row. Sealed findings stay untouched.
+
+
+class FindingRegisterTable(Base):
+    """One row per (system, obligation): its state now and how it got there."""
+
+    __tablename__ = "finding_register"
+    __table_args__ = (
+        Index("uq_finding_register_system_obligation", "system_id", "obligation_id", unique=True),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    system_id = Column(
+        String, ForeignKey("systems.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    obligation_id = Column(String, nullable=False)
+    # open | closed | resolved | monitoring
+    state = Column(String, nullable=False)
+    # The last sealed verdict and severity.
+    verdict = Column(String, nullable=False)
+    severity = Column(String, nullable=True)
+    # Denormalised for display (from the last finding's data).
+    article = Column(String, nullable=True)
+    title = Column(Text, nullable=True)
+    gap_id = Column(String, nullable=True)
+    first_seen_audit_id = Column(String, nullable=False)
+    last_seen_audit_id = Column(String, nullable=False)
+    last_finding_id = Column(String, nullable=True)
+    opened_at = Column(DateTime, nullable=True)
+    closed_by = Column(String, nullable=True)
+    close_reason = Column(Text, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+    # [{at, audit_id, actor, kind, from, to, verdict, note}], append-only by convention.
+    history = Column(_jsonb(), nullable=False, default=list)
+    data = Column(_jsonb(), nullable=False, default=dict)
+    created_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)

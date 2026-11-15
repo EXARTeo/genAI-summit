@@ -25,6 +25,7 @@ It is not user-visible and the backend has no memory routes.
 | `router/systems.py`, `router/workspace_files.py` | public routes; the file routes are one factory (`build_file_router`) |
 | `router/audits.py`, `router/admin.py` | audits, artifacts, approvals; seed import |
 | `utils/findings.py`, `router/findings.py`, `router/internal_findings.py` | sealed findings: seal (idempotent, hash chain, supersede), annotations, status events |
+| `utils/register.py`, `router/register.py`, migration `0007_finding_register` | findings register: per-(system, obligation) state across audits, close / reopen, rebuild |
 | `router/internal.py`, `core/security/internal.py` | the agents service's internal API and its shared-secret guard |
 
 ## Tables
@@ -44,6 +45,7 @@ Few typed columns (what is filtered or joined on); everything else in JSONB `dat
 | `finding_annotations` | `finding_id`, `kind` (`contest`, `accept_risk`, `remediation_planned`, `comment`), `body`, `actor` | append-only (trigger) |
 | `finding_status_events` | `finding_id`, `status` (`stale`, `superseded`, ...), `superseded_by`, `reason`, `actor` | `data`; append-only (trigger). A new finding for the same (system, obligation) adds `superseded` to the earlier ones |
 | `regulation_changes` | `id` (reg-memory's RC id), `status` | `data`: reg-memory's payload, the decision (`decidedBy`, `reason`), per-system `affected` |
+| `finding_register` | `system_id`, `obligation_id` (unique together), `state` (`open`, `closed`, `resolved`, `monitoring`), `verdict`, `severity`, `article`, `title`, `gap_id`, `first_seen_audit_id`, `last_seen_audit_id`, `last_finding_id`, `opened_at`, `closed_by`, `close_reason`, `closed_at` | `history` (append-only list of events), `data` (`last_status`, `last_reasoning`, `last_evidence`, `closed_verdict`). Mutable state, unlike the sealed findings ([Findings register](#findings-register)) |
 | `telegram_prompts` | `id` (callback token), `kind`, `key`, `status`, `decision`, `decided_by` | `data` (what it decides, reject state), `messages` (sent chat / message ids) |
 
 **Namespaces:** `system:<id>` (the system folder; plugins under `plugins/<name>/`).
@@ -87,6 +89,11 @@ All `/v1` routes need `X-Client-Id`, are rate-limited (`WORKSPACE_RATE_LIMIT_*`)
 | `GET / POST /v1/findings/{id}/annotations` | list; add `{kind, body}` (actor = `client:<X-Client-Id>`); there is no route that edits a finding |
 | `GET / POST /v1/audits/{id}/approvals` | list; record `{gate, decision, artifactId?, reasonCategory?, comment?, edits?}` |
 | `POST /v1/admin/import-seed` | import every `SYS-xxx/` folder of `SEED_CASES_DIR` (`_answer-key/`, hidden and `_`-prefixed dirs skipped) |
+| `GET /v1/systems/{id}/register` | the findings register: `{system_id, summary: {total, by_state, by_verdict, open_gaps, needs_review, accepted_risks, resolved, monitoring}, items[]}` (each item with its `history`) |
+| `GET /v1/systems/{id}/register/{obligation_id}` | one item with its history; 404 when unknown |
+| `POST /v1/systems/{id}/register/{obligation_id}/close` | `{reason}` (required, non-blank, else 422): state `closed` (accepted risk), actor `client:<id>`; 409 when already closed |
+| `POST /v1/systems/{id}/register/{obligation_id}/reopen` | `{reason?}`: state `open`; 409 when already open |
+| `POST /v1/admin/rebuild-register[?reset=true&systemId=]` | fold every `done` audit into the register, oldest first; audits already folded are skipped; `reset` drops the register first (human closures are lost) |
 
 `POST /v1/conversations` (and a `new` run start) also accept optional `systemId` / `auditId` (404 if unknown); summaries return them. Every run of such a conversation sends `system_id` / `audit_id` in the agents run context, which mounts that system's memory.
 
@@ -109,6 +116,7 @@ and through it one system; optional headers `X-Run-Id`, `X-Trace-Id`, `X-Agent-N
 | `POST /internal/audits/{id}/findings` | seal one finding (body below); 201, or 200 with the stored row when its `hash` (or, without a hash, its identical content in this audit) is already sealed; 409 when the hash is sealed in another audit |
 | `POST /internal/findings/{id}/status-events` | `{status, superseded_by?, reason?, data?}` (e.g. `stale` from the change judge); 201 |
 | `GET /internal/impact-index` | per system: its latest audit (with findings) → live `findings` (artifact data + `id`), `tests` (test_result rows), context `requirements`, `kb_version` (the change judge's impact index) |
+| `GET /internal/audits/{id}/register` | the findings register of the audit's system (same shape as the public route): `load_context` hydrates the run with it |
 | `POST /internal/systems/{id}/audits` | a new audit started by an agent (the change judge's re-run, actor `agent:<X-Agent-Name>`); starts its pipeline |
 | `PUT /internal/regulation/changes/{id}/judgement` | `{affected: [...], decidedBy}` from the change judge onto `regulation_changes.data` (`judge: done`; a human `humanDecision` is kept) |
 
@@ -123,6 +131,32 @@ The agent cannot write the system folder, except `datasets/public/<slug>/` (the 
 `FindingIn` (snake_case, what the pipeline's `seal` step posts): `{id?, obligation_id, verdict: pass|partial|gap|inconclusive|not_applicable|not_assessable_by_testing, severity: critical|high|medium|low|null, gap_id, metrics_ref, evidence_refs: [{path, sha256, mlflow_run_id?}], citations: [{provision_id, kb_version}], kb_version, reasoning, counter_arguments, would_change_if, judges: {rule, gemini, iris}, critic: {upheld, objection}, prev_hash?, hash?}`; any other field (`article`, `title`, ...) is kept in `data`. Without `hash` the backend computes `sha256(prev_hash + canonical JSON of the sealed fields)`; without `prev_hash` it chains to the audit's last finding.
 
 `FindingOut` = the same fields + `id, audit_id, system_id, data, created_by, created_at, sealed: true, status` (`current`, `stale`, `superseded`, ... from the status events), `stale`, `annotations[]`, `status_events[]`.
+
+## Findings register
+
+The system's current state per obligation, across audits: an open gap stays open until a human closes it
+with a reason, or a later audit finds it fixed. Fed when an audit moves to `status: done` (either PATCH
+route; idempotent per audit: a row that already has an event of that audit is skipped). The latest sealed
+finding per obligation of the audit counts; obligations the audit did not judge are untouched.
+
+`is_gap` = verdict `gap` / `partial`, or a documentation gap (`gap_id` on a `not_assessable_by_testing`).
+
+| Row now | Finding | State after (event, `register_status`) |
+| --- | --- | --- |
+| none | gap or `inconclusive` | `open` (`opened`, `new`) |
+| none | `pass`, `not_applicable`, not testable | `monitoring` (`first_seen`, `new`) |
+| `open` | gap / `inconclusive` / not testable | `open` (`still_open` or `verdict_changed`, `still_open`) |
+| `open` | `pass` | `resolved` (`resolved`, `resolved`; `closed_by: audit:<id>`) |
+| `resolved` / `monitoring` | gap or `inconclusive` | `open` (`regressed` if it was ever open, else `opened`) |
+| `resolved` / `monitoring` | anything else | unchanged (`checked`, `unchanged`) |
+| `closed` (human) | `pass` | `resolved` |
+| `closed` | worse than the verdict at close | `open` (`reopened`, `regressed`) |
+| `closed` | same or better | stays `closed` (`still_open`, `accepted_risk`) |
+
+History event: `{at, audit_id | null, finding_id?, actor, kind, from, to, verdict, previous_verdict?, note}`;
+`kind` is one of the events above plus `closed` / `reopened` by a human (`note` = the reason). The pipeline
+mirrors these rules to stamp each sealed finding's `data.register_status` before it is sealed
+([agents contract](../contracts/agents-contract.md)).
 
 ## Audit data and status
 

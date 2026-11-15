@@ -44,6 +44,7 @@ from router.internal import router as internal_router
 from router.internal_datasets import router as internal_datasets_router
 from router.internal_findings import router as internal_findings_router
 from router.internal_regulation import router as internal_regulation_router
+from router.register import router as register_router
 from router.regulation import router as regulation_router
 from router.systems import router as systems_router
 from router.tasks import conversation_router as task_conversation_router
@@ -180,6 +181,7 @@ app.include_router(task_conversation_router, prefix="/v1/conversations", tags=["
 app.include_router(systems_router, prefix="/v1/systems", tags=["Systems"])
 app.include_router(audits_router, prefix="/v1/audits", tags=["Audits"])
 app.include_router(findings_router, prefix="/v1", tags=["Findings"])
+app.include_router(register_router, prefix="/v1", tags=["Register"])
 app.include_router(admin_router, prefix="/v1/admin", tags=["Admin"])
 app.include_router(internal_router, prefix="/internal", tags=["Internal"])
 app.include_router(internal_datasets_router, prefix="/internal", tags=["Internal"])

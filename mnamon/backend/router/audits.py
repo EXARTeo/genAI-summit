@@ -43,6 +43,7 @@ from utils.audits import (
     record_approval,
 )
 from utils.findings import audit_findings, findings_out
+from utils.register import on_audit_status
 from utils.systems import actor_for
 from utils.telegram_gates import on_approval_recorded, on_artifact_created, on_audit_patched
 
@@ -80,6 +81,7 @@ async def update_audit(
     patch_audit(audit, payload)
     await db.flush()
     await on_audit_patched(db, audit, previous)
+    await on_audit_status(db, audit, previous[0])
     await db.commit()
     await db.refresh(audit)
     logger.info(

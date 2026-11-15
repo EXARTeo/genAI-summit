@@ -25,6 +25,7 @@ from schema.audits import (
     AuditOut,
     AuditPatch,
 )
+from schema.register import RegisterOut
 from schema.systems import FileContentOut, FileOut, SystemOut
 from utils.audit_pipeline import start_pipeline
 from utils.audits import (
@@ -35,6 +36,7 @@ from utils.audits import (
     impact_index,
     patch_audit,
 )
+from utils.register import on_audit_status, register_out
 from utils.telegram_gates import on_artifact_created, on_audit_patched
 from utils.workspace import (
     file_content_out,
@@ -77,12 +79,31 @@ async def internal_patch_audit(audit_id: str, payload: AuditPatch, db: Db) -> Au
     patch_audit(audit, payload)
     await db.flush()
     await on_audit_patched(db, audit, previous)
+    await on_audit_status(db, audit, previous[0])
     await db.commit()
     await db.refresh(audit)
     logger.info(
         "internal_audit_updated", "Agent updated an audit", audit_id=audit_id, stage=audit.stage
     )
     return AuditOut.model_validate(audit)
+
+
+@router.get(
+    "/audits/{audit_id}/register",
+    response_model=RegisterOut,
+    summary="The findings register of the audit's system (pipeline hydration)",
+)
+async def internal_register(audit_id: str, db: Db) -> RegisterOut:
+    audit = await get_audit_or_404(db, audit_id)
+    out = await register_out(db, audit.system_id)
+    logger.info(
+        "internal_register_read",
+        "Agent read the findings register",
+        audit_id=audit_id,
+        system_id=audit.system_id,
+        count=out.summary.total,
+    )
+    return out
 
 
 @router.get(
