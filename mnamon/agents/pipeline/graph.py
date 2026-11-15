@@ -202,6 +202,12 @@ def risk_class(card: dict[str, Any]) -> str | None:
     return "high" if value.startswith("high") else (value or None)
 
 
+def excluded_for(state: Any, entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """The scenarios of this obligation the reviewer excluded at the scenarios gate."""
+    excluded = ((state.get("scenarios") or {}).get("excluded")) or []
+    return [x for x in excluded if x.get("obligation_id") == entry.get("obligation_id")]
+
+
 def normalise_decision(value: Any) -> dict[str, Any]:
     """A gate's resume value (backend approval, AG-UI decision or plain string) -> one shape."""
     if isinstance(value, str):
@@ -210,9 +216,16 @@ def normalise_decision(value: Any) -> dict[str, Any]:
         value = {}
     edits = value.get("edits") if isinstance(value.get("edits"), dict) else {}
     raw = str(value.get("decision") or "").strip().lower()
+    decision = DECISIONS.get(raw, "rejected" if raw else "approved")
+    reason = value.get("comment") or value.get("reason") or ""
+    approved = edits.get("approved_scenarios")
+    if decision == "approved" and isinstance(approved, list) and not approved:
+        # Approving none of the scenarios is a request for a new plan.
+        decision = "changes_requested"
+        reason = reason or "every scenario was excluded"
     return {
-        "decision": DECISIONS.get(raw, "rejected" if raw else "approved"),
-        "reason": value.get("comment") or value.get("reason") or "",
+        "decision": decision,
+        "reason": reason,
         "category": value.get("reasonCategory") or value.get("reason_category") or "other",
         "selected": value.get("selected") or edits.get("selected"),
         "edits": edits,
@@ -908,7 +921,7 @@ class AuditPipeline:
     async def gate_scenarios(self, state: AuditState) -> dict[str, Any]:
         scenarios = (state.get("scenarios") or {}).get("scenarios") or []
         analysis = state.get("scenario_analysis") or {}
-        return await self._gate_with_redo(
+        update = await self._gate_with_redo(
             state,
             "scenarios",
             {
@@ -930,6 +943,53 @@ class AuditPipeline:
                 },
             },
         )
+        if update.get("route") == "next":
+            update.update(await self._keep_approved(state, update["gates"]["scenarios"]))
+        return update
+
+    async def _keep_approved(self, state: AuditState, decision: dict[str, Any]) -> dict[str, Any]:
+        """A partial approval (``edits.approved_scenarios``): only those scenarios go on;
+        the rest are recorded as excluded with the reviewer's reason."""
+        edits = decision.get("edits") or {}
+        approved = edits.get("approved_scenarios")
+        plan = state.get("scenarios") or {}
+        scenarios = plan.get("scenarios") or []
+        if not isinstance(approved, list):
+            return {}
+        keep_ids = {str(i) for i in approved}
+        kept = [s for s in scenarios if str(s.get("id")) in keep_ids]
+        if not kept or len(kept) == len(scenarios):
+            if not kept:
+                logger.warning(
+                    "scenario_selection_ignored",
+                    "No approved id matched a scenario; every scenario goes on",
+                )
+            return {}
+        reasons = edits.get("excluded") if isinstance(edits.get("excluded"), dict) else {}
+        excluded = [
+            {
+                "id": s.get("id"),
+                "obligation_id": s.get("obligation_id"),
+                "metric": s.get("metric"),
+                "reason": str(reasons.get(str(s.get("id"))) or "excluded by the reviewer"),
+            }
+            for s in scenarios
+            if str(s.get("id")) not in keep_ids
+        ]
+        data = {
+            **plan,
+            "scenarios": kept,
+            "approved_ids": [s.get("id") for s in kept],
+            "excluded": excluded,
+        }
+        art_id = await self._artifact(state, "scenarios", {**data, "yaml": dumps_yaml(data)})
+        logger.info(
+            "scenarios_partially_approved",
+            "Scenarios partially approved",
+            kept=len(kept),
+            excluded=len(excluded),
+        )
+        return {"scenarios": data, "artifacts": {"scenarios": art_id}}
 
     async def draft_spec(self, state: AuditState) -> dict[str, Any]:
         out = await self._start(state, "draft_spec")
@@ -1390,7 +1450,7 @@ class AuditPipeline:
                 verdict, why = rule_verdict(rows)
                 tested.append({"entry": entry, "rows": rows, "rule": verdict, "why": why})
             elif entry.get("verification_mode") == "model_test":
-                proposed.append(self._untested(entry, kb))
+                proposed.append(self._untested(entry, kb, excluded_for(state, entry)))
             else:
                 proposed.append(self._documentary(entry, paths, kb))
         assessments = await self._gemini_assess(state, tested)
@@ -1418,8 +1478,15 @@ class AuditPipeline:
         return {**out, "verdicts": proposed, "artifacts": {"verdicts": art_id}}
 
     @staticmethod
-    def _untested(entry: dict[str, Any], kb: str | None) -> dict[str, Any]:
+    def _untested(
+        entry: dict[str, Any], kb: str | None, excluded: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
         why = "no scenario of this audit tested it: the evidence cannot show it either way"
+        if excluded:
+            reasons = "; ".join(sorted({str(x.get("reason")) for x in excluded}))
+            why = (
+                f"the reviewer excluded its scenarios at the gate ({reasons}), so nothing tested it"
+            )
         article = entry.get("article")
         return {
             "obligation_id": entry["obligation_id"],

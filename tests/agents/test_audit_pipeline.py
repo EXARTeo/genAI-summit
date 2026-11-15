@@ -381,3 +381,50 @@ def test_annex_basis_and_decisions_are_normalised():
     assert normalise_decision("approve")["decision"] == "approved"
     assert normalise_decision({"decision": "reject", "comment": "x"})["reason"] == "x"
     assert normalise_decision({"decision": "changes_requested"})["decision"] == "changes_requested"
+
+
+async def test_scenarios_gate_keeps_only_the_approved_scenarios():
+    """Approve some scenarios, exclude the rest with a reason: only the approved ones are
+    tested, the excluded ones are recorded and their obligation says why it was not tested."""
+    h = make_harness()
+    graph = build_graph(h, InMemorySaver())
+    await graph.ainvoke(START, CONFIG)
+    planned = (await graph.aget_state(CONFIG)).values["scenarios"]["scenarios"]
+    assert len(planned) >= 2
+    keep, drop = planned[0]["id"], planned[1]["id"]
+    others = [s["id"] for s in planned[2:]]
+    await _answer(
+        graph,
+        {
+            "decision": "approved",
+            "edits": {
+                "approved_scenarios": [keep, *others],
+                "excluded": {drop: "not relevant for the ranker"},
+            },
+        },
+    )
+    state = (await graph.aget_state(CONFIG)).values
+    ids = [s["id"] for s in state["scenarios"]["scenarios"]]
+    assert drop not in ids and keep in ids
+    assert state["scenarios"]["excluded"][0] == {
+        "id": drop,
+        "obligation_id": planned[1].get("obligation_id"),
+        "metric": planned[1].get("metric"),
+        "reason": "not relevant for the ranker",
+    }
+    rewritten = [a for a in h.backend.artifacts if a["kind"] == "scenarios"][-1]
+    assert rewritten["data"]["approved_ids"] == ids
+
+    await _answer(graph, {"decision": "approved"})  # datasets
+    snapshot = await graph.aget_state(CONFIG)
+    assert not snapshot.next
+    plan = next(a for a in h.backend.artifacts if a["kind"] == "test_plan")["data"]
+    tested = {t.get("scenario") for t in plan.get("tests") or []}
+    assert drop not in tested
+
+
+def test_approving_no_scenario_asks_for_a_new_plan():
+    d = normalise_decision({"decision": "approved", "edits": {"approved_scenarios": []}})
+    assert d["decision"] == "changes_requested"
+    assert d["reason"] == "every scenario was excluded"
+    assert normalise_decision({"decision": "approved"})["decision"] == "approved"
