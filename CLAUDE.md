@@ -1,6 +1,6 @@
 # genAI-summit — Claude instructions
 
-Project for the GenAI Summit. Repo: `EXARTeo/genAI-summit`. Product chosen (2026-11-14): **AI Act Governance Copilot** (see "The product" below). Built so far: scaffold, `backend`, `agents` service, Langfuse; the product features are design only.
+Project for the GenAI Summit. Repo: `EXARTeo/genAI-summit`. Product chosen (2026-11-14): **AI Act Governance Copilot** (see "The product" below). Built so far: the full stack (backend, agents, reg-memory, MLflow + seed, model gateway, sandbox, frontend, Langfuse) and the AI Engineer pillar end to end (plugins, audit pipeline with gates, sealed findings, reports, regulation change re-run); the PM and AI Officer pillars are design only (see "Roles" below).
 
 ## The event (researched 2026-11-13; re-check the official pages, details change)
 
@@ -57,6 +57,7 @@ We are entering the **Gen AI Summit Hackathon**: a 36-hour build that runs along
 Read first: [docs/architecture/README.md](docs/architecture/README.md) (summary + diagrams), [docs/architecture/agent-context.md](docs/architecture/agent-context.md) (context, plugins, memory, filesystem), full design PDF in Greek: `docs/architecture/ai-act-governance-copilot.pdf` (its §12 is the MVP and overrides §9 / §11.5).
 
 - **What:** an agentic EU AI Act compliance assistant run in-house. **MVP = AI Engineer pillar only, for high-risk systems the org builds as provider.** Risk class and system card are seeded (as if PM + AI Officer made them). Given a system + its model(s), the agent derives the applicable requirements, plans tests, generates auditable synthetic data, runs tests in the sandbox, and returns findings with reasoning **and** counter-arguments, plus an engineer report and a management report. When the law/guidelines change it finds affected systems and re-runs what's needed.
+- **Roles (three pillars, no login):** AI Officer (oversees all systems, audits, findings register, regulation changes; today the shared read view), PM (registers systems: card, risk class, docs; not built, systems are seeded; risk classification = a small fast agent, planned), AI Engineer (configures one plugin per model in the Plugins tab, runs audits; **the only pillar built**). An audit tests one plugin (`data.target_plugin`, else the decision model).
 - **Principles:** human-in-the-loop (agents write `proposed`, humans make `approved`); every claim cites a source; deterministic skeleton (code/YAML rules), LLM only for judgement; every finding locks `kb_version`; fairness thresholds are the org's, not the law's (say so in findings).
 - **Containers:** existing `backend` (API, cards, runs, findings, webhooks, Telegram) and `agents` (LangGraph test + impact pipelines), `sandbox` (no network except target + MLflow), Postgres, Redis, Langfuse (trace = audit trail); new `frontend` (Vite + React engineer workspace), `reg-memory` / RKS (all regulation, versioned YAML corpus in git, watcher, diff, change judge), `mlflow` (models + test runs).
 - **Engineer pipeline:** `load_context → profile_model → plan_scenarios → analyse_scenarios (+ Oumi Iris reviews each scenario) → [HITL approve scenarios] → find_public_data (for what the approved scenarios need) [HITL pick] → draft_spec (reference_sample or zero-shot) → generate_data → analyse_datasets → [HITL approve datasets] → run_tests (sandbox, one MLflow run per test) → analyse → critic (tries to overturn each finding) → report`. A LangGraph StateGraph fixes the order and gates; deep agents run the open-ended steps. Verdicts: `supports_compliance | indicates_gap | inconclusive | not_assessable_by_testing`. LLM = **Google Gemini only** (`GOOGLE_API_KEY`, `GEMINI_MODEL`); no OpenAI/Anthropic. Decision model = **Oumi Iris** (`pipeline/decision.py`, `POST https://inference.oumi.ai/v1/systemone`, `OUMI_API_KEY` + `OUMI_MODEL`) for the scenario review and the change judge, Gemini as fallback. Audit ids are readable: `<SYSTEM_ID>-<YYYYMMDD>-<HHMM>` (UTC).
@@ -71,17 +72,17 @@ Read first: [docs/architecture/README.md](docs/architecture/README.md) (summary 
 - **Demo spine:** live test run with HITL gates → finding + critic → reject a test → the agent remembers the lesson → the next audit of the system is planned right, citing the memory entry → live regulation change (mirrored guideline page + Firecrawl "Check now") → Telegram alert → re-run → delta report. Langfuse shows every step.
 - **Open:** LLM provider; whether the Omnibus changed ex-Art. 10(5) (protected attributes in bias tests).
 
-## UI polish backlog (flagged by the user 2026-11-15, not started)
+## UI polish backlog (flagged by the user 2026-11-15; done rows per CHANGELOG)
 
 Do these after the demo blockers, in one frontend pass: use the `frontend-design` skill, port mAgenticX patterns where they fit (as with the pipeline graph from its workflow run view), take Playwright screenshots in both themes at desktop and mobile, and commit as you go.
 
 | Page | What needs work |
 | --- | --- |
-| System header + tabs | The id shows twice (breadcrumb and a line above the title); badge weights are uneven; the tab bar is a cramped toolbar pill; "Start audit" vs "Chat" has no clear hierarchy |
-| Folder tab | Plain tree with no file-type icons or metadata; the viewer scrolls both ways inside a fixed box and clips long lines; raw YAML even for known files (`system-card.yaml`, `generated-stats.yaml`, `data-dictionary.yaml`) where a structured view fits; "Add files for the agent" (free-text folder + big dropzone) reads like a dev tool |
-| Plugins tab | Dense card; monospace target/limits wrap mid-token; weak label/value hierarchy; flat expected-behaviour list; the "Plugins (1)" title floats with no action |
+| System header + tabs | **Done** (framed header, underline tabs, id once, Start audit primary). Was: the id shows twice (breadcrumb and a line above the title); badge weights are uneven; the tab bar is a cramped toolbar pill; "Start audit" vs "Chat" has no clear hierarchy |
+| Folder tab | **Done** (one explorer, in-tree uploads, file icons, wrapping viewer; structured views of known YAML still open). Was: plain tree with no file-type icons or metadata; the viewer scrolls both ways inside a fixed box and clips long lines; raw YAML even for known files (`system-card.yaml`, `generated-stats.yaml`, `data-dictionary.yaml`) where a structured view fits; "Add files for the agent" (free-text folder + big dropzone) reads like a dev tool |
+| Plugins tab | **Done** (simpler cards, details panel), now being replaced by the graph + plugin form. Was: dense card; monospace target/limits wrap mid-token; weak label/value hierarchy; flat expected-behaviour list; the "Plugins (1)" title floats with no action |
 | Add a business rule dialog | Plain form with big empty textareas and tiny helper text; no preview of the line written to `business-rules.md`; low-contrast disabled primary |
-| Regulation | Long list of near-identical cards with three noisy chips each; awkward title wraps; raw EUR-Lex text in a fixed scroll box; cramped version table with an empty "Changed sections" column; no search or grouping by kind; "Check now" sits apart from the change inbox |
+| Regulation | **Done** (panels by kind, reader with search, git-style inbox diffs). Was: long list of near-identical cards with three noisy chips each; awkward title wraps; raw EUR-Lex text in a fixed scroll box; cramped version table with an empty "Changed sections" column; no search or grouping by kind; "Check now" sits apart from the change inbox |
 
 ## Layout
 
