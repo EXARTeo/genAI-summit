@@ -27,10 +27,10 @@ ART63_CONDITIONS = {
     "d": "preparatory task to an assessment",
 }
 ART50_PARAGRAPHS = {
-    "AIA.50.1": "interacts directly with natural persons",
-    "AIA.50.2": "generates synthetic audio, image, video or text content",
-    "AIA.50.3": "emotion recognition or biometric categorisation",
-    "AIA.50.4": "generates or manipulates deep fakes",
+    "AIA.50.1": "the system itself converses with people, like a chatbot or voice assistant",
+    "AIA.50.2": "the system generates synthetic audio, image, video or text content",
+    "AIA.50.3": "the system is an emotion recognition or biometric categorisation system",
+    "AIA.50.4": "the system generates or manipulates deep fakes",
 }
 PROFILING_STATEMENT = "The system profiles natural persons (GDPR Art. 4(4))"
 

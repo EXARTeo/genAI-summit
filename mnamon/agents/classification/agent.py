@@ -249,10 +249,12 @@ def iris_state(
         "human_oversight",
         "deployment",
         "annex_i_product",
+        "acquisition",
     )
     system = {k: card.get(k) for k in keys if card.get(k)}
     system["features"] = pre.get("features") or []
     system["profiling_declared"] = pre.get("profiling")
+    system["role_hint"] = pre.get("role_hint")
     texts = {pid: str(p.get("text") or "")[:600] for pid, p in provisions.items()}
     return {"system": system, "provisions": texts}
 
