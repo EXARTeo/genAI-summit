@@ -1354,7 +1354,7 @@ class AuditPipeline:
             if rows:
                 verdict, why = rule_verdict(rows)
                 tested.append({"entry": entry, "rows": rows, "rule": verdict, "why": why})
-            elif is_tested(entry) and entry.get("verification_mode") != "hybrid":
+            elif entry.get("verification_mode") == "model_test":
                 proposed.append(self._untested(entry, kb))
             else:
                 proposed.append(self._documentary(entry, paths, kb))

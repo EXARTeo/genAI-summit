@@ -104,15 +104,22 @@ def obligation_for_requirement(
 
 # ------------------------------------------------------------------- rule verdict
 def rows_for(entry: dict[str, Any], tests: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Result rows that bear on ``entry``: named for it, or of one of its check templates."""
-    oid, templates = entry["obligation_id"], templates_of(entry)
-    reqs = set(entry.get("requirements") or [])
+    """Result rows that bear on ``entry``.
+
+    Rows of the scenarios planned for it first. Without those, a ``model_test``
+    obligation takes the rows of its check templates (the same test can evidence
+    several model obligations); a ``hybrid`` / ``system_test`` one takes none, so
+    it is judged on the dossier instead of on another obligation's metrics.
+    """
+    oid = entry["obligation_id"]
+    own = [t for t in tests if t.get("obligation_id") == oid]
+    if own or entry.get("verification_mode") != "model_test":
+        return own
+    templates, reqs = templates_of(entry), set(entry.get("requirements") or [])
     return [
         t
         for t in tests
-        if t.get("obligation_id") == oid
-        or (t.get("template") in templates)
-        or (reqs & set(t.get("requirements") or []))
+        if t.get("template") in templates or (reqs & set(t.get("requirements") or []))
     ]
 
 
