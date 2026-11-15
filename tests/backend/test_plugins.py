@@ -201,3 +201,50 @@ async def test_save_plugin_rejects_a_bad_name(client):
     await _seed(client)
     card = {"name": "X", "access": {"type": "rest", "url": "/v1/x"}}
     assert (await client.put(f"{BASE}/plugins/Bad_Name", json={"card": card})).status_code == 422
+
+
+async def test_engineer_builds_the_pipeline_from_an_empty_system(client):
+    """A PM registers a system with docs only; the engineer adds the graph and the plugins."""
+    assert (
+        await client.post("/v1/systems", json={"id": "SYS-009", "name": "New"})
+    ).status_code == 201
+    base = "/v1/systems/SYS-009"
+    assert (await client.get(f"{base}/plugins")).json()["components"] == []
+
+    step = await client.post(
+        f"{base}/plugins/components", json={"name": "Intake form", "kind": "upstream_system"}
+    )
+    assert step.status_code == 201, step.text
+    assert step.json()["components"][0]["id"] == "SYS-009.intake-form"
+    assert step.json()["components"][0]["testable"] is False
+    dup = await client.post(f"{base}/plugins/components", json={"name": "Intake form"})
+    assert dup.status_code == 409
+
+    card = {
+        "name": "Scorer",
+        "access": {"type": "mlflow_model", "uri": "models:/sys-009-scorer@champion"},
+    }
+    res = await client.put(
+        f"{base}/plugins/scorer", json={"card": card, "upstream": ["SYS-009.intake-form"]}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["architecture_updated"] is True
+    assert res.json()["card"]["placement"]["upstream"] == ["SYS-009.intake-form"]
+    assert res.json()["card"]["placement"]["position"] == "2 of 2"
+
+    review = await client.post(
+        f"{base}/plugins/components",
+        json={"name": "Officer review", "kind": "human_review", "upstream": ["SYS-009.scorer"]},
+    )
+    graph = review.json()
+    assert {(e["source"], e["target"]) for e in graph["edges"]} == {
+        ("SYS-009.intake-form", "SYS-009.scorer"),
+        ("SYS-009.scorer", "SYS-009.officer-review"),
+    }
+    scorer = next(c for c in graph["components"] if c["id"] == "SYS-009.scorer")
+    assert scorer["configured"] is True
+
+    gone = await client.delete(f"{base}/plugins/components/SYS-009.officer-review")
+    assert gone.status_code == 200
+    assert len(gone.json()["edges"]) == 1
+    assert (await client.delete(f"{base}/plugins/components/SYS-009.nope")).status_code == 404

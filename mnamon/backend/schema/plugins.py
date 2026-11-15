@@ -6,7 +6,7 @@ sits in the system (``placement``), its I/O and expected behaviour. It is stored
 ``plugins/<name>/plugin.yaml`` in the system folder (docs/architecture/agent-context.md § 3).
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
@@ -79,6 +79,9 @@ class PluginIn(BaseModel):
     #: The graph component this plugin wraps (linked in architecture.yaml).
     component: str | None = Field(None, max_length=200)
     reason: str | None = Field(None, max_length=500)
+    #: Edges to add for this model: components before it / after it in the pipeline.
+    upstream: list[str] = Field(default_factory=list, max_length=20)
+    downstream: list[str] = Field(default_factory=list, max_length=20)
 
 
 class PluginWriteOut(BaseModel):
@@ -88,3 +91,14 @@ class PluginWriteOut(BaseModel):
     changed: bool
     card: dict[str, Any]
     architecture_updated: bool = False
+
+
+class ComponentIn(BaseModel):
+    """A box added to the system graph (architecture.yaml)."""
+
+    name: str = Field(..., min_length=1, max_length=120)
+    kind: Literal["ml_model", "upstream_system", "human_review"] = "ml_model"
+    model: str | None = Field(None, max_length=300)
+    note: str | None = Field(None, max_length=500)
+    upstream: list[str] = Field(default_factory=list, max_length=20)
+    downstream: list[str] = Field(default_factory=list, max_length=20)

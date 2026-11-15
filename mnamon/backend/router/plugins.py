@@ -16,12 +16,19 @@ from core.security.client import Caller, get_caller
 from core.security.rate_limit import workspace_rate_limit
 from schema.plugins import (
     PLUGIN_NAME_PATTERN,
+    ComponentIn,
     PluginDefaultsOut,
     PluginGraphOut,
     PluginIn,
     PluginWriteOut,
 )
-from utils.plugins import plugin_defaults, save_plugin, system_graph
+from utils.plugins import (
+    add_component,
+    plugin_defaults,
+    remove_component,
+    save_plugin,
+    system_graph,
+)
 from utils.systems import actor_for
 from utils.workspace import get_system_or_404
 
@@ -95,6 +102,8 @@ async def put_plugin(
         actor=actor_for(caller.id),
         component_id=payload.component,
         reason=payload.reason,
+        upstream=payload.upstream,
+        downstream=payload.downstream,
     )
     await db.commit()
     logger.info(
@@ -106,3 +115,44 @@ async def put_plugin(
         changed=out["changed"],
     )
     return PluginWriteOut.model_validate(out)
+
+
+@router.post(
+    "/{system_id}/plugins/components",
+    response_model=PluginGraphOut,
+    status_code=201,
+    summary="Add a box to the system graph (a model, an upstream system or a human step)",
+)
+async def post_component(
+    system_id: str, payload: ComponentIn, caller: CallerDep, _limited: Limited, db: Db
+) -> PluginGraphOut:
+    await get_system_or_404(db, system_id)
+    graph = await add_component(
+        db,
+        system_id,
+        name=payload.name,
+        kind=payload.kind,
+        model=payload.model,
+        note=payload.note,
+        upstream=payload.upstream,
+        downstream=payload.downstream,
+        actor=actor_for(caller.id),
+    )
+    await db.commit()
+    logger.info("graph_component_added", "Graph component added", system_id=system_id)
+    return PluginGraphOut.model_validate(graph)
+
+
+@router.delete(
+    "/{system_id}/plugins/components/{component_id}",
+    response_model=PluginGraphOut,
+    summary="Remove a box and its edges from the system graph (plugin files stay)",
+)
+async def delete_component(
+    system_id: str, component_id: str, caller: CallerDep, _limited: Limited, db: Db
+) -> PluginGraphOut:
+    await get_system_or_404(db, system_id)
+    graph = await remove_component(db, system_id, component_id, actor=actor_for(caller.id))
+    await db.commit()
+    logger.info("graph_component_removed", "Graph component removed", system_id=system_id)
+    return PluginGraphOut.model_validate(graph)

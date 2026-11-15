@@ -429,6 +429,8 @@ async def save_plugin(
     actor: str,
     component_id: str | None = None,
     reason: str | None = None,
+    upstream: list[str] | None = None,
+    downstream: list[str] | None = None,
 ) -> dict[str, Any]:
     if not _NAME.match(name):
         raise HTTPException(status_code=422, detail="Plugin name: lowercase letters, digits, '-'.")
@@ -438,6 +440,19 @@ async def save_plugin(
     errors = validate_card(card)
     if errors:
         raise HTTPException(status_code=422, detail="Invalid plugin: " + "; ".join(errors))
+    # Link first, so a new model's placement reflects the edges it was just given.
+    linked = await _link_component(
+        db, system_id, name, card, component_id, actor, upstream, downstream
+    )
+    placement = card.get("placement") or {}
+    if not placement or (
+        linked and (upstream or downstream or placement.get("kind") == "standalone")
+    ):
+        graph = await system_graph(db, system_id)
+        for comp in graph["components"]:
+            if comp["id"] == card["id"]:
+                comp["name"] = str(card.get("name") or comp["name"])
+        card["placement"] = _placement(graph, str(card["id"]))
     path = f"plugins/{name}/plugin.yaml"
     row, changed = await put_file(
         db,
@@ -447,7 +462,6 @@ async def save_plugin(
         actor=actor,
         reason=reason or "plugin configured in the Plugins tab",
     )
-    linked = await _link_component(db, system_id, name, card, component_id, actor)
     return {
         "name": name,
         "path": row.path,
@@ -458,36 +472,19 @@ async def save_plugin(
     }
 
 
-async def _link_component(
-    db: AsyncSession,
-    system_id: str,
-    name: str,
-    card: dict[str, Any],
-    component_id: str | None,
-    actor: str,
-) -> bool:
-    """Point the component at ``plugins/<name>`` in architecture.yaml (add it when missing)."""
-    text = await _read(db, system_id, ARCHITECTURE)
-    arch = _yaml(text) or {"system": system_id, "components": [], "edges": []}
-    components = arch.setdefault("components", [])
-    ref = f"plugins/{name}"
-    uri = (card.get("access") or {}).get("uri")
-    target = component_id or card.get("id")
-    for comp in components:
-        if isinstance(comp, dict) and comp.get("id") == target:
-            if comp.get("plugin") == ref and (not uri or comp.get("model") == uri):
-                return False
-            comp["plugin"] = ref
-            if uri:
-                comp["model"] = uri
-            break
-    else:
-        if any(isinstance(c, dict) and _plugin_folder(c.get("plugin")) == name for c in components):
-            return False
-        entry: dict[str, Any] = {"id": target, "plugin": ref, "kind": "ml_model"}
-        if uri:
-            entry["model"] = uri
-        components.append(entry)
+async def _load_arch(db: AsyncSession, system_id: str) -> dict[str, Any]:
+    arch = _yaml(await _read(db, system_id, ARCHITECTURE)) or {"system": system_id}
+    arch.setdefault("system", system_id)
+    if not isinstance(arch.get("components"), list):
+        arch["components"] = []
+    if not isinstance(arch.get("edges"), list):
+        arch["edges"] = []
+    return arch
+
+
+async def _write_arch(
+    db: AsyncSession, system_id: str, arch: dict[str, Any], actor: str, reason: str
+) -> None:
     body = yaml.safe_dump(arch, sort_keys=False, allow_unicode=True, width=100)
     await put_file(
         db,
@@ -497,6 +494,132 @@ async def _link_component(
             "# System graph: components, their plugins and the data between them.\n" + body
         ).encode(),
         actor=actor,
-        reason=f"plugin {name} linked",
+        reason=reason,
     )
-    return True
+
+
+def _connect(
+    arch: dict[str, Any], cid: str, upstream: list[str] | None, downstream: list[str] | None
+) -> bool:
+    """Add ``upstream → cid`` and ``cid → downstream`` edges (known components only)."""
+    known = {c.get("id") for c in arch["components"] if isinstance(c, dict)}
+    have = {(e.get("from"), e.get("to")) for e in arch["edges"] if isinstance(e, dict)}
+    added = False
+    pairs = [(u, cid) for u in upstream or []] + [(cid, d) for d in downstream or []]
+    for a, b in pairs:
+        if a == b or a not in known or b not in known or (a, b) in have:
+            continue
+        arch["edges"].append({"from": a, "to": b})
+        have.add((a, b))
+        added = True
+    if added and not arch.get("end_to_end_entry"):
+        targets = {b for _, b in have}
+        sources = [c["id"] for c in arch["components"] if c.get("id") not in targets]
+        if sources:
+            arch["end_to_end_entry"] = sources[0]
+    return added
+
+
+async def _link_component(
+    db: AsyncSession,
+    system_id: str,
+    name: str,
+    card: dict[str, Any],
+    component_id: str | None,
+    actor: str,
+    upstream: list[str] | None = None,
+    downstream: list[str] | None = None,
+) -> bool:
+    """Point the component at ``plugins/<name>`` in architecture.yaml (add it when missing)
+    and add its edges."""
+    arch = await _load_arch(db, system_id)
+    components = arch["components"]
+    ref = f"plugins/{name}"
+    uri = (card.get("access") or {}).get("uri")
+    target = component_id or card.get("id")
+    changed = False
+    for comp in components:
+        if isinstance(comp, dict) and comp.get("id") == target:
+            if comp.get("plugin") != ref or (uri and comp.get("model") != uri):
+                comp["plugin"] = ref
+                if uri:
+                    comp["model"] = uri
+                changed = True
+            break
+    else:
+        existing = next(
+            (
+                c
+                for c in components
+                if isinstance(c, dict) and _plugin_folder(c.get("plugin")) == name
+            ),
+            None,
+        )
+        if existing is None:
+            entry: dict[str, Any] = {"id": target, "plugin": ref, "kind": "ml_model"}
+            if uri:
+                entry["model"] = uri
+            components.append(entry)
+            changed = True
+        else:
+            target = existing["id"]
+    changed = _connect(arch, str(target), upstream, downstream) or changed
+    if changed:
+        await _write_arch(db, system_id, arch, actor, f"plugin {name} linked")
+    return changed
+
+
+async def add_component(
+    db: AsyncSession,
+    system_id: str,
+    *,
+    name: str,
+    kind: str,
+    actor: str,
+    model: str | None = None,
+    note: str | None = None,
+    upstream: list[str] | None = None,
+    downstream: list[str] | None = None,
+) -> dict[str, Any]:
+    """Add a box to the system graph (a model without a plugin yet, an upstream system or a
+    human step) with its edges."""
+    slug = _slug(name)
+    if not slug:
+        raise HTTPException(status_code=422, detail="Give the step a name.")
+    if model and not _MODEL_URI.match(model):
+        raise HTTPException(status_code=422, detail="model: models:/<name>@<alias> or /<version>.")
+    arch = await _load_arch(db, system_id)
+    cid = f"{system_id}.{slug}"
+    if any(isinstance(c, dict) and c.get("id") == cid for c in arch["components"]):
+        raise HTTPException(status_code=409, detail=f"{cid} is already in the graph.")
+    entry: dict[str, Any] = {"id": cid, "kind": kind}
+    if model:
+        entry["model"] = model
+    if note:
+        entry["note"] = note
+    arch["components"].append(entry)
+    _connect(arch, cid, upstream, downstream)
+    await _write_arch(db, system_id, arch, actor, f"{cid} added to the graph")
+    return await system_graph(db, system_id)
+
+
+async def remove_component(
+    db: AsyncSession, system_id: str, component_id: str, *, actor: str
+) -> dict[str, Any]:
+    """Drop a box and its edges from the graph. Its plugin files stay in the folder."""
+    arch = await _load_arch(db, system_id)
+    before = len(arch["components"])
+    arch["components"] = [
+        c for c in arch["components"] if not (isinstance(c, dict) and c.get("id") == component_id)
+    ]
+    if len(arch["components"]) == before:
+        raise HTTPException(status_code=404, detail="Component not found in architecture.yaml.")
+    arch["edges"] = [
+        e
+        for e in arch["edges"]
+        if isinstance(e, dict) and component_id not in (e.get("from"), e.get("to"))
+    ]
+    if arch.get("end_to_end_entry") == component_id:
+        arch.pop("end_to_end_entry")
+    await _write_arch(db, system_id, arch, actor, f"{component_id} removed from the graph")
+    return await system_graph(db, system_id)
