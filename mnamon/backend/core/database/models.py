@@ -14,6 +14,7 @@ agent by slug instead of a foreign key.
 re-exported from ``core.database``.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -541,6 +542,9 @@ class AuditTable(Base):
     stage = Column(String, nullable=False, server_default="context", default="context")
     created_by = Column(String, nullable=True)
     data = Column(_jsonb(), nullable=False, default=dict)
+    # What the run pinned (kb_version, dossier_version, config_version,
+    # model_version, seeds): copied from ``data.pins`` when the pipeline writes it.
+    pins = Column(_nullable_jsonb(), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -640,3 +644,116 @@ class TelegramPromptTable(Base):
     messages = Column(_jsonb(), nullable=False, default=list)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     decided_at = Column(DateTime, nullable=True)
+
+
+# --- Sealed findings (migration 0006) -----------------------------------------
+#
+# ``findings``, ``finding_annotations`` and ``finding_status_events`` are
+# append-only: a trigger rejects UPDATE and DELETE on all three. A verdict is
+# never edited; humans annotate it, and a regulation change or a later audit
+# adds a status event (``stale``, ``superseded``). No foreign key to ``audits``
+# on purpose: a sealed finding outlives a deleted audit row.
+
+
+def _utcnow() -> datetime:
+    """Microsecond timestamps set in Python, so rows written in one second keep their order."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+class FindingTable(Base):
+    """One sealed verdict on one obligation in one audit, hash-chained."""
+
+    __tablename__ = "findings"
+    __table_args__ = (
+        Index("ix_findings_system_obligation", "system_id", "obligation_id"),
+        Index("uq_findings_hash", "hash", unique=True),
+    )
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    audit_id = Column(String, nullable=False, index=True)
+    system_id = Column(String, nullable=False, index=True)
+    obligation_id = Column(String, nullable=False)
+    # pass | partial | gap | inconclusive | not_applicable | not_assessable_by_testing
+    verdict = Column(String, nullable=False)
+    # critical | high | medium | low (NULL when not a gap)
+    severity = Column(String, nullable=True)
+    gap_id = Column(String, nullable=True)
+    metrics_ref = Column(_nullable_jsonb(), nullable=True)
+    evidence_refs = Column(_jsonb(), nullable=False, default=list)
+    citations = Column(_jsonb(), nullable=False, default=list)
+    kb_version = Column(String, nullable=True)
+    reasoning = Column(Text, nullable=True)
+    counter_arguments = Column(_nullable_jsonb(), nullable=True)
+    would_change_if = Column(_nullable_jsonb(), nullable=True)
+    judges = Column(_jsonb(), nullable=False, default=dict)
+    critic = Column(_jsonb(), nullable=False, default=dict)
+    # Anything else the pipeline sent (article, title, ...).
+    data = Column(_jsonb(), nullable=False, default=dict)
+    prev_hash = Column(String, nullable=True)
+    hash = Column(String, nullable=False)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+
+
+class FindingAnnotationTable(Base):
+    """A human note on a sealed finding: contest | accept_risk | remediation_planned | comment."""
+
+    __tablename__ = "finding_annotations"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    finding_id = Column(String, ForeignKey("findings.id"), nullable=False, index=True)
+    kind = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    actor = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+
+
+class FindingStatusEventTable(Base):
+    """A finding's status over time (``stale``, ``superseded``, ``current``); never an edit."""
+
+    __tablename__ = "finding_status_events"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    finding_id = Column(String, ForeignKey("findings.id"), nullable=False, index=True)
+    status = Column(String, nullable=False)
+    superseded_by = Column(String, nullable=True)
+    reason = Column(Text, nullable=True)
+    data = Column(_jsonb(), nullable=False, default=dict)
+    actor = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+
+
+#: The append-only tables (the migration creates the same Postgres triggers).
+APPEND_ONLY_TABLES = ("findings", "finding_annotations", "finding_status_events")
+
+event.listen(
+    FindingTable.__table__,
+    "after_create",
+    DDL(
+        "CREATE OR REPLACE FUNCTION reject_append_only_change() RETURNS trigger "
+        "LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION "
+        "'% is append-only: % is not allowed', TG_TABLE_NAME, TG_OP; END; $$"
+    ).execute_if(dialect="postgresql"),
+)
+for _table in (
+    FindingTable.__table__,
+    FindingAnnotationTable.__table__,
+    FindingStatusEventTable.__table__,
+):
+    for _op in ("UPDATE", "DELETE"):
+        event.listen(
+            _table,
+            "after_create",
+            DDL(
+                f"CREATE TRIGGER trg_{_table.name}_no_{_op.lower()} BEFORE {_op} ON {_table.name} "
+                f"BEGIN SELECT RAISE(ABORT, '{_table.name} is append-only'); END"
+            ).execute_if(dialect="sqlite"),
+        )
+        event.listen(
+            _table,
+            "after_create",
+            DDL(
+                f"CREATE TRIGGER trg_{_table.name}_no_{_op.lower()} BEFORE {_op} ON {_table.name} "
+                "FOR EACH ROW EXECUTE FUNCTION reject_append_only_change()"
+            ).execute_if(dialect="postgresql"),
+        )

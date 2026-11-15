@@ -125,8 +125,16 @@ class AuditOut(BaseModel):
     stage: str
     createdBy: str | None = Field(None, validation_alias="created_by")
     data: dict[str, Any] = Field(default_factory=dict)
+    #: kb_version, dossier_version, config_version, model_version, seeds (None until pinned).
+    pins: dict[str, Any] | None = None
     createdAt: UTCDateTime = Field(..., validation_alias="created_at")
     updatedAt: UTCDateTime = Field(..., validation_alias="updated_at")
+
+
+class RetryOut(BaseModel):
+    auditId: str
+    outcome: str
+    status: str
 
 
 class AuditDetail(AuditOut):

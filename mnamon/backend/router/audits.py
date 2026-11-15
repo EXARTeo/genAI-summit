@@ -24,12 +24,15 @@ from schema.audits import (
     AuditDetail,
     AuditOut,
     AuditPatch,
+    RetryOut,
 )
-from utils.audit_pipeline import forward_gate_decision
+from schema.findings import FindingOut
+from utils.audit_pipeline import forward_gate_decision, retry_pipeline
 from utils.audits import (
     audit_detail,
     audits_out,
     create_artifact,
+    ensure_patchable,
     get_artifact_or_404,
     get_audit_or_404,
     list_approvals,
@@ -39,6 +42,7 @@ from utils.audits import (
     patch_audit,
     record_approval,
 )
+from utils.findings import audit_findings, findings_out
 from utils.systems import actor_for
 from utils.telegram_gates import on_approval_recorded, on_artifact_created, on_audit_patched
 
@@ -140,7 +144,7 @@ async def get_artifact(
 @router.patch(
     "/{audit_id}/artifacts/{artifact_id}",
     response_model=ArtifactOut,
-    summary="Set an artifact's status or merge into its data",
+    summary="Set an artifact's status or merge into its data (405 for sealed findings)",
 )
 async def update_artifact(
     audit_id: str,
@@ -151,6 +155,7 @@ async def update_artifact(
     db: Db,
 ) -> ArtifactOut:
     artifact = await get_artifact_or_404(db, audit_id, artifact_id)
+    ensure_patchable(artifact)
     patch_artifact(artifact, payload)
     await db.commit()
     await db.refresh(artifact)
@@ -203,3 +208,37 @@ async def post_approval(
         approval=ApprovalOut.model_validate(approval),
         artifact=ArtifactOut.model_validate(artifact) if artifact else None,
     )
+
+
+@router.post(
+    "/{audit_id}/retry",
+    response_model=RetryOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Retry a failed audit (the pipeline re-runs the failed step)",
+)
+async def retry_audit(audit_id: str, caller: CallerDep, _limited: Limited, db: Db) -> RetryOut:
+    audit = await get_audit_or_404(db, audit_id)
+    outcome = await retry_pipeline(audit)
+    data = dict(audit.data or {})
+    retries = list(data.get("retries") or [])
+    retries.append({"by": actor_for(caller.id), "error": data.pop("error", None)})
+    data["retries"] = retries
+    audit.data = data
+    audit.status = "running"
+    await db.commit()
+    logger.info("audit_retried", "Audit retried", audit_id=audit_id, outcome=outcome)
+    return RetryOut(auditId=audit_id, outcome=outcome, status=audit.status)
+
+
+@router.get(
+    "/{audit_id}/findings",
+    response_model=list[FindingOut],
+    summary="The audit's sealed findings (with annotations and status)",
+)
+async def get_audit_findings(
+    audit_id: str, _caller: CallerDep, _limited: Limited, db: Db
+) -> list[FindingOut]:
+    await get_audit_or_404(db, audit_id)
+    out = await findings_out(db, await audit_findings(db, audit_id))
+    logger.info("audit_findings_listed", "Audit findings listed", audit_id=audit_id, count=len(out))
+    return out

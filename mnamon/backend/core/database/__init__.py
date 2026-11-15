@@ -14,6 +14,7 @@ from core.database.engine import (
     get_db,
 )
 from core.database.models import (
+    APPEND_ONLY_TABLES,
     TASK_SETTLED_STATUSES,
     ApprovalTable,
     AttachmentTable,
@@ -22,6 +23,9 @@ from core.database.models import (
     BlobTable,
     ConversationTable,
     ConversationTaskTable,
+    FindingAnnotationTable,
+    FindingStatusEventTable,
+    FindingTable,
     MessageKindEnum,
     MessageSenderEnum,
     MessageTable,
@@ -34,6 +38,7 @@ from core.database.models import (
 )
 
 __all__ = [
+    "APPEND_ONLY_TABLES",
     "TASK_SETTLED_STATUSES",
     "ApprovalTable",
     "AttachmentTable",
@@ -43,6 +48,9 @@ __all__ = [
     "BlobTable",
     "ConversationTable",
     "ConversationTaskTable",
+    "FindingAnnotationTable",
+    "FindingStatusEventTable",
+    "FindingTable",
     "MessageKindEnum",
     "MessageSenderEnum",
     "MessageTable",

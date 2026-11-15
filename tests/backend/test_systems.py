@@ -351,10 +351,11 @@ async def test_artifact_versions_supersede_and_approvals(client, session_factory
             f"{base}/approvals", json={"gate": "g", "decision": "approved", "artifactId": "nope"}
         )
     ).status_code == 404
+    # Findings are sealed: no PATCH (test_findings.py).
     patched = await client.patch(
         f"{base}/artifacts/{finding['id']}", json={"data": {"severity": "high"}}
     )
-    assert patched.json()["data"] == {"severity": "high"}
+    assert patched.status_code == 405
 
 
 async def test_conversation_can_name_a_system_and_audit(client):
@@ -453,11 +454,11 @@ async def test_internal_writes_artifacts_only(client, internal_secret):
 # --- migration ----------------------------------------------------------------
 
 
-def test_migration_0005_is_the_single_head():
+def test_migration_chain_up_to_0005():
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "core/database/migrations"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0005_regulation_telegram"]
+    assert script.get_revision("0006_sealed_findings").down_revision == "0005_regulation_telegram"
     assert script.get_revision("0005_regulation_telegram").down_revision == (
         "0004_drop_memory_namespaces"
     )

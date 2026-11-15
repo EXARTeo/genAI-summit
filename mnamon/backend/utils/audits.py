@@ -186,6 +186,7 @@ async def audits_out(db: AsyncSession, audits: list[AuditTable]) -> list[AuditOu
     for audit in audits:
         item = AuditOut.model_validate(audit)
         item.data = ui_data(audit, names.get(audit.system_id))
+        item.pins = audit_pins(audit)
         out.append(item)
     return out
 
@@ -195,6 +196,7 @@ async def audit_detail(db: AsyncSession, audit_id: str) -> AuditDetail:
     audit = await get_audit_or_404(db, audit_id)
     detail = AuditDetail.model_validate(audit)
     detail.data = ui_data(audit, (await _system_names(db, {audit.system_id})).get(audit.system_id))
+    detail.pins = audit_pins(audit)
     detail.artifacts = [ArtifactOut.model_validate(a) for a in await list_artifacts(db, audit_id)]
     detail.approvals = [ApprovalOut.model_validate(a) for a in await list_approvals(db, audit_id)]
     return detail
@@ -226,6 +228,27 @@ def patch_audit(audit: AuditTable, payload: AuditPatch) -> None:
         audit.stage = payload.stage
     if payload.data is not None:
         audit.data = {**(audit.data or {}), **payload.data}
+        if isinstance(payload.data.get("pins"), dict):
+            audit.pins = payload.data["pins"]
+
+
+def audit_pins(audit: AuditTable) -> dict | None:
+    """The run's pins: the ``pins`` column, else ``data.pins`` (audits before 0006)."""
+    pins = audit.pins if isinstance(audit.pins, dict) else (audit.data or {}).get("pins")
+    return pins if isinstance(pins, dict) else None
+
+
+#: Artifact kinds that are sealed: no PATCH (plan 01 §7.2).
+SEALED_ARTIFACT_KINDS = frozenset({"finding"})
+
+
+def ensure_patchable(artifact: AuditArtifactTable) -> None:
+    if artifact.kind in SEALED_ARTIFACT_KINDS:
+        raise HTTPException(
+            status_code=405,
+            detail="Findings are sealed: annotate them instead of editing.",
+            headers={"Allow": "GET"},
+        )
 
 
 async def list_artifacts(

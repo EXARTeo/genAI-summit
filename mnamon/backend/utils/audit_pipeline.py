@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from fastapi import HTTPException
 
 from core.database import ApprovalTable, AuditTable
 from core.logging import get_logger
@@ -62,6 +63,35 @@ async def start_pipeline(audit: AuditTable) -> str:
         outcome=outcome,
     )
     return outcome
+
+
+#: Statuses an audit can be retried from (``open`` = never started or the start was lost).
+RETRYABLE_STATUSES = frozenset({"failed", "open"})
+
+
+async def retry_pipeline(audit: AuditTable) -> str:
+    """Continue a failed audit's pipeline: the agents service's ``run`` re-runs the
+    failed node from the kept checkpoint. 409 unless failed; 409 when the agents
+    service says it is running or waiting at a gate; 502 when it is unreachable.
+    The caller sets the audit ``running`` on success."""
+    if audit.status not in RETRYABLE_STATUSES:
+        raise HTTPException(
+            status_code=409, detail=f"Only a failed audit can be retried (it is {audit.status})."
+        )
+    code = await _post(
+        f"/audits/{audit.id}/run",
+        {"system_id": audit.system_id, "trigger": "retry"},
+    )
+    logger.info("audit_pipeline_retry", "Audit retry requested", audit_id=audit.id, code=code)
+    if code is None:
+        raise HTTPException(status_code=502, detail="The agents service is not reachable.")
+    if code == 409:
+        raise HTTPException(
+            status_code=409, detail="The pipeline is already running or waiting at a gate."
+        )
+    if code >= 300:
+        raise HTTPException(status_code=502, detail=f"The agents service answered {code}.")
+    return "started"
 
 
 def resume_body(audit: AuditTable, approval: ApprovalTable) -> dict[str, Any]:
