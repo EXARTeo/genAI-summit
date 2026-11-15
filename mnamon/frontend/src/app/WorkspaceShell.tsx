@@ -36,8 +36,10 @@ export function WorkspaceShell() {
   const location = useLocation();
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
-  // Animate between top-level sections only, not between tabs of one page.
-  const sectionKey = location.pathname.split('/').slice(0, 3).join('/');
+  // Animate between top-level sections only (/chat, /audits, /systems…). Keyed by the first
+  // segment alone: with the id in the key, opening another chat or audit remounted the whole
+  // page (the chat list rebuilt and every message faded in again on each click).
+  const sectionKey = `/${location.pathname.split('/')[1] ?? ''}`;
 
   return (
     <div className="flex h-svh overflow-hidden bg-shell-frame">
