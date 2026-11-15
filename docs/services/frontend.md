@@ -55,7 +55,7 @@ the UI shows files (system folders, business rules) and audit artifacts only.
 | `/audits`, `/audits/:id[?step=<stage>]` | Audit runs table and the audit run console (`?step=` deep-links and pins a step) |
 | `/approvals` | Open HITL gates; opens the approval drawer |
 | `/regulation[?tab=changes\|sources]` | Regulation-change inbox and sources |
-| `/chat`, `/chat/:id`, `/chat?system=&audit=` | Chat with the agents (streaming over AG-UI, tools, sub-agents, approvals, files): see [frontend-chat.md](frontend-chat.md) |
+| `/chat`, `/chat/:id`, `/chat?system=&audit=` | Chat with the agents (streaming over AG-UI, tools, sub-agents, approvals, files; the agent map and plan panels beside the composer): see [frontend-chat.md](frontend-chat.md) |
 | `*` | 404 (also `/memory` and `/settings`, which were removed) |
 
 ## App shell (`src/app`)

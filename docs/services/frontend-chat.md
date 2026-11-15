@@ -44,13 +44,17 @@ src/features/chat/
     ├── sidebar_parts/      ConversationRow (⋯: Rename inline, Pin, Archive, Delete), SidebarSection, ChatSearchPanel
     │                       (cmdk dialog, Ctrl/⌘+Shift+S), ArchivedChatsDialog, NewChatIcon
     ├── ChatBody.tsx, ChatMessage.tsx   message list (stick-to-bottom), user bubble (+ inline edit), agent answer
-    ├── ChatComposer.tsx    "Message {agent}…" card: textarea, "+" files (button / paste / drop), slash menu, subject chip, one round Send / Stop / Queue button
+    ├── ChatComposer.tsx    "Message {agent}…" card: textarea, "+" files (button / paste / drop), the agent-map and plan buttons, slash menu, subject chip, one round Send / Stop / Queue button
+    ├── ComposerPanel.tsx   shell of the composer's panels: above the composer on a desktop, a bottom sheet on a phone, modal
+    ├── agent_map_parts/    the agent map (below)
+    ├── plan_parts/         the plan panel (below)
     ├── HitlTakeover.tsx, AskUserTakeover.tsx   approvals (batched deck) and the agent's questions
     ├── AttachmentPreview.tsx   the shared FilePreviewPanel fed with a sent or composer file (+ Save to <system> folder)
     ├── ChatAboutButton.tsx     "Chat about this system / audit" entry point
     └── message_parts/   ChatMarkdown (GFM + highlight.js, code header with copy/download), MarkdownTable (copy,
-                         CSV/Markdown download), ThinkingBlock + CoTStep (CoT), ToolCallView (+ sources), SubagentCard,
-                         RunBlocks (artifact, task rows, plan), MessageAttachments (shared FileChip + ImageGrid), ActionBars, BranchControls,
+                         CSV/Markdown download), ThinkingBlock + CoTStep (CoT), ToolCallView (+ sources), SubagentCard
+                         (nested sub-agents inside their parent's card on a connector rail), SubagentStatusChip,
+                         RunBlocks (artifact, task rows), MessageAttachments (shared FileChip + ImageGrid), ActionBars, BranchControls,
                          MessageUsage (usage gauge + tooltip)
 ```
 
@@ -121,20 +125,48 @@ then the streamed answer with a code block and an artifact card. A message conta
 ask questions instead (`ask_user`). Shots: `chat`, `chat-about-system`, `chat-conversation`, `chat-attachments`,
 `chat-preview`, `chat-hitl`.
 
+## Agent map and plan (composer buttons)
+
+Ported from magenticx (`agent_map/*`, `plan/*`, `lib/agentMap.ts`, `lib/agentMapFlow.ts`,
+`lib/conversationPlans.ts`, `inference/planTiming.ts`). Both buttons sit beside "+" once the conversation has
+something to show; each opens a modal panel (`ComposerPanel`).
+
+- **Agent map** (`agent_map_parts/`, badge = sub-agent count, primary while one works): the main agent, one branch
+  per answer that delegated ("Q3 · question", Live while it streams), and its sub-agents with theirs nested below.
+  Two views, remembered per browser (`useAgentMapView`, `mnamon_agent_map_view`): a WAI-ARIA tree (arrow keys,
+  Enter opens, rails light up into a running sub-agent) and a top-down React Flow graph (lazy chunk, laid out by
+  `layoutTree`, animated edge into a running one, hover tip with the instruction). A node opens its detail:
+  status, facts (question, delegated by, time, tool calls), the instruction as a message bubble, its reply drawn by
+  the chat's own renderers and the sub-agents it delegated to (a click goes a step deeper; breadcrumb and Back/Esc).
+- **Data** (`hooks/useRunOverview.ts` → `lib/agentMap.ts`): each answer's timeline comes from the chat's own
+  `runView` (live fold or stored event log), so the map never disagrees with the messages. Blocking sub-agents come
+  from the timeline: the fold now keeps a nested sub-agent's `TASK_SUBAGENT` (who delegated, `parentTaskId`),
+  `SUBAGENT_COMPLETED` (with the service's `started_at` / `ended_at`) and `BEFORE_AGENT_EVENT` (the full
+  instruction) inside the parent's `SUBAGENT_EVENT` envelope; parents are resolved by namespace prefix
+  (`lib/subagentTree.ts`). **Background tasks** (Mnamon runs every sub-agent as one with
+  `ASYNC_SUBAGENTS_ENABLED`) come from `GET /v1/conversations/{id}/tasks`, polled every 3 s while a run or a task
+  works, nested by `parent_task_id` under the answer in `spawned_by_message_id` / `root_run_id`; their detail shows
+  the description as the instruction and `result_preview` (or the error) as the reply.
+- **Plan** (`plan_parts/`, `lib/conversationPlans.ts`, `lib/planTiming.ts`): the main agent's `write_todos`
+  checklist per answer, the latest open on top and earlier plans folded below; the same plan rewritten by a later
+  answer updates in place. Steps on a rail: done (filled check + how long it took, from successive
+  `PLAN_SNAPSHOT.updated_at`), now (tinted, working hairline, "now"), not finished (the answer ended), not started.
+  The plan no longer renders inline at the top of the answer.
+
 ## Kept, changed, dropped
 
 - **Kept**: conversation list with pinned/recent/archived and row actions, search, new chat, streaming with a caret,
   CoT blocks (live open with a shimmering latest-step title, folded to that title + "· 7s", `lib/cotTitle.ts` and `lib/toolPresentation.ts`; a Done / Stopped / Failed footer), tool steps with args/result/duration, sub-agent
-  cards, background-task rows, plan checklist, artifact cards, source chips, HITL takeover (batched deck,
+  cards (nested), background-task rows, the agent map and the plan panel, artifact cards, source chips, HITL takeover (batched deck,
   reject reason) and ask-user takeover, attachments (button, paste, drag-drop, read progress, chips with preview,
   tiles + image thumbnails in messages, download), previews (image, PDF, DOCX, Markdown, CSV, JSON/code, text),
   edit (new branch) / retry / branch switcher, stop, queued message while busy, thumbs, copy, usage line,
   markdown with highlighted code + copy, slash commands, shortcuts (Esc stop, Ctrl/⌘+Shift+O new chat,
   Ctrl/⌘+Shift+S search, Alt+L focus the composer, Alt+A attach, Alt+G agent picker), agent picker in the header.
 - **Condensed**: the timeline reducer (magenticx's 2,000-line fold → ~600 lines; no charts, compaction, nested
-  delegation rows or planTiming); one live run store instead of `useInferenceRuns` + `useBackgroundTasks`.
+  delegation rows); one live run store instead of `useInferenceRuns` + `useBackgroundTasks`.
 - **Dropped** (no backend or out of scope): login/accounts, sharing, voice, automations/workflows, agent builder,
-  incognito, effort/model pickers, the agent map, context-compaction control and gauge, charts (`RENDER_CHART`),
+  incognito, effort/model pickers, context-compaction control and gauge, charts (`RENDER_CHART`),
   inline citation pills (sources show as chips on the search step instead), conversation rail/markers, favicons
   (initial letter instead), the conversation-channel socket (task frames, queue state) and the task drill-down
   socket.
