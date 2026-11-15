@@ -2,7 +2,7 @@
 
 **Mnamon is an in-house AI agent that audits your high-risk AI systems against the EU AI Act.** It reads the law, plans the tests, generates the test data, tests your real model, challenges its own findings and writes the reports. When the law changes, it finds what is affected and re-runs only what is needed. People approve every important step, and every step is recorded so an auditor can replay it.
 
-> Built in 36 hours at the [Gen AI Summit Hackathon](https://hackathon.polymath42.com) (14–15 Nov 2026), on top of our own boilerplate (mAgenticX).
+> Built in 29 hours at the [Gen AI Summit Hackathon](https://hackathon.polymath42.com) (14–15 Nov 2026), on top of our own boilerplate (mAgenticX).
 
 ## Why it matters
 
