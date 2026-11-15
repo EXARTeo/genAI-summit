@@ -134,3 +134,15 @@ def test_rest_target_never_sends_synthkit_bookkeeping_columns(monkeypatch):
     target = rest_target(access, {"score_field": "proba"}, transport=httpx.MockTransport(handler))
     target.score(pd.DataFrame({"x": [1, 2], "_probe": ["dag", "lhs"]}))
     assert seen == [{"x"}]
+
+
+def test_read_sample_keeps_text_fields_as_text(tmp_path):
+    """A postcode like 30129 in a sample CSV stays a string (a strict API wants text)."""
+    from synthkit.spec import read_sample
+
+    path = tmp_path / "sample.csv"
+    path.write_text("postcode,age,career\n30129,25,\n14562,40,3.5\n", encoding="utf-8")
+    frame = read_sample(path, {"postcode": {"type": "string"}, "age": {"type": "integer"}})
+    assert frame["postcode"].tolist() == ["30129", "14562"]
+    assert frame["age"].tolist() == [25, 40]
+    assert frame["career"].isna().tolist() == [True, False]

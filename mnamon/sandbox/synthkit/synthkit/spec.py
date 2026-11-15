@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import yaml
 
 from synthkit.expr import ExpressionError, compile_expr, names
@@ -180,6 +181,16 @@ def topo_order(fields: dict[str, dict]) -> list[str]:
     for name in fields:
         visit(name)
     return order
+
+
+TEXT_TYPES = ("string", "id", "category")
+
+
+def read_sample(path: Any, fields: dict[str, dict]) -> Any:
+    """A sample CSV with the dictionary's types: text fields stay text (a postcode like
+    ``30129`` or an id like ``007`` must not become a number), missing values stay NaN."""
+    dtype = {n: str for n, f in fields.items() if (f or {}).get("type") in TEXT_TYPES}
+    return pd.read_csv(path, dtype=dtype)
 
 
 @dataclass

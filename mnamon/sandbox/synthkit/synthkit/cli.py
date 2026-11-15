@@ -32,7 +32,6 @@ import json
 import sys
 from pathlib import Path
 
-import pandas as pd
 from modelaccess.runlog import RunLogger
 
 from synthkit.analyze import load_dataset, run_analysis, write_analysis
@@ -41,14 +40,14 @@ from synthkit.inference import run_inference
 from synthkit.profile import run_profile, write_profile
 from synthkit.runtests import CHAT_TEMPLATES, chat_client, load_plan, run_tests, summary
 from synthkit.scenarios import check_scenarios, write_report
-from synthkit.spec import Dictionary, SpecError, load_spec, load_yaml
+from synthkit.spec import Dictionary, SpecError, load_spec, load_yaml, read_sample
 from synthkit.target import TargetError, load_target
 
 
 def _profile(args: argparse.Namespace) -> int:
     plugin = load_yaml(args.plugin) or {}
     dictionary = Dictionary.load(args.dictionary)
-    sample = pd.read_csv(args.sample) if args.sample else None
+    sample = read_sample(args.sample, dictionary.fields) if args.sample else None
     target = load_target(
         plugin, model_uri=args.model_uri, model_pickle=args.model_pickle, url=args.url
     )
@@ -112,7 +111,7 @@ def _analyze(args: argparse.Namespace) -> int:
     spec = load_spec(args.spec)
     frame = load_dataset(args.dataset)
     profile = json.loads(Path(args.profile).read_text(encoding="utf-8")) if args.profile else None
-    sample = pd.read_csv(args.sample) if args.sample else None
+    sample = read_sample(args.sample, spec.dictionary.fields) if args.sample else None
     analysis = run_analysis(frame, spec, seed=args.seed, profile=profile, sample=sample)
     write_analysis(analysis, args.out_dir, spec.name)
     print(
