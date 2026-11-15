@@ -23,6 +23,21 @@ Design principles (PDF §1):
 - **Deterministic skeleton, LLM for judgement**: the order of steps and the rules are code/YAML; the LLM interprets and explains.
 - **Versioned law**: every finding locks the `kb_version` it was produced with; a law change triggers impact analysis, never a silent rewrite.
 
+## Roles
+
+Three roles (pillars). There is no login; the roles say who does what, and the app does not enforce them.
+
+| Role | Does | In this build |
+| --- | --- | --- |
+| **AI Officer** | Oversees all systems, audits, the findings register, regulation changes and their impact | The shared read view: systems list, Status tab (findings register), audits list, regulation inbox. No separate UI or permissions |
+| **PM** (product manager) | Registers a system: system card, risk class, documentation | Not built. Systems are seeded (`mnamon/mlflow-seed/cases/`, `POST /v1/admin/import-seed`); `POST /v1/systems` exists but no screen uses it. **Planned:** a small, fast risk-classification agent that proposes the risk class and Annex III basis from a system description, with citations, for a human to approve |
+| **AI Engineer** | Adds docs to the system folder, configures one plugin per model, runs audits with human gates | **Built** (the MVP): the pipeline below |
+
+A **plugin** is the wrapper around one model of a system: how the agent reaches it, where it sits in the
+system graph, its I/O and expected behaviour ([agent-context.md § 3](agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do)).
+**An audit tests one plugin**: `audit.data.target_plugin` when given, otherwise the decision model (the first
+plugin whose name contains `rank`, `scor`, `classif` or `model` and that has `data/data-dictionary.yaml`).
+
 ## Layout
 
 The product lives in one folder named after the brand, `mnamon/` (*Mnamon*). Each service is a subfolder with its own Dockerfile, and the folder's `docker-compose.yaml` wraps them all:
@@ -46,24 +61,30 @@ The product folder is `mnamon/`, named after the brand. Full table (images, netw
 | --- | --- | --- | --- |
 | `backend` | `mnamon/backend/` | 8100 → 8000 | FastAPI API; runs `alembic upgrade head` on start: [backend](../services/backend.md) |
 | `frontend` | `mnamon/frontend/` | 8080 → 8080 | Engineer workspace (Vite + React SPA, nginx proxies `/api` to the backend): [frontend](../services/frontend.md), [audit workflow](../services/frontend-audit-workflow.md) |
-| `agents` | `mnamon/agents/` | not published (8003) | Runs the agents (OpenAI, deep agents, async sub-agents, MCP, sandbox) and streams AG-UI to the backend: [agents service](../services/agents-service.md), [contract](../contracts/agents-contract.md) |
+| `agents` | `mnamon/agents/` | not published (8003) | Runs the agents (Google Gemini only, Oumi Iris as the decision model, deep agents, async sub-agents, MCP, sandbox) and streams AG-UI to the backend: [agents service](../services/agents-service.md), [contract](../contracts/agents-contract.md) |
 | `postgres` | (image) | not published | Backend database + `agent_runtime` (checkpoints, conversation files, tasks) |
 | `redis` | (image) | not published | Backend cache (`volatile-lru`) |
+| `reg-memory` | `mnamon/reg-memory/` | not published (8010) | Regulatory Knowledge Service: versioned AI Act corpus, diffs, watcher: [reg-memory](../services/reg-memory.md) |
+| `mlflow` + `mlflow-seed` | `mnamon/mlflow/`, `mnamon/mlflow-seed/` | 5500 → 5000 | Model registry + test runs; the one-shot seed job trains and registers the demo models: [mlflow](../services/mlflow.md) |
+| `model-gateway` | `mnamon/model-gateway/` | 8200 → 8000 | Seed models as bearer-auth, rate-limited REST endpoints: [model gateway](../services/model-gateway.md) |
+| `sandbox_runner` | `mnamon/sandbox/` | not published (8090) | Runs test code and synthkit; reaches only MLflow and the model gateway: [sandbox](../services/sandbox.md) |
 | `langfuse-web` + `langfuse-worker` | (images) | 3400 → 3000 | Langfuse v4: trace UI, ingestion API, async processing |
 | `langfuse-postgres`, `-clickhouse`, `-redis`, `-minio` | (images) | not published | Langfuse's own datastores |
 
-### Planned for the MVP (PDF §12.2)
+### MVP containers (PDF §12.2)
+
+All of these run today.
 
 ![Containers](diagrams/containers.png)
 
 | Container | Role | Tech (proposal) | Maps to |
 | --- | --- | --- | --- |
-| `frontend` | Engineer workspace: systems, system card, test plan, dataset auditor, findings, reports, regulation-change inbox | Vite + React + Tailwind (nginx) | running |
+| `frontend` | Engineer workspace: systems, system card, test plan, dataset auditor, findings, reports, regulation-change inbox | Vite + React + Tailwind (nginx) | `frontend`, running |
 | `backend` | API, system cards, runs, findings, evidence, notifications, webhooks (Firecrawl, Telegram), job queue | FastAPI + Postgres + Redis | existing `backend` |
-| `agent` | Test pipeline and impact pipeline | LangGraph + hackathon LLM provider | existing `agents` |
-| `reg-memory` (RKS) | Regulatory Knowledge Service: **all** regulatory knowledge (AI Act, Omnibus, guidelines, FAQs, codes of practice, standards, national law, internal policies), versions, diff, watcher, change judge | FastAPI + Postgres/pgvector + YAML corpus in git | new |
-| `mlflow` | Tracking server, model registry, artifacts (test runs are logged here) | MLflow + local volume | new |
-| `sandbox` | Runs test code; no network except MLflow; CPU/RAM/time limits | Python image with sklearn, fairlearn, sdv, ART | existing sandbox runner |
+| `agent` | Test pipeline and impact pipeline | LangGraph + Google Gemini, Oumi Iris for decisions | existing `agents` |
+| `reg-memory` (RKS) | Regulatory Knowledge Service: **all** regulatory knowledge (AI Act, Omnibus, guidelines, FAQs, codes of practice, standards, national law, internal policies), versions, diff, watcher, change judge | FastAPI + versioned `/data` volume + YAML corpus in git | `reg-memory`, running |
+| `mlflow` | Tracking server, model registry, artifacts (test runs are logged here) | MLflow + local volume | `mlflow`, running |
+| `sandbox` | Runs test code; no network except MLflow; CPU/RAM/time limits | Python image with the ML stack + synthkit | `sandbox_runner`, running |
 
 The sandbox is separate from the agent so LLM-written test code never runs next to credentials or the database.
 
@@ -86,16 +107,27 @@ schemas and audit rules: [agent-context.md](agent-context.md).
 
 ![Engineer pipeline](diagrams/engineer-pipeline.png)
 
+The order below is the code (`mnamon/agents/pipeline/graph.py`); step details in
+[agents-pipeline.md](../services/agents-pipeline.md). The diagram above may lag behind it.
+
 ```text
-system card + MLflow model
-  → load_context     card, model signature/metrics/lineage, applicable requirements from RKS
-  → plan_tests       requirement → test templates, parameterised from the card      [HITL: approve plan]
-  → generate_data    one DatasetSpec per test (schema-driven, counterfactual twins,
-                     perturbation; adversarial = stretch) + Data Card per dataset   [HITL: audit datasets]
-  → execute          sandbox; each run = MLflow run tagged req_ids, card_version, kb_version, dataset_id
-  → analyse          findings (verdict, confidence, evidence with CI, reasoning)
-  → critic           separate agent tries to overturn each finding; verdict adjusted
-  → report           engineer report (reproducible) + management report (traffic light per requirement)
+load_context        system card, target plugin files, kb_version, requirements, findings register
+  → pin             kb_version, dossier, config, MLflow model version, seeds
+  → ground_obligations   obligation map: which AI Act obligations apply (catalogue + Iris on borderline rows)
+  → profile_model   synthkit profile of the model (sandbox)
+  → plan_scenarios  every scenario names an obligation
+  → analyse_scenarios    deterministic check + Oumi Iris reviews each scenario
+  → [gate scenarios]
+  → find_public_data     public datasets that fit the approved scenarios
+  → [gate public_data]   human picks one, or none
+  → draft_spec → generate_data → analyse_datasets   synthetic data + 5 data gates
+  → [gate datasets]
+  → run_inference   model calls only, hashed per-row predictions, one MLflow run
+  → analyse_results metrics from the saved predictions
+  → assess_obligations   rule verdict (org thresholds) + Gemini assessor + independent Iris verdict
+  → critic          tries to overturn each verdict
+  → seal            severity, gap ids, sha256 hash chain, one verdict per obligation
+  → report → finalize    engineer + management report; a re-run writes its delta report
 ```
 
 Finding verdicts: `supports_compliance | indicates_gap | inconclusive | not_assessable_by_testing`.
@@ -127,14 +159,16 @@ MVP scope: Art. 6, 9–15, 17, Annex III, Annex IV.
 
 ### Seed data (PDF §12.7)
 
-- **SYS-001 CV Screener** (Annex III 4(a)): biased through a proxy (postcode ↔ nationality).
-- **SYS-002 Credit Scorer** (Annex III 5(b)): nearly clean, the contrast case.
-- A previous test run and findings for both, so the regulation-change flow has something to affect.
+Three dummy ML systems, each a local MLflow model trained by `mlflow-seed` from `mnamon/mlflow-seed/cases/`:
+
+- **SYS-001 CV Screener** (provider, Annex III 4(a)): two models, `cv-parser` → `cv-ranker` → recruiter review; biased through a proxy (postcode ↔ nationality).
+- **SYS-002 Credit Scorer** (provider, Annex III 5(b)): nearly clean, the contrast case.
+- **SYS-003 Benefits Eligibility Triage** (deployer, Annex III 5(a)): only Art. 4 and 5 apply to a deployer in the obligation catalogue.
+
+No seeded audits: the first audit is run live (`POST /v1/admin/import-seed` loads the systems).
 
 ## Open questions (PDF §12.9)
 
-- Which "decision model" is meant for the change judge (Oumi *Iris* is a candidate).
-- LLM provider and sponsor tools beyond Firecrawl.
 - Whether the Omnibus changed the special-category-data rule for bias detection (former Art. 10(5)); it decides whether tests may use protected attributes.
 
 ## Decisions
@@ -147,3 +181,6 @@ MVP scope: Art. 6, 9–15, 17, Annex III, Annex IV.
 | 2026-11-14 | Product: AI Act Governance Copilot, MVP = AI Engineer (provider) pillar only | Classification and system card are seeded; the testing + regulation-change loop is the demoable, differentiated part |
 | 2026-11-14 | Agent context and memory are files in a Postgres-backed virtual filesystem (`/regulation/`, `/systems/<id>/` with plugins, `/memory/`), append-only and audited | Reuses the agents service's existing file layer; agents read with normal file tools; every write and read is versioned and logged |
 | 2026-11-14 | Agent memory is **per system**, owned by the agents service (`system_memories` in `agent_runtime`, `/memory/MEMORY.md` + `audits/<id>/<name>.md`, `remember` / `forget`), not user-visible; org memory, proposals and promotion dropped | One namespace every step and agent shares; the reviewer's reason at a gate becomes a lesson the next run applies, with no extra UI to build |
+| 2026-11-14 | LLM = Google Gemini only; decision model = Oumi Iris (scenario review, independent verdict, change judge), Gemini as fallback | Sponsor credits; a second, independent judge for each verdict |
+| 2026-11-15 | Plugin = the wrapper around one model, configured in the Plugins tab from the system graph with MLflow defaults; stored as `plugin.yaml`, hidden from the Folder tab | The agents read it as a file; the engineer confirms defaults instead of writing YAML |
+| 2026-11-15 | Three roles (AI Officer, PM, AI Engineer); only the AI Engineer pillar is built; no login | Focus the 36 hours on the demoable audit loop |
