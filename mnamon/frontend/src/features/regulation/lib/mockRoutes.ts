@@ -1,6 +1,13 @@
 // Mock routes for /v1/regulation, registered by src/shared/lib/mocks/handlers/regulation.ts.
 import { mockError, type MockRoute } from '@/shared/lib/mocks';
-import { buildMockChanges, buildMockSources, mockDocDiff, mockDocText } from './mocks';
+import {
+  buildMockChanges,
+  buildMockSources,
+  mockDocDiff,
+  mockDocText,
+  mockProvisions,
+  mockReleases,
+} from './mocks';
 import type { JudgeDecision, RegChange } from './types';
 
 let changes: RegChange[] | null = null;
@@ -31,6 +38,21 @@ export const regulationRoutes: MockRoute[] = [
     handler: ({ params }) => mockDocDiff(params.docId),
   },
   { method: 'GET', path: '/v1/regulation/changes', handler: () => db() },
+  { method: 'GET', path: '/v1/regulation/releases', handler: () => mockReleases() },
+  {
+    method: 'GET',
+    path: '/v1/regulation/provisions',
+    handler: ({ query }) => mockProvisions(query.get('kb_version')),
+  },
+  {
+    method: 'GET',
+    path: '/v1/regulation/provisions/:id',
+    handler: ({ params, query }) => {
+      const p = mockProvisions(query.get('kb_version')).items.find((x) => x.id === params.id);
+      if (!p) throw mockError(404, 'Not found in reg-memory.');
+      return p;
+    },
+  },
   {
     method: 'POST',
     path: '/v1/regulation/changes/:id/decision',

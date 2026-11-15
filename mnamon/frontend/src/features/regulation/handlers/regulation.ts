@@ -7,8 +7,11 @@ import type {
   DocDiff,
   DocText,
   JudgeDecision,
+  Provision,
+  ProvisionList,
   RegChange,
   RegSource,
+  ReleaseList,
 } from '../lib/types';
 
 export const regulationApi = {
@@ -18,6 +21,14 @@ export const regulationApi = {
   diff: (docId: string, from: number, to: number) =>
     api.get<DocDiff>(`/v1/regulation/documents/${encodeURIComponent(docId)}/diff`, { query: { from, to } }),
   changes: () => api.get<RegChange[]>('/v1/regulation/changes'),
+  releases: () => api.get<ReleaseList>('/v1/regulation/releases'),
+  /** reg-memory provisions of the active kb (paged by `offset`; `limit` ≤ 2000). */
+  provisions: (query: { limit?: number; offset?: number; instrument?: string; with_text?: boolean }) =>
+    api.get<ProvisionList>('/v1/regulation/provisions', { query }),
+  provision: (id: string, kbVersion?: string) =>
+    api.get<Provision>(`/v1/regulation/provisions/${encodeURIComponent(id)}`, {
+      query: { kb_version: kbVersion },
+    }),
   decideChange: (id: string, body: { status: 'accepted' | 'rejected' }) =>
     api.post<RegChange>(`/v1/regulation/changes/${encodeURIComponent(id)}/decision`, body),
   overrideJudge: (id: string, systemId: string, decision: JudgeDecision) =>

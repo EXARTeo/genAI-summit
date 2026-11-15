@@ -1,6 +1,6 @@
 // Mock regulation memory: catalog sources with versions, one document text, one diff and the
 // regulation-change inbox (RC-0007 affects SYS-001 → re-run aud-sys001-r3).
-import type { DocDiff, DocText, RegChange, RegSource } from './types';
+import type { DocDiff, DocText, Provision, ProvisionList, RegChange, RegSource, ReleaseList } from './types';
 import { mockTime } from '@/shared/lib/mocks/time';
 
 const v = (
@@ -249,7 +249,7 @@ export function buildMockChanges(): RegChange[] {
       title: 'Omnibus amends the special-category data rule for bias detection (ex-Art. 10(5))',
       detectedAt: mockTime('2026-11-14T16:00:00Z'),
       changeType: 'scope_change',
-      provisions: ['AI Act Art. 10(5)', 'Omnibus Art. 1(5)'],
+      provisions: ['AIA.10.5', 'AIA.4a'],
       fromVersion: 1,
       toVersion: 2,
       candidateKbVersion: '2026.11.14-2',
@@ -296,4 +296,90 @@ export function buildMockChanges(): RegChange[] {
       affected: [],
     },
   ];
+}
+
+export function mockReleases(): ReleaseList {
+  return {
+    active: '2026.11.15-1',
+    items: [
+      { kb_version: '2026.11.15-1', status: 'candidate', parent: '2026.11.14-2' },
+      { kb_version: '2026.11.14-2', status: 'active', parent: '2026.11.14-1' },
+      { kb_version: '2026.11.14-1', status: 'superseded', parent: null },
+    ],
+  };
+}
+
+const P = (
+  id: string,
+  kind: string,
+  path: string[],
+  parent: string | null,
+  text: string,
+  extra: Partial<Provision> = {},
+): Provision => ({
+  id,
+  instrument: 'AIA',
+  kind,
+  path,
+  parent,
+  text,
+  source_doc: 'ai-act-consolidated',
+  ...extra,
+});
+
+const ART10_5_OLD =
+  'To the extent that it is strictly necessary for the purpose of ensuring bias detection and correction, providers of high-risk AI systems may exceptionally process special categories of personal data.';
+const ART10_5_NEW =
+  'To the extent that it is necessary for the purpose of ensuring bias detection and correction, providers may process special categories of personal data in accordance with Article 4a.';
+
+/** A small slice of the AI Act, decomposed like reg-memory's provision store. */
+export function mockProvisions(kb?: string | null): ProvisionList {
+  const old = kb === '2026.11.14-1';
+  const items: Provision[] = [
+    P(
+      'AIA.4a',
+      'article',
+      ['Art 4a'],
+      null,
+      'Processing of special categories of personal data for bias detection\nProviders may process special categories of personal data where necessary for bias detection and correction.',
+      {
+        title: 'Processing of special categories of personal data',
+        chapter: 'I',
+        chapter_title: 'GENERAL PROVISIONS',
+      },
+    ),
+    P('AIA.10', 'article', ['Art 10'], null, 'Data and data governance', {
+      title: 'Data and data governance',
+      chapter: 'III',
+      chapter_title: 'HIGH-RISK AI SYSTEMS',
+    }),
+    P(
+      'AIA.10.1',
+      'paragraph',
+      ['Art 10', 'para 1'],
+      'AIA.10',
+      'High-risk AI systems which make use of techniques involving the training of AI models with data shall be developed on the basis of training, validation and testing data sets that meet the quality criteria referred to in paragraphs 2 to 5.',
+      { chapter: 'III' },
+    ),
+    P(
+      'AIA.10.2',
+      'paragraph',
+      ['Art 10', 'para 2'],
+      'AIA.10',
+      'Training, validation and testing data sets shall be subject to data governance and management practices appropriate for the intended purpose of the high-risk AI system. Those practices shall concern in particular:',
+      { chapter: 'III' },
+    ),
+    P(
+      'AIA.10.2.f',
+      'point',
+      ['Art 10', 'para 2', 'pt f'],
+      'AIA.10.2',
+      'examination in view of possible biases that are likely to affect the health and safety of persons;',
+      { chapter: 'III' },
+    ),
+    P('AIA.10.5', 'paragraph', ['Art 10', 'para 5'], 'AIA.10', old ? ART10_5_OLD : ART10_5_NEW, {
+      chapter: 'III',
+    }),
+  ].filter((p) => !(old && p.id === 'AIA.4a'));
+  return { kb_version: kb ?? '2026.11.15-1', total: items.length, items };
 }

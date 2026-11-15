@@ -1,6 +1,6 @@
 // Pure regulation-view logic: binding labels, judge decision styling, diff parsing.
 import type { Tone } from '@/features/audits/lib/styling';
-import type { Binding, JudgeDecision, RegChange, RegSource } from './types';
+import type { Binding, ChangeFile, JudgeDecision, RegChange, RegSource, ReleaseList } from './types';
 
 export function bindingLabel(b: Binding): { label: string; tone: Tone } {
   if (b === true) return { label: 'Binding', tone: 'info' };
@@ -60,4 +60,75 @@ export function latestVersion(s: Pick<RegSource, 'versions'>): number {
 
 export function openChanges(changes: RegChange[]): RegChange[] {
   return changes.filter((c) => c.status === 'proposed');
+}
+
+/** Provisions with a text in reg-memory's provision store (interpretations `INT.*` have none there). */
+const PROVISION_ID = /^(AIA|OMNIBUS)\./;
+
+/**
+ * The "files changed" of a change: each provision is one file (diffed across kb versions); the
+ * interpretation nodes of a guideline collapse into one diff of the source document itself.
+ */
+export function changeFiles(
+  c: Pick<RegChange, 'provisions' | 'sourceId' | 'fromVersion' | 'toVersion'>,
+): ChangeFile[] {
+  const files: ChangeFile[] = [];
+  const opaque: string[] = [];
+  for (const id of c.provisions) {
+    if (PROVISION_ID.test(id)) files.push({ kind: 'provision', key: id, id });
+    else opaque.push(id);
+  }
+  if (opaque.length > 0) {
+    if (c.toVersion > c.fromVersion) {
+      files.unshift({
+        kind: 'document',
+        key: `doc:${c.sourceId}`,
+        docId: c.sourceId,
+        from: c.fromVersion,
+        to: c.toVersion,
+      });
+    } else for (const id of opaque) files.push({ kind: 'opaque', key: id, id });
+  }
+  return files;
+}
+
+/** The kb version a candidate was built on (its release's parent). */
+export function parentKb(releases: ReleaseList | undefined, kb: string): string | null {
+  return releases?.items.find((r) => r.kb_version === kb)?.parent ?? null;
+}
+
+/** "AIA.10.2.f" → "Art. 10(2)(f)", "AIA.ANNEX_III.4" → "Annex III 4"; unknown ids unchanged. */
+export function provisionLabel(id: string): string {
+  const parts = id.split('.');
+  const inst = parts.shift();
+  if (!inst || parts.length === 0) return id;
+  const prefix = inst === 'OMNIBUS' ? 'Omnibus ' : '';
+  if (parts[0] === 'REC') return `${prefix}Recital ${parts[1] ?? ''}`.trim();
+  const annex = /^ANNEX_(.+)$/.exec(parts[0]);
+  if (annex) return `${prefix}Annex ${annex[1]}${parts.length > 1 ? ` ${parts.slice(1).join('.')}` : ''}`;
+  return `${prefix}Art. ${parts[0]}${parts
+    .slice(1)
+    .map((p) => `(${p})`)
+    .join('')}`;
+}
+
+/** "AIA.10.2.f" → "AIA.10", "AIA.REC.5" → "AIA.REC.5": the top-level provision the reader opens on. */
+export function topProvisionId(id: string): string {
+  const parts = id.split('.');
+  return parts[1] === 'REC' ? parts.slice(0, 3).join('.') : parts.slice(0, 2).join('.');
+}
+
+/** A bare source for the reader when the catalog cannot be loaded. */
+export function fallbackSource(id: string): RegSource {
+  return {
+    id,
+    title: id,
+    kind: 'other',
+    binding: false,
+    status: 'final',
+    publisher: 'catalog unavailable',
+    tags: [],
+    documents: 0,
+    versions: [],
+  };
 }
