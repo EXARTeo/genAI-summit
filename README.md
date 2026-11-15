@@ -29,9 +29,13 @@ Today that proof is slow, manual work done with consultants and spreadsheets, an
 ## Use cases
 
 - **New AI system:** a product team registers a new hiring tool. Mnamon tells them whether it is high-risk, under which article, and why it might not be, before any engineering work starts.
+- **Many systems, one ready tool:** a company runs dozens of AI systems and models built by different teams, and does not want to build its own compliance tooling for each one. Each model plugs into Mnamon as it is: an MLflow model, a REST API, an LLM chat endpoint, a batch file or just a dataset. Mnamon works out which obligations apply to each system from its risk class and runs the same audit process on all of them, so nobody writes new test code per system and every system sits in one list with its risk class, audits and open findings.
 - **Pre-release audit:** before a hiring model ships, check it for bias, accuracy and robustness against the AI Act requirements that apply to it.
 - **Hidden bias:** find that a CV screener treats candidates differently by postcode, a proxy for protected attributes, and explain why that matters legally.
+- **Quality management system review (Art. 17):** a high-risk provider must run a documented quality management system, including test and data-management procedures, and show it to a reviewer. Mnamon checks each system's documents for that evidence (QMS manual, test procedures, data-management procedures) and flags what is missing. Its own audits, the same steps every time and sealed, are the documented test procedure and the records the review asks for.
+- **Tracking fixes:** after the team fixes a gap, the next audit shows which findings closed and which are still open. Each system keeps a findings register across all its audits, and a person can close or reopen a finding with a reason.
 - **Law change:** the Commission publishes new guidance. Mnamon shows which provisions changed, which systems are affected, alerts the team on Telegram, re-runs the affected tests and reports what changed.
+- **Questions from management:** ask the Copilot in plain words, for example "which systems have open bias gaps and what should we fix first?". It answers from the real systems, audits and findings and cites them.
 - **Auditor visit:** show exactly which law version, model version, data and reasoning each finding came from, and replay the agent's steps.
 
 ## How it works

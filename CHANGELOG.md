@@ -7,7 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
-- **README rewritten for judges:** value, users, use cases, architecture (Mermaid + pipeline diagram), sponsors, demo walkthrough and a one-command quick start.
+- **README rewritten for judges:** value, users, use cases, architecture (Mermaid + pipeline diagram), sponsors, demo walkthrough and a one-command quick start. Use cases now also cover many systems on one ready tool, the Art. 17 quality management system review, tracking fixes across audits and Copilot questions from management.
 - **Classifier recursion cap 24 → 100 (agents):** the risk-classification agent failed live with `GraphRecursionError` on a recruitment system that needs many regulation lookups; the cap is now 100 graph steps. Docs: [agents classification](docs/services/agents-classification.md).
 - **Copilot answers show math as text (frontend):** inline LaTeX in an answer (`$\le 0.02$`, `\(\ge 0.80\)`) is rendered as plain Unicode (`≤ 0.02`) outside code; a `$` amount is left alone (`features/chat/lib/mathText.ts`). Docs: [frontend chat](docs/services/frontend-chat.md).
 - **New systems carry the org's fairness thresholds (frontend):** the Register wizard writes `org_thresholds` (four-fifths selection-rate ratio, flip-rate, accuracy-gap and edge-case limits, the same as the seed systems) into every new `system-card.yaml`, so an audit of a newly registered system judges its metrics (pass / gap) instead of ending `inconclusive`; they are the org's thresholds, not the law's, and editable in the card. Docs: [frontend](docs/services/frontend.md).
