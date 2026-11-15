@@ -22,10 +22,13 @@ first (`ensure_specs_configured`). `langchain-openai` stays only as a test depen
 
 ## Engineer pipeline
 
+Obligation-driven (plan 01, `plans/01-obligation-driven-audit-pipeline.md`):
+
 ```text
-load_context → profile_model → plan_scenarios → analyse_scenarios (+ Iris review) → [gate scenarios]
-  → find_public_data → [gate public_data] → draft_spec → generate_data → analyse_datasets
-  → [gate datasets] → run_tests → analyse → critic → report → finalize
+load_context → pin → ground_obligations → profile_model → plan_scenarios → analyse_scenarios (+ Iris review)
+  → [gate scenarios] → find_public_data → [gate public_data] → draft_spec → generate_data → analyse_datasets
+  → [gate datasets] → run_inference → analyse_results → assess_obligations (rule + Gemini + Iris)
+  → critic → seal → report → finalize
 ```
 
 The public data search runs **after** the scenarios are approved, so it looks for datasets that carry what
@@ -33,21 +36,32 @@ those scenarios need. Diagram: [engineer-pipeline.png](../architecture/diagrams/
 
 | Node | Kind | Does | Artifact (`POST /internal/audits/{id}/artifacts`) |
 | --- | --- | --- | --- |
-| `load_context` | code | system card + target plugin files (backend internal API, each read logged), active `kb_version` and applicable requirements + test templates (reg-memory `GET /v1/requirements?role&risk_class&basis&date`) | `context` |
+| `load_context` | code | system card + target plugin files (backend internal API, each read logged), active `kb_version` and applicable requirements + test templates (reg-memory); `audit.data.obligations` = a focused audit's scope | `context` |
+| `pin` | code | `kb_version`, `dossier_version`, `config_version` (the plugin.yaml version), the model alias resolved to a concrete MLflow version (`GET /api/2.0/mlflow/registered-models/alias`), seeds; written to `audit.data.pins` (the backend copies it to `audits.pins`) | `pins` |
+| `ground_obligations` | code + Iris | `pipeline/obligations.resolve_obligation_map` (catalogue at the pinned kb, rules, Iris on borderline rows); falls back to the requirement list in the same shape; scope = applicable ∩ focus | `obligation_map` (entries, in_scope, tested, documentary, sha256) |
 | `profile_model` | sandbox | `synthkit profile` | `model_profile` |
-| `plan_scenarios` | deep agent | `ScenarioPlan` | `scenarios` |
-| `analyse_scenarios` | sandbox + decision model + verifier | `synthkit scenarios-check` + an Iris review per scenario; a high-ranked gap or a `needs_change` review sends the plan back once (`PIPELINE_MAX_AUTO_REDOS`); `not_relevant` is flagged | `scenarios` (new version with `review` per scenario), `scenario_analysis` (`review`, `verifier.flagged`) |
-| gate `scenarios` | HITL | the human sees each review; approve → public data; reject / changes → `plan_scenarios` with the reason | |
-| `find_public_data` | code | `search_public_datasets` (OpenML, UCI, HF, Firecrawl) with the approved scenarios: their fields, protected attributes and use cases narrow the queries and the match score (`scenario_fields`, `scenario_gaps`, `scenario_needs`) | `public_dataset_candidates` (by the tool) |
-| gate `public_data` | HITL | only when a candidate scores ≥ 0.5; approve (+ `edits.selected`) fetches it → `reference_sample`; otherwise zero-shot | |
-| `draft_spec` | deep agent | `GenerationSpecDraft` (YAML + assumptions with provenance) | `generation_spec` |
-| `generate_data` | sandbox + verifier | `synthkit generate`; invalid spec (exit 2) goes back to `draft_spec` once | `dataset` (Data Card, sample rows) |
-| `analyse_datasets` | sandbox + verifier | regenerate (same spec + seed = same bytes) + `synthkit analyze`; a failed blocking gate (schema, rules, coverage, privacy) goes back to `draft_spec` once | `dataset_analysis` |
-| gate `datasets` | HITL | approve → tests; reject → `draft_spec` with the reason | |
-| `run_tests` | sandbox | test plan (one test per scenario, `TT.*` templates) → `synthkit run-tests` (thresholds from the card, one MLflow run per test) | `test_plan`, `test_result` |
-| `analyse` | deep agent + verifier | `FindingSet`; every number / run id / test id must be in the results and every finding must cite a provision (else one redo) | `finding` per finding (`name` = id) |
-| `critic` | deep agent | `CriticReport`: upheld / weakened / overturned, adjusted verdict + confidence, applied by code (originals kept) | `critic`, new `finding` versions |
-| `report` | deep agent | `AuditReport`: engineer markdown + management traffic lights | `report` |
+| `plan_scenarios` | deep agent | `ScenarioPlan`; every scenario names a tested `obligation_id` (code fills a missing one from the requirement or the template) | `scenarios` |
+| `analyse_scenarios` | sandbox + decision model + verifier | `synthkit scenarios-check` + an Iris review per scenario; a high-ranked gap or a `needs_change` review sends the plan back once (`PIPELINE_MAX_AUTO_REDOS`) | `scenarios` (with `review`), `scenario_analysis` |
+| gate `scenarios` | HITL | approve → public data; reject / changes → `plan_scenarios` with the reason | |
+| `find_public_data` | code | `search_public_datasets` with the approved scenarios | `public_dataset_candidates` |
+| gate `public_data` | HITL | only when a candidate scores ≥ 0.5 | |
+| `draft_spec` | deep agent + code | `GenerationSpecDraft`; code then **overwrites the fixed keys** (`version`, `dictionary`, `plugin`, `model_profile`) and drops non-categorical fields from `coverage.cells` / `strata.by` (`verify.normalise_spec`, listed as `code_fixes`) | `generation_spec` |
+| `generate_data` | sandbox + verifier | `synthkit generate` into `generated/`; the parquet is **kept** (sha256, in the checkpoint) and handed to every later call as `input/data/generated/` instead of regenerating | `dataset` (Data Card, sha256) |
+| `analyse_datasets` | sandbox + verifier | `synthkit analyze` on the saved parquet; a failed blocking gate goes back to `draft_spec` once, coverage with the cells below `min_per_cell` and their counts | `dataset_analysis` |
+| gate `datasets` | HITL | approve → inference; reject → `draft_spec` with the reason | |
+| `run_inference` | sandbox | test plan (tests carry `obligation_id`) → `synthkit run-inference`: model calls only, per-row `predictions.parquet` + `run.json` (sha256s, model version), one MLflow run tagged `audit_id`, `kb_version`, `obligation_ids` | `test_plan`, `inference` |
+| `analyse_results` | sandbox + deep agent | `synthkit metrics --predictions` (every metric from the saved predictions, no model call, one MLflow run per test), then the analyst writes and runs its own pandas code over the same files (`sandbox_execute`, every command logged); code compares its headline numbers with synthkit's | `test_result`, `analysis` (`code`, `mismatches`) |
+| `assess_obligations` | code + deep agent + Iris | per obligation in scope: **rule verdict** (org threshold; CI crossing → `partial`), Gemini assessor (`AssessmentSet`: reasoning, counter-arguments, would_change_if, citations), **Iris independent verdict** (`VerdictJudgement`, Gemini only if Iris is down, recorded as fallback); disagreement → `inconclusive` + `needs_human`; citations must exist at the pinned kb and belong to the article or `related`; documentary obligations → `not_assessable_by_testing` with dossier evidence present / missing | `verdicts` |
+| `critic` | deep agent | `ObligationCriticReport`: `upheld` + non-empty `grounds` per verdict, required `overall`; not upheld → the adjusted verdict + `needs_human` (original kept as `verdict_before_critic`) | `critic` |
+| `seal` | code | severity (plan 01 §7.3, by in-force date), gap ids `G-<SYS>-<nn>`, sha256 hash chain (`verdicts.finding_hash` = the backend's), **coverage invariant** (exactly one verdict per obligation in scope); `POST /internal/audits/{id}/findings` per finding (404 → skipped with a warning) + a `finding` artifact per obligation for the UI | `finding` × n, `seal` |
+| `report` | deep agent + code | `AuditReport` from the sealed findings; code appends Pins, **Evidence register** and **Gap list**; a writer failure still yields a report | `report` |
+| `finalize` | code | `status done`, `data.verdicts`, `data.gaps`; a re-run with `data.change_id` writes its delta report (`utils.change_judge.delta_for_audit`) | |
+
+**Failure.** Tool errors come back to the agent as text (`steps.safe_tool`); a step's agent run is retried
+once (`STEP_ATTEMPTS`). Any unrecoverable node failure writes an **incomplete audit report** (`report`
+artifact with `incomplete: true`, what ran, what did not, why, partial results), sets `status failed` with
+`stage = <node>` and `data.failure`, and re-raises, so the checkpoint stays on the failed node and a retry
+resumes there with the same pins.
 
 Every node moves the audit's `stage` / `status` (`running`, `waiting_approval`, `done`, `failed`) and records
 `data.stageTraces[stage]` (the Langfuse trace id of the segment). Nodes stream AG-UI `STEP_STARTED` /
@@ -107,16 +121,23 @@ A review that fails even on the fallback is skipped (logged); the scenario still
 | `plan_scenarios` | reasoning | system files, regulation, memory | `ScenarioPlan` |
 | `scenario_review` | default | none | `ScenarioReview` (fallback of the Iris review) |
 | `draft_spec` | default | system files, memory | `GenerationSpecDraft` |
-| `analyse` | default | system files, regulation, sandbox, memory | `FindingSet` |
-| `critic` | reasoning | system files, regulation, sandbox, memory | `CriticReport` |
+| `analyse_results` | default | system files, sandbox (predictions + dataset in `input/`), memory | `ResultsAnalysis` (headline metrics recomputed, observations, code files) |
+| `assess` | reasoning | system files, regulation, memory | `AssessmentSet` (one `Assessment` per tested obligation) |
+| `verdict_judge` | default | none | `VerdictJudgement` (fallback of the Iris verdict) |
+| `critic` | reasoning | system files, regulation, sandbox, memory | `ObligationCriticReport` (`upheld`, `grounds` per verdict, `overall`) |
 | `report` | default | regulation, memory | `AuditReport` |
 | `change_judge` | reasoning | regulation | `ChangeJudgement` |
 
 Tools: `list_system_files` / `read_system_file` (backend internal API), `lookup_provision` / `search_regulation`
 (reg-memory, pinned to the run's `kb_version`), `sandbox_execute` (the runner with the audit's files in
-`input/`), `remember` + `read_memory` (per-system memory). Verdicts: `supports_compliance | indicates_gap |
-inconclusive | not_assessable_by_testing`; evidence `{test_id, metric, value, ci95, threshold,
-threshold_source, mlflow_run_id}`; `counter_evidence`, `would_change_if`, `citations {provision_id, kb_version}`.
+`input/`), `remember` + `read_memory` (per-system memory). Every tool body is wrapped by `safe_tool`: an
+error is returned as text, never raised out of the graph. Sealed verdicts (per obligation): `pass | partial |
+gap | inconclusive | not_applicable | not_assessable_by_testing`; a sealed finding is `{obligation_id, verdict,
+severity, gap_id, metrics_ref, evidence_refs [{path, sha256, mlflow_run_id}], citations [{provision_id,
+kb_version}], kb_version, reasoning, counter_arguments, would_change_if, judges {rule, gemini, iris}, critic
+{upheld, objection, grounds}, prev_hash, hash}`. The `finding` artifact keeps the older vocabulary in `verdict`
+(`supports_compliance | indicates_gap | inconclusive | not_assessable_by_testing`) and the sealed one in
+`obligation_verdict`.
 
 ## Prompt design
 
@@ -137,8 +158,8 @@ gated pipeline step and to Gemini:
   spec validation, dataset gates, evidence grounding) plus the critic agent, which must name what it checked.
 - **Parameters, not prose**: depth is the model role (`GEMINI_MODEL_REASONING` for planning, critic, judge),
   not "think carefully"; recursion is capped per step (`STEP_RECURSION_LIMIT`).
-- Prompt files: `pipeline/prompts/{rules,method,plan_scenarios,scenario_review,draft_spec,analyse,critic,write_reports,change_judge}.md`,
-  Iris questions `pipeline/prompts/decisions/{scenario_review,change_judge}.yaml`;
+- Prompt files: `pipeline/prompts/{rules,method,plan_scenarios,scenario_review,draft_spec,analyse_results,assess,verdict_judge,critic,write_reports,change_judge}.md`,
+  Iris questions `pipeline/prompts/decisions/{scenario_review,obligation_verdict,change_judge}.yaml`;
   assembly: `pipeline/prompting.py`. A test pins the order, the precedence sentence and the < 260-word step size.
 
 ## Start, resume, inspect

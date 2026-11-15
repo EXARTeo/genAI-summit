@@ -44,8 +44,10 @@ mnamon/agents/
                        declarative (YAML helpers), async_tasks
   schema/              DTOs, one module per concept (import the leaf module)
   definitions/         declarative agent definitions, one folder per agent
-  pipeline/            the audit pipeline (graph, deep-agent steps, prompts, verifiers) and the
-                       impact pipeline (impact index, change judge): agents-pipeline.md
+  pipeline/            the audit pipeline (graph, deep-agent steps, prompts, verifiers; obligation
+                       map, raw-then-analyse inference, two-judge verdicts, sealed findings in
+                       verdicts.py / verdict_review.py) and the impact pipeline (impact index,
+                       change judge): agents-pipeline.md
   core/                settings, logging (hashed ids), security (internal secret), error_handling
   harness/
     abstractions/      BaseAgent, DeepAgent, LangGraphAgent, AgentSpec, YamlDeepAgent
