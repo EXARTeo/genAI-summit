@@ -1,0 +1,467 @@
+# Obligation catalogue (plan 01 §3.2): what a PROVIDER of a high-risk AI system must do under
+# the consolidated AI Act (02024R1689, post-Omnibus 2026/1744), plus the two duties every
+# operator has (Art. 4 AI literacy, Art. 5 prohibited practices) and the Art. 50(1)/(2)
+# transparency duties (gated by system features). Deployer duties (Art. 26, 27, 86) are out
+# of scope for the MVP (plan 01 P9).
+#
+# Schema and validation: engine/kb/obligations.py. Snapshotted into every kb release
+# (obligations.yaml next to requirements.yaml); every `article` / `related` id must exist in
+# the release's provisions (release warnings list any that do not).
+#
+#   applies_if  role x risk class x basis family x Annex III point x features x 6(3) claim.
+#               Empty list = no condition. exempt_6_3: false = only when the system does NOT
+#               claim the Art. 6(3) derogation; true = only when it does; null = either way.
+#   in_force    per basis family (annex_iii, annex_i) or `any`, post-Omnibus dates.
+#   checks      what a test must establish: metric family, test templates
+#               (corpus/test_templates.yaml), where the pass threshold comes from (always the
+#               organisation's, never the law's: plan 01 P10).
+#   requirements  the requirements.yaml entries this obligation covers (load_context keeps
+#               working on requirements; the obligation map is the new backbone).
+# Drafted from the downloaded text; every entry still needs human review.
+
+# ---- Every operator ---------------------------------------------------------------------
+
+- id: OBL.AIA.4.ai-literacy
+  article: AIA.4
+  addressee: [provider, deployer]
+  applies_if: {}
+  in_force: {any: 2025-02-02}
+  verification_mode: documentary
+  evidence_types: [training_records, ai_literacy_policy]
+  summary: Ensure a sufficient level of AI literacy of staff dealing with the AI system.
+
+- id: OBL.AIA.5.prohibited-practices-screening
+  article: AIA.5.1
+  related: [AIA.5.1.a, AIA.5.1.b, AIA.5.1.c, AIA.5.1.f, AIA.5.1.g]
+  addressee: [provider, deployer]
+  applies_if: {}
+  in_force: {any: 2025-02-02}
+  verification_mode: documentary
+  evidence_types: [prohibited_practices_screening]
+  summary: >-
+    Screen the system against the prohibited practices (manipulation, exploitation of
+    vulnerabilities, social scoring, emotion recognition at work, biometric categorisation).
+
+- id: OBL.AIA.4a.special-category-data
+  article: AIA.4a.1
+  related: [AIA.4a.2, AIA.10.2.f]
+  addressee: [provider]
+  applies_if: {risk_class: [high]}
+  in_force: {any: 2025-02-02}
+  verification_mode: documentary
+  evidence_types: [special_category_data_safeguards, dpia]
+  requirements: [REQ.AIA.4a.1.special-category-data-safeguards]
+  summary: >-
+    Special categories of personal data used to detect and correct bias only when strictly
+    necessary, with the safeguards of Art. 4a (pseudonymisation, access control, deletion).
+
+# ---- Classification ---------------------------------------------------------------------
+
+- id: OBL.AIA.6.2.high-risk-classification
+  article: AIA.6.2
+  related: [AIA.ANNEX_III, AIA.6.3]
+  addressee: [provider]
+  applies_if: {risk_class: [high], basis_any: [annex_iii], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02}
+  verification_mode: documentary
+  evidence_types: [classification_record]
+  requirements: [REQ.AIA.6.2.annex-iii-high-risk]
+  summary: Document the Annex III classification of the system as high-risk.
+
+- id: OBL.AIA.6.4.non-high-risk-assessment
+  article: AIA.6.4
+  related: [AIA.6.3, AIA.49.2]
+  addressee: [provider]
+  applies_if: {basis_any: [annex_iii], exempt_6_3: true}
+  in_force: {annex_iii: 2027-12-02}
+  verification_mode: documentary
+  evidence_types: [art_6_3_assessment]
+  requirements: [REQ.AIA.6.4.non-high-risk-assessment]
+  summary: >-
+    A provider relying on the Art. 6(3) derogation documents that assessment before placing
+    the system on the market and gives it to the authorities on request.
+
+- id: OBL.AIA.49.2.registration-non-high-risk
+  article: AIA.49.2
+  related: [AIA.6.4]
+  addressee: [provider]
+  applies_if: {basis_any: [annex_iii], exempt_6_3: true}
+  in_force: {annex_iii: 2027-12-02}
+  verification_mode: documentary
+  evidence_types: [eu_database_registration]
+  summary: Register an Annex III system the provider considers not high-risk (Art. 6(3)).
+
+# ---- Art. 9: risk management ------------------------------------------------------------
+
+- id: OBL.AIA.9.1.risk-management-system
+  article: AIA.9.1
+  related: [AIA.9.2, AIA.9.5]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: hybrid
+  checks:
+    - {metric_family: residual_risk, templates: [TT.robustness.edge_cases], threshold_source: org_thresholds}
+  evidence_types: [risk_management_file]
+  requirements: [REQ.AIA.9.1.risk-management-system, REQ.AIA.9.5.residual-risk-acceptable]
+  summary: A documented, iterative risk management system over the whole lifecycle.
+
+- id: OBL.AIA.9.2.risk-identification
+  article: AIA.9.2
+  related: [AIA.9.2.a, AIA.9.2.b]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: hybrid
+  checks:
+    - {metric_family: fairness, templates: [TT.fairness.group_metrics], threshold_source: org_thresholds.selection_rate_ratio}
+    - {metric_family: robustness, templates: [TT.robustness.edge_cases], threshold_source: org_thresholds}
+  evidence_types: [risk_management_file, testing_protocols_reports]
+  requirements: [REQ.AIA.9.2.a.risk-identification]
+  summary: Identify and analyse known and foreseeable risks to health, safety and fundamental rights.
+
+- id: OBL.AIA.9.6.testing
+  article: AIA.9.6
+  related: [AIA.9.7, AIA.9.8]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: system_test
+  checks:
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: declared_metrics}
+    - {metric_family: fairness, templates: [TT.fairness.group_metrics], threshold_source: org_thresholds}
+    - {metric_family: robustness, templates: [TT.robustness.perturbation], threshold_source: org_thresholds}
+  evidence_types: [testing_protocols_reports]
+  requirements: [REQ.AIA.9.6.testing-for-risk-measures, REQ.AIA.9.8.predefined-metrics]
+  summary: Test the system against prior defined metrics and probabilistic thresholds before release.
+
+- id: OBL.AIA.9.9.vulnerable-groups
+  article: AIA.9.9
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: org_thresholds}
+    - {metric_family: representation, templates: [TT.data.representation], threshold_source: org_thresholds}
+  evidence_types: [testing_protocols_reports]
+  requirements: [REQ.AIA.9.9.vulnerable-groups]
+  summary: Consider the impact on persons under 18 and other vulnerable groups.
+
+# ---- Art. 10: data and data governance --------------------------------------------------
+
+- id: OBL.AIA.10.2.data-governance
+  article: AIA.10.2
+  related: [AIA.10.2.b, AIA.10.2.h]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: hybrid
+  checks:
+    - {metric_family: representation, templates: [TT.data.representation], threshold_source: org_thresholds}
+  evidence_types: [data_governance_documentation, datasheets]
+  requirements: [REQ.AIA.10.2.b.data-provenance, REQ.AIA.10.2.h.data-gaps]
+  summary: Data governance practices (provenance, preparation, assumptions, data gaps).
+
+- id: OBL.AIA.10.2.f.bias-examination
+  article: AIA.10.2.f
+  related: [AIA.4a.1, AIA.10.2.g]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: fairness, templates: [TT.fairness.group_metrics], threshold_source: org_thresholds.selection_rate_ratio}
+    - {metric_family: counterfactual, templates: [TT.fairness.counterfactual], threshold_source: org_thresholds.counterfactual_flip_rate}
+    - {metric_family: representation, templates: [TT.data.representation], threshold_source: org_thresholds}
+  evidence_types: [testing_protocols_reports, bias_examination_report]
+  requirements: [REQ.AIA.10.2.f.bias-examination]
+  summary: Examine the data for possible biases affecting fundamental rights (including proxies).
+
+- id: OBL.AIA.10.2.g.bias-mitigation
+  article: AIA.10.2.g
+  related: [AIA.10.2.f]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: fairness, templates: [TT.fairness.group_metrics], threshold_source: org_thresholds.equal_opportunity_gap}
+    - {metric_family: counterfactual, templates: [TT.fairness.counterfactual], threshold_source: org_thresholds.counterfactual_flip_rate}
+  evidence_types: [bias_mitigation_record]
+  requirements: [REQ.AIA.10.2.g.bias-mitigation]
+  summary: Measures to detect, prevent and mitigate the biases found.
+
+- id: OBL.AIA.10.3.representativeness
+  article: AIA.10.3
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: representation, templates: [TT.data.representation], threshold_source: org_thresholds}
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: org_thresholds}
+  evidence_types: [datasheets, testing_protocols_reports]
+  requirements: [REQ.AIA.10.3.representative-data]
+  summary: Relevant, sufficiently representative, error-free and complete data sets.
+
+- id: OBL.AIA.10.4.context-specific-data
+  article: AIA.10.4
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: representation, templates: [TT.data.representation], threshold_source: org_thresholds}
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: org_thresholds}
+  evidence_types: [datasheets]
+  summary: Data reflect the geographical, contextual, behavioural or functional setting of use.
+
+# ---- Art. 11-15: documentation, logs, transparency, oversight, accuracy ----------------
+
+- id: OBL.AIA.11.technical-documentation
+  article: AIA.11.1
+  related: [AIA.ANNEX_IV, AIA.ANNEX_IV.2, AIA.ANNEX_IV.3]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: hybrid
+  checks:
+    - {metric_family: documentation, templates: [TT.accuracy.subgroup], threshold_source: declared_metrics}
+  evidence_types: [technical_documentation]
+  requirements: [REQ.AIA.11.1.technical-documentation]
+  summary: Technical documentation per Annex IV (sections 2-3 drafted from the test evidence).
+
+- id: OBL.AIA.12.record-keeping
+  article: AIA.12.1
+  related: [AIA.12.2, AIA.12.3, AIA.19.1]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: system_test
+  checks:
+    - {metric_family: logging, templates: [TT.robustness.edge_cases], threshold_source: org_thresholds}
+  evidence_types: [logging_configuration, logs]
+  requirements: [REQ.AIA.12.1.automatic-logging]
+  summary: Automatic recording of events (logs) over the lifetime of the system.
+
+- id: OBL.AIA.13.instructions-for-use
+  article: AIA.13.3
+  related: [AIA.13.1, AIA.13.2, AIA.13.3.b.v]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: hybrid
+  checks:
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: declared_metrics}
+    - {metric_family: fairness, templates: [TT.fairness.group_metrics], threshold_source: org_thresholds}
+  evidence_types: [instructions_for_use]
+  requirements: [REQ.AIA.13.1.interpretable-output, REQ.AIA.13.3.b.v.group-performance]
+  summary: Instructions for use (characteristics, capabilities, limitations, group performance).
+
+- id: OBL.AIA.13.3.b.ii.declared-accuracy
+  article: AIA.13.3.b.ii
+  related: [AIA.15.3]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: declared_metrics}
+    - {metric_family: robustness, templates: [TT.robustness.perturbation], threshold_source: org_thresholds}
+  evidence_types: [instructions_for_use, testing_protocols_reports]
+  requirements: [REQ.AIA.13.3.b.ii.declared-accuracy]
+  summary: The declared level of accuracy, robustness and cybersecurity is the one observed.
+
+- id: OBL.AIA.14.4.human-oversight
+  article: AIA.14.4
+  related: [AIA.14.1, AIA.14.4.a, AIA.14.4.b, AIA.14.4.d, AIA.14.4.e]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: system_test
+  checks:
+    - {metric_family: oversight, templates: [TT.robustness.edge_cases], threshold_source: org_thresholds}
+  evidence_types: [human_oversight_design, instructions_for_use]
+  requirements:
+    - REQ.AIA.14.1.human-oversight-design
+    - REQ.AIA.14.4.b.automation-bias
+    - REQ.AIA.14.4.d.override
+  summary: Oversight persons can understand, interpret, override and stop the system.
+
+- id: OBL.AIA.15.1.accuracy
+  article: AIA.15.1
+  related: [AIA.15.3, AIA.13.3.b.ii]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: declared_metrics}
+  evidence_types: [testing_protocols_reports, technical_documentation]
+  requirements: [REQ.AIA.15.1.accuracy-consistency]
+  summary: An appropriate level of accuracy, performing consistently over the lifecycle.
+
+- id: OBL.AIA.15.3.declared-metrics
+  article: AIA.15.3
+  related: [AIA.13.3.b.ii]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: accuracy, templates: [TT.accuracy.subgroup], threshold_source: declared_metrics}
+  evidence_types: [instructions_for_use]
+  requirements: [REQ.AIA.15.3.declared-accuracy-metrics]
+  summary: Accuracy levels and metrics are declared in the instructions for use.
+
+- id: OBL.AIA.15.4.robustness
+  article: AIA.15.4
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: robustness, templates: [TT.robustness.perturbation, TT.robustness.edge_cases], threshold_source: org_thresholds}
+  evidence_types: [testing_protocols_reports]
+  requirements: [REQ.AIA.15.4.robustness]
+  summary: Resilient to errors, faults and inconsistencies; feedback loops addressed.
+
+- id: OBL.AIA.15.5.cybersecurity
+  article: AIA.15.5
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: adversarial, templates: [TT.robustness.perturbation, TT.security.prompt_injection], threshold_source: org_thresholds}
+  evidence_types: [security_testing_report]
+  requirements: [REQ.AIA.15.5.cybersecurity]
+  summary: Resilient against attempts to alter use, outputs or performance (adversarial examples, poisoning).
+
+# ---- Art. 16-18: provider duties, QMS, documentation keeping ---------------------------
+
+- id: OBL.AIA.16.provider-duties
+  article: AIA.16
+  related: [AIA.16.b, AIA.16.c, AIA.16.d, AIA.16.e, AIA.16.f, AIA.16.g, AIA.16.h, AIA.16.i, AIA.16.j, AIA.16.k, AIA.16.l]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [provider_identification, corrective_actions_procedure]
+  summary: Provider duties (b)-(l) of Art. 16 (name on the system, QMS, logs, conformity, registration ...).
+
+- id: OBL.AIA.17.quality-management-system
+  article: AIA.17.1
+  related: [AIA.17.1.d, AIA.17.1.f]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [qms_manual, test_procedures, data_management_procedures]
+  requirements:
+    - REQ.AIA.17.1.quality-management-system
+    - REQ.AIA.17.1.d.test-procedures
+    - REQ.AIA.17.1.f.data-management
+  summary: A documented quality management system (incl. test and data-management procedures).
+
+- id: OBL.AIA.18.documentation-keeping
+  article: AIA.18.1
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [document_retention_policy]
+  summary: Keep the documentation at the authorities' disposal for 10 years.
+
+# ---- Conformity, declaration, CE marking, registration ----------------------------------
+
+- id: OBL.AIA.43.conformity-assessment
+  article: AIA.43
+  related: [AIA.43.2, AIA.ANNEX_VI]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [conformity_assessment_record]
+  summary: The conformity assessment procedure (internal control, Annex VI, for Annex III points 2-8).
+
+- id: OBL.AIA.47.eu-declaration-of-conformity
+  article: AIA.47.1
+  related: [AIA.ANNEX_V]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [eu_declaration_of_conformity]
+  summary: Draw up a written EU declaration of conformity (Annex V).
+
+- id: OBL.AIA.48.ce-marking
+  article: AIA.48.1
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [ce_marking]
+  summary: Affix the CE marking (digital for digital-only systems).
+
+- id: OBL.AIA.49.1.registration
+  article: AIA.49.1
+  addressee: [provider]
+  applies_if: {risk_class: [high], basis_any: [annex_iii], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02}
+  verification_mode: documentary
+  evidence_types: [eu_database_registration]
+  summary: Register the Annex III high-risk system in the EU database before placing it on the market.
+
+# ---- Art. 50: transparency (features-gated) -------------------------------------------
+
+- id: OBL.AIA.50.1.ai-interaction-disclosure
+  article: AIA.50.1
+  related: [AIA.50.5]
+  addressee: [provider]
+  applies_if: {features_any: [interacts_with_persons, chatbot]}
+  in_force: {any: 2026-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: disclosure, templates: [TT.transparency.ai_disclosure], threshold_source: org_thresholds.disclosure_rate}
+  evidence_types: [transparency_testing_report]
+  requirements: [REQ.AIA.50.1.ai-interaction-disclosure, REQ.AIA.50.5.disclosure-timing]
+  summary: People are informed that they interact with an AI system.
+
+- id: OBL.AIA.50.2.synthetic-content-marking
+  article: AIA.50.2
+  related: [AIA.50.5]
+  addressee: [provider]
+  applies_if: {features_any: [generates_synthetic_content]}
+  in_force: {any: 2026-08-02}
+  verification_mode: model_test
+  checks:
+    - {metric_family: marking, templates: [TT.transparency.ai_disclosure], threshold_source: org_thresholds.marking_rate}
+  evidence_types: [transparency_testing_report]
+  requirements: [REQ.AIA.50.2.synthetic-content-marking]
+  summary: Synthetic audio, image, video or text outputs are marked machine-readable as AI-generated.
+
+# ---- Post-market ----------------------------------------------------------------------
+
+- id: OBL.AIA.72.post-market-monitoring
+  article: AIA.72.1
+  related: [AIA.72.2, AIA.72.3]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: hybrid
+  checks:
+    - {metric_family: monitoring_baseline, templates: [TT.accuracy.subgroup, TT.fairness.group_metrics], threshold_source: org_thresholds}
+  evidence_types: [post_market_monitoring_plan]
+  summary: A post-market monitoring plan with KPI baselines taken from the test evidence.
+
+- id: OBL.AIA.73.serious-incident-reporting
+  article: AIA.73.1
+  related: [AIA.73.2]
+  addressee: [provider]
+  applies_if: {risk_class: [high], exempt_6_3: false}
+  in_force: {annex_iii: 2027-12-02, annex_i: 2028-08-02}
+  verification_mode: documentary
+  evidence_types: [incident_reporting_procedure]
+  summary: Report serious incidents to the market surveillance authorities.

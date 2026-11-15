@@ -200,6 +200,32 @@ def impact(entries: list[dict[str, Any]], requirements: list[dict[str, Any]]) ->
     return out
 
 
+def impact_obligations(
+    entries: list[dict[str, Any]], obligations: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Catalogue rows whose article / related provisions the change touched (no LLM)."""
+    touched: set[str] = set()
+    for e in entries:
+        touched.add(e["id"])
+        touched.update(e.get("relates_to") or [])
+
+    def hit(pid: str) -> bool:
+        return any(pid == t or pid.startswith(t + ".") or t.startswith(pid + ".") for t in touched)
+
+    out = []
+    for o in obligations:
+        via = [p for p in [o["article"], *o.get("related", [])] if hit(p)]
+        if via:
+            out.append(
+                {
+                    "obligation_id": o["id"],
+                    "via": via,
+                    "verification_mode": o.get("verification_mode"),
+                }
+            )
+    return out
+
+
 def change_path(kb: KnowledgeBase, change_id: str) -> Any:
     if not re.fullmatch(r"RC-\d{4}\.\d{2}\.\d{2}-\d+", change_id):
         raise ValueError(f"invalid change id: {change_id!r}")
@@ -239,6 +265,7 @@ async def build_change(
         "change_types": types,
         "summary": _summary(entries),
         "impacted_requirements": impact(entries, kb.requirements(to_version)),
+        "impacted_obligations": impact_obligations(entries, kb.obligations(to_version)[0]),
         "provisions": [e for e in entries if e["kind"] == "provision"],
         "interpretations": [e for e in entries if e["kind"] == "interpretation"],
     }

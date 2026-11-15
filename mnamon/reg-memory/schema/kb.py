@@ -117,3 +117,24 @@ class RequirementList(BaseModel):
 class TestTemplateList(BaseModel):
     kb_version: str
     items: list[dict[str, Any]]
+
+
+class ObligationList(BaseModel):
+    kb_version: str
+    #: ``release`` (snapshotted in the release) or ``corpus`` (a release older than the
+    #: catalogue: the catalogue in git is served).
+    catalogue_source: str
+    query: dict[str, Any]
+    total: int
+    items: list[dict[str, Any]]
+
+
+class ReleaseDiff(BaseModel):
+    from_kb_version: str
+    to_kb_version: str
+    provisions_filter: list[str]
+    counts: dict[str, int]
+    #: changed / added / removed provisions (id, change, title, old/new hash, unified diff)
+    provisions: list[dict[str, Any]]
+    #: catalogue rows added / removed / changed between the two releases
+    obligations: list[dict[str, Any]]

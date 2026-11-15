@@ -8,14 +8,17 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from engine.kb.applicability import applicable
-from engine.kb.changes import list_changes, load_change
+from engine.kb.changes import diff_maps, list_changes, load_change
+from engine.kb.obligations import activate as activate_obligation
 from engine.kb.search import heading, label, search
 from schema.kb import (
     ChangeList,
     ChangeSummary,
     InterpretationList,
+    ObligationList,
     ProvisionList,
     Release,
+    ReleaseDiff,
     ReleaseList,
     RequirementList,
     SearchResult,
@@ -205,3 +208,94 @@ def requirements(
 def test_templates(kb_version: str | None) -> TestTemplateList:
     version = _version(kb_version)
     return TestTemplateList(kb_version=version, items=get_kb().test_templates(version))
+
+
+# ---- obligations ------------------------------------------------------------------------------
+
+
+def obligations(
+    kb_version: str | None,
+    role: str | None,
+    risk_class: str | None,
+    basis: str | None,
+    annex_point: str | None,
+    features: list[str] | None,
+    exempt_6_3: bool | None,
+    on: date | None,
+    include_not_applicable: bool,
+) -> ObligationList:
+    """The catalogue at a release, each row activated against the query (plan 01 §3.3)."""
+    version = _version(kb_version)
+    on = on or datetime.now(UTC).date()
+    catalogue, source = get_kb().obligations(version)
+    if annex_point:
+        basis = f"AIA.ANNEX_III.{annex_point}"
+    items = []
+    for o in catalogue:
+        result = activate_obligation(
+            o,
+            role=role,
+            risk_class=risk_class,
+            basis=basis,
+            features=features,
+            exempt_6_3=exempt_6_3,
+            on=on,
+        )
+        if result["applicable"] or include_not_applicable:
+            items.append({**o, **result})
+    query = {
+        "role": role,
+        "risk_class": risk_class,
+        "basis": basis,
+        "annex_point": annex_point,
+        "features": features,
+        "exempt_6_3": exempt_6_3,
+        "date": on.isoformat(),
+        "include_not_applicable": include_not_applicable,
+    }
+    return ObligationList(
+        kb_version=version, catalogue_source=source, query=query, total=len(items), items=items
+    )
+
+
+def _under(pid: str, prefixes: list[str]) -> bool:
+    return any(pid == p or pid.startswith(p + ".") for p in prefixes)
+
+
+def release_diff(from_version: str, to_version: str, provisions: list[str]) -> ReleaseDiff:
+    """Provision-level diff of two releases by ``content_hash`` (optionally only under the
+    given provision ids), plus the catalogue rows that changed."""
+    kb = get_kb()
+    for v in (from_version, to_version):
+        if not kb.load_manifest(v):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown kb_version {v}")
+    old, new = kb.provision_map(from_version), kb.provision_map(to_version)
+    if provisions:
+        old = {k: v for k, v in old.items() if _under(k, provisions)}
+        new = {k: v for k, v in new.items() if _under(k, provisions)}
+    entries = [
+        {k: e[k] for k in ("id", "change", "title", "old_hash", "new_hash", "diff")}
+        for e in diff_maps(old, new, "provision")
+    ]
+    old_o = {o["id"]: o for o in kb.obligations(from_version)[0]}
+    new_o = {o["id"]: o for o in kb.obligations(to_version)[0]}
+    changed_obligations = []
+    for oid in sorted(set(old_o) | set(new_o)):
+        a, b = old_o.get(oid) or {}, new_o.get(oid) or {}
+        if a == b:
+            continue
+        change = "changed" if a and b else ("added" if b else "removed")
+        fields = sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+        changed_obligations.append({"id": oid, "change": change, "fields": fields})
+    counts: dict[str, int] = {}
+    for e in entries:
+        counts[e["change"]] = counts.get(e["change"], 0) + 1
+    counts["obligations"] = len(changed_obligations)
+    return ReleaseDiff(
+        from_kb_version=from_version,
+        to_kb_version=to_version,
+        provisions_filter=provisions,
+        counts=counts,
+        provisions=entries,
+        obligations=changed_obligations,
+    )

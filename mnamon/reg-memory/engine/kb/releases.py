@@ -7,7 +7,7 @@ test templates, with id ``YYYY.MM.DD-N`` (the ``kb_version`` every finding pins)
         index.json                        id -> {file, content_hash} (provisions, interpretations)
         provisions/<INSTR>/<group>.yaml   art_10.yaml, annex_III.yaml, recitals.yaml ...
         interpretations/<source_id>.yaml
-        requirements.yaml, test_templates.yaml
+        requirements.yaml, test_templates.yaml, obligations.yaml
       active.json                         {"kb_version", "activated_at", "activated_by"}
 
 A new release is a ``candidate``; it becomes ``active`` only through an explicit
@@ -31,6 +31,7 @@ import yaml
 from engine.catalog.loader import Catalog
 from engine.kb.corpus import CORPUS_DIR, check_corpus, load_corpus
 from engine.kb.interpretations import INTERPRETATION_KINDS, build_interpretations
+from engine.kb.obligations import OBLIGATIONS_FILE, check_obligations, load_obligations
 from engine.kb.parser import PARSER_VERSION, link_amendments, parse_act, parse_recitals
 from engine.store import Store, _atomic_write, now_iso
 
@@ -147,13 +148,21 @@ class KnowledgeBase:
             if src.get("valid_from_by_basis"):
                 r["valid_from_by_basis"] = src["valid_from_by_basis"]
             r["source_hash"] = src.get("content_hash")
+        obligations = load_obligations(self.corpus_dir)
+        for o in obligations:  # the text hash of the article it comes from
+            o["article_hash"] = (by_id.get(o["article"]) or {}).get("content_hash")
+        warnings = check_corpus(reqs, tts, known)
+        warnings += check_obligations(
+            obligations, known, {t["id"] for t in tts}, {r["id"] for r in reqs}
+        )
         return {
             "provisions": provisions,
             "interpretations": interpretations,
             "requirements": reqs,
             "test_templates": tts,
+            "obligations": obligations,
             "inputs": inputs,
-            "warnings": check_corpus(reqs, tts, known),
+            "warnings": warnings,
         }
 
     # ---- build -----------------------------------------------------------------------------
@@ -189,6 +198,7 @@ class KnowledgeBase:
             "interpretations": _sha(json.dumps(index["interpretations"], sort_keys=True).encode()),
             "requirements": _sha(_dump(snap["requirements"])),
             "test_templates": _sha(_dump(snap["test_templates"])),
+            "obligations": _sha(_dump(snap["obligations"])),
         }
         # The parser version is part of the release identity: a re-parse is a new release.
         content = _sha(json.dumps({**hashes, "parser": PARSER_VERSION}, sort_keys=True).encode())
@@ -205,6 +215,7 @@ class KnowledgeBase:
             files[path] = _dump(items)
         files["requirements.yaml"] = _dump(snap["requirements"])
         files["test_templates.yaml"] = _dump(snap["test_templates"])
+        files[OBLIGATIONS_FILE] = _dump(snap["obligations"])
         files["index.json"] = json.dumps(index, ensure_ascii=False).encode("utf-8")
         manifest = {
             "kb_version": kb_version,
@@ -221,6 +232,7 @@ class KnowledgeBase:
                 "interpretations": len(snap["interpretations"]),
                 "requirements": len(snap["requirements"]),
                 "test_templates": len(snap["test_templates"]),
+                "obligations": len(snap["obligations"]),
             },
             "warnings": snap["warnings"],
         }
@@ -348,4 +360,17 @@ class KnowledgeBase:
         return self._cached(
             (kb_version, "test_templates"),
             lambda: self._read_yaml(kb_version, "test_templates.yaml"),
+        )
+
+    def obligations(self, kb_version: str) -> tuple[list[dict[str, Any]], str]:
+        """``(catalogue, source)``: the release's snapshot (``release``), or for a release
+        built before the catalogue existed, the catalogue in git (``corpus``)."""
+        if (self.release_dir(kb_version) / OBLIGATIONS_FILE).exists():
+            items = self._cached(
+                (kb_version, "obligations"),
+                lambda: self._read_yaml(kb_version, OBLIGATIONS_FILE),
+            )
+            return items, "release"
+        return self._cached(("corpus", "obligations"), lambda: load_obligations(self.corpus_dir)), (
+            "corpus"
         )

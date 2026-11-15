@@ -31,6 +31,7 @@ from router.documents import router as documents_router
 from router.health import router as health_router
 from router.ingest import router as ingest_router
 from router.integrations import router as integrations_router
+from router.obligations import router as obligations_router
 from router.provisions import interpretations_router
 from router.provisions import router as provisions_router
 from router.releases import router as releases_router
@@ -100,6 +101,9 @@ app.include_router(
 app.include_router(changes_router, prefix="/v1/changes", tags=["Changes"], dependencies=_INTERNAL)
 app.include_router(
     requirements_router, prefix="/v1/requirements", tags=["Requirements"], dependencies=_INTERNAL
+)
+app.include_router(
+    obligations_router, prefix="/v1/obligations", tags=["Requirements"], dependencies=_INTERNAL
 )
 app.include_router(
     templates_router, prefix="/v1/test-templates", tags=["Requirements"], dependencies=_INTERNAL
