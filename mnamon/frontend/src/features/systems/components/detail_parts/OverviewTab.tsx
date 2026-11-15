@@ -31,27 +31,46 @@ function Pills({ items, tone }: { items?: string[]; tone?: 'warning' | 'primary'
   );
 }
 
-/** `selection_rate_ratio` → `Selection rate ratio`. */
+/** Words kept upper-case in labels. */
+const ACRONYMS = new Set(['ai', 'llm', 'pii', 'eu', 'api', 'auc', 'f1', 'roc']);
+
+/** `selection_rate_ratio` → `Selection rate ratio`; `ai_disclosure` → `AI disclosure`. */
 function humanize(key: string) {
-  const t = key.replace(/_/g, ' ');
+  const t = key
+    .split('_')
+    .map((w) => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w))
+    .join(' ');
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
+
+/** Values longer than this are prose (a policy sentence), not a number: they get their own line. */
+const SHORT_VALUE = 16;
 
 function Thresholds({ entries }: { entries?: Record<string, string> }) {
   const list = Object.entries(entries ?? {});
   if (!list.length) return <EmptyState compact title="No thresholds" />;
   return (
     <ul className="divide-y divide-border">
-      {list.map(([k, v]) => (
-        <li key={k} className="flex items-center justify-between gap-3 py-2.5">
-          <span className="min-w-0 text-sm [overflow-wrap:anywhere]" title={k}>
-            {humanize(k)}
-          </span>
-          <span className="num shrink-0 whitespace-nowrap rounded-md border border-border bg-surface-muted px-2 py-0.5 font-mono text-xs font-medium">
-            {v}
-          </span>
-        </li>
-      ))}
+      {list.map(([k, raw]) => {
+        const v = String(raw);
+        return v.length <= SHORT_VALUE ? (
+          <li key={k} className="flex items-center justify-between gap-3 py-2.5">
+            <span className="min-w-0 text-sm [overflow-wrap:anywhere]" title={k}>
+              {humanize(k)}
+            </span>
+            <span className="num shrink-0 whitespace-nowrap rounded-md border border-border bg-surface-muted px-2 py-0.5 font-mono text-xs font-medium">
+              {v}
+            </span>
+          </li>
+        ) : (
+          <li key={k} className="py-2.5">
+            <div className="text-sm" title={k}>
+              {humanize(k)}
+            </div>
+            <p className="mt-1 border-l-2 border-primary/40 pl-2.5 text-[13px] leading-5 text-muted">{v}</p>
+          </li>
+        );
+      })}
     </ul>
   );
 }
