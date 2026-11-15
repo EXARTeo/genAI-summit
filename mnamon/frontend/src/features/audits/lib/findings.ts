@@ -358,3 +358,136 @@ export function obligationMapArtifact(artifacts: Artifact[]): Artifact | null {
 export function shortHash(h: string | null | undefined, n = 10): string {
   return h ? (h.length > n ? `${h.slice(0, n)}…` : h) : '–';
 }
+
+// ---- Findings view: summary, filters, grouping (add-only helpers for the Findings panel) ------
+
+/** Summary order: what needs action first. Unknown verdicts sort after these. */
+export const VERDICT_ORDER = [
+  'gap',
+  'partial',
+  'inconclusive',
+  'pass',
+  'not_assessable_by_testing',
+  'not_applicable',
+] as const;
+
+function verdictRank(v: string): number {
+  const i = (VERDICT_ORDER as readonly string[]).indexOf(v);
+  return i < 0 ? VERDICT_ORDER.length : i;
+}
+
+/** `[{verdict, count}]` in summary order, only verdicts that occur. */
+export function verdictCounts(rows: SealedFinding[]): { verdict: string; count: number }[] {
+  const m = new Map<string, number>();
+  for (const f of rows) m.set(f.verdict, (m.get(f.verdict) ?? 0) + 1);
+  return [...m.entries()]
+    .map(([verdict, count]) => ({ verdict, count }))
+    .sort((a, b) => verdictRank(a.verdict) - verdictRank(b.verdict) || a.verdict.localeCompare(b.verdict));
+}
+
+/** Numeric article path (`OBL.AIA.10.2.f` → [10, 0, 2, 0, f]) so Art. 9 sorts before Art. 10. */
+function articleKey(f: Pick<SealedFinding, 'obligation_id' | 'data'>): (number | string)[] {
+  const raw = typeof f.data?.article === 'string' && f.data.article ? f.data.article : f.obligation_id;
+  const m = /AIA\.([\d.a-z]+)/i.exec(raw);
+  if (!m) return [9999, raw];
+  const out: (number | string)[] = [];
+  for (const p of m[1].split('.').filter(Boolean)) {
+    const n = /^(\d+)([a-z]*)$/i.exec(p);
+    if (n) out.push(Number(n[1]), n[2]);
+    else out.push(-1, p);
+  }
+  return out;
+}
+
+function compareKeys(a: (number | string)[], b: (number | string)[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? -2;
+    const y = b[i] ?? -2;
+    if (x === y) continue;
+    if (typeof x === 'number' && typeof y === 'number') return x - y;
+    return String(x).localeCompare(String(y));
+  }
+  return 0;
+}
+
+/** The article number of a finding (`10` for Art. 10(2)(f)), or null. */
+export function articleNumber(f: Pick<SealedFinding, 'obligation_id' | 'data'>): number | null {
+  const k = articleKey(f)[0];
+  return typeof k === 'number' && k < 9999 ? k : null;
+}
+
+/** Short display label: `AIA.10.2.f` / `OBL.AIA.10.2.f.bias` → `Art. 10(2)(f)`. */
+export function articleLabel(f: Pick<SealedFinding, 'obligation_id' | 'data'>): string | null {
+  const a = articleOf(f);
+  if (!a) return null;
+  const m = /^AIA\.(\d+[a-z]?)((?:\.[^.]+)*)$/i.exec(a);
+  if (!m) return a;
+  const parts = m[2].split('.').filter(Boolean);
+  return `Art. ${m[1]}${parts.map((p) => `(${p})`).join('')}`;
+}
+
+/** View order: verdict (gaps first), then severity, then article number. */
+export function sortFindingsView(rows: SealedFinding[]): SealedFinding[] {
+  const sev = (f: SealedFinding) => severityMeta(f.severity)?.rank ?? 5;
+  return [...rows].sort(
+    (a, b) =>
+      verdictRank(a.verdict) - verdictRank(b.verdict) ||
+      sev(a) - sev(b) ||
+      compareKeys(articleKey(a), articleKey(b)),
+  );
+}
+
+/** AI Act chapter / section an article belongs to (for grouping). */
+export const AI_ACT_CHAPTERS: { from: number; to: number; label: string }[] = [
+  { from: 1, to: 4, label: 'General provisions' },
+  { from: 5, to: 5, label: 'Prohibited practices' },
+  { from: 6, to: 7, label: 'Classification as high-risk' },
+  { from: 8, to: 15, label: 'Requirements for high-risk systems' },
+  { from: 16, to: 27, label: 'Obligations of providers' },
+  { from: 28, to: 39, label: 'Notified bodies' },
+  { from: 40, to: 49, label: 'Standards, conformity and registration' },
+  { from: 50, to: 56, label: 'Transparency and general-purpose AI' },
+  { from: 57, to: 71, label: 'Innovation and governance' },
+  { from: 72, to: 94, label: 'Post-market monitoring and enforcement' },
+];
+
+export function chapterOf(f: Pick<SealedFinding, 'obligation_id' | 'data'>): string {
+  const n = articleNumber(f);
+  if (n == null) return 'Other';
+  return AI_ACT_CHAPTERS.find((c) => n >= c.from && n <= c.to)?.label ?? 'Other';
+}
+
+export interface FindingsFilter {
+  verdicts: string[];
+  severity: string | null;
+  query: string;
+}
+
+/** Verdict (any of), severity, and free text over article, obligation id, title, gap id and reasoning. */
+export function filterFindings(rows: SealedFinding[], filter: FindingsFilter): SealedFinding[] {
+  const q = filter.query.trim().toLowerCase();
+  return rows.filter((f) => {
+    if (filter.verdicts.length > 0 && !filter.verdicts.includes(f.verdict)) return false;
+    if (filter.severity && (f.severity ?? 'none') !== filter.severity) return false;
+    if (!q) return true;
+    const hay = [articleLabel(f), articleOf(f), f.obligation_id, titleOf(f), f.gap_id, f.reasoning]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return q.split(/\s+/).every((t) => hay.includes(t));
+  });
+}
+
+/** Test ids a finding's metrics point at (`metrics_ref.rows`: `T-07/crash_rate`). */
+export function metricRows(metricsRef: unknown): string[] {
+  if (!metricsRef || typeof metricsRef !== 'object' || Array.isArray(metricsRef)) return [];
+  const rows = (metricsRef as Record<string, unknown>).rows;
+  return Array.isArray(rows) ? rows.filter((r): r is string => typeof r === 'string') : [];
+}
+
+/** The dossier evidence of a documentary finding: `{present, missing}`. */
+export function dossierEvidence(data: Record<string, unknown>): { present: string[]; missing: string[] } {
+  const d = data?.dossier_evidence as Record<string, unknown> | null | undefined;
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  return { present: list(d?.present), missing: list(d?.missing) };
+}

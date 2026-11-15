@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  articleLabel,
   articleOf,
+  chapterOf,
+  filterFindings,
   gapList,
   judgeCall,
   judgesAgree,
   obligationEntries,
   panelFindings,
   sortFindings,
+  sortFindingsView,
   textList,
+  verdictCounts,
   type SealedFinding,
 } from './findings';
 import { derivedTraffic, reportModel } from './report';
@@ -177,5 +182,69 @@ describe('report model', () => {
     const failed = reportModel(audit({ status: 'failed', stage: 'run_tests', data: { error: 'boom' } }), []);
     expect(failed.incomplete?.reason).toBe('boom');
     expect(failed.incomplete?.notRun[0]).toBeTruthy();
+  });
+});
+
+describe('findings view helpers', () => {
+  const a = sealed({
+    id: 'a',
+    obligation_id: 'OBL.AIA.10.2.f.bias',
+    verdict: 'gap',
+    severity: 'medium',
+    data: { article: 'AIA.10.2.f', title: 'Examine bias' },
+  });
+  const b = sealed({
+    id: 'b',
+    obligation_id: 'OBL.AIA.9.1.rms',
+    verdict: 'gap',
+    severity: 'medium',
+    data: { article: 'AIA.9.1' },
+  });
+  const c = sealed({
+    id: 'c',
+    obligation_id: 'OBL.AIA.15.4.robustness',
+    verdict: 'pass',
+    severity: null,
+    data: {},
+  });
+  const d = sealed({
+    id: 'd',
+    obligation_id: 'OBL.AIA.4.literacy',
+    verdict: 'not_assessable_by_testing',
+    severity: 'low',
+    data: { article: 'AIA.4' },
+  });
+
+  it('labels articles from data.article or the id', () => {
+    expect(articleLabel(a)).toBe('Art. 10(2)(f)');
+    expect(articleLabel(c)).toBe('Art. 15(4)');
+  });
+
+  it('sorts by verdict, severity, then article number', () => {
+    expect(sortFindingsView([d, c, a, b]).map((f) => f.id)).toEqual(['b', 'a', 'c', 'd']);
+  });
+
+  it('counts verdicts in summary order', () => {
+    expect(verdictCounts([d, c, a, b])).toEqual([
+      { verdict: 'gap', count: 2 },
+      { verdict: 'pass', count: 1 },
+      { verdict: 'not_assessable_by_testing', count: 1 },
+    ]);
+  });
+
+  it('filters by verdict, severity and text', () => {
+    const all = [a, b, c, d];
+    expect(filterFindings(all, { verdicts: ['gap'], severity: null, query: '' })).toHaveLength(2);
+    expect(filterFindings(all, { verdicts: [], severity: 'none', query: '' }).map((f) => f.id)).toEqual([
+      'c',
+    ]);
+    expect(
+      filterFindings(all, { verdicts: [], severity: null, query: 'art. 10 bias' }).map((f) => f.id),
+    ).toEqual(['a']);
+  });
+
+  it('groups articles into AI Act chapters', () => {
+    expect(chapterOf(a)).toBe('Requirements for high-risk systems');
+    expect(chapterOf(d)).toBe('General provisions');
   });
 });
