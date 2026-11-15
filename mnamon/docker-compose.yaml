@@ -214,6 +214,7 @@ services:
       OUMI_API_KEY: ${OUMI_API_KEY:-}
       OUMI_BASE_URL: ${OUMI_BASE_URL:-https://inference.oumi.ai/v1}
       OUMI_MODEL: ${OUMI_MODEL:-}
+      CLASSIFY_IRIS_MIN_CONFIDENCE: ${CLASSIFY_IRIS_MIN_CONFIDENCE:-0.6}
       SCENARIO_REVIEW_MODEL: ${SCENARIO_REVIEW_MODEL:-iris}
       # Public dataset discovery (harness/tools/public_datasets): optional web
       # search, and the backend's internal API that stores an approved dataset.
