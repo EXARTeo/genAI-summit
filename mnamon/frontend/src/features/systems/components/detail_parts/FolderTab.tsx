@@ -59,65 +59,69 @@ export function FolderTab({ systemId }: { systemId: string }) {
   };
 
   return (
-    <div className="grid overflow-hidden rounded-2xl border border-border bg-surface shadow-sm lg:h-[calc(100dvh-8rem)] lg:min-h-[34rem] lg:grid-cols-[18.75rem_minmax(0,1fr)]">
-      <aside className="flex max-h-[45vh] min-h-0 flex-col border-b border-border bg-surface-sunken/60 lg:max-h-none lg:border-b-0 lg:border-r">
-        <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Explorer</span>
-          {files.data && (
-            <span className="text-[11px] tabular-nums text-muted">
-              {files.data.length} file{files.data.length === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-          {files.isLoading ? (
-            <div className="space-y-2 p-2">
-              {Array.from({ length: 8 }, (_, i) => (
-                <Skeleton key={i} className="h-5" style={{ width: `${60 + ((i * 17) % 35)}%` }} />
-              ))}
-            </div>
-          ) : (
-            <>
-              <FileTree
-                className="min-h-full pb-6"
-                rootLabel={<span className="font-mono text-xs">/systems/{systemId}</span>}
-                showCounts
-                entries={(files.data ?? []).map((f) => ({
-                  path: f.path,
-                  title: `v${f.version} · ${formatBytes(f.size)} · by ${actorLabel(f.createdBy)} · ${formatRelative(f.createdAt)}`,
-                  meta: (
-                    <span className="flex items-center gap-1.5">
-                      <span className="hidden group-hover:inline">{formatBytes(f.size)}</span>
-                      {f.version > 1 && (
-                        <span className="rounded bg-primary/10 px-1 font-medium text-primary">
-                          v{f.version}
-                        </span>
-                      )}
-                    </span>
-                  ),
-                }))}
-                selected={selected}
-                onSelect={setSelected}
-                folderAction={addButton}
-                onDropFiles={onFiles}
-                busyFolder={busyFolder}
-              />
-              {!files.data?.length && (
-                <EmptyState
-                  compact
-                  icon={<FolderTree />}
-                  title="Empty folder"
-                  description="Drop files here or use the upload button."
+    // The viewer sets the panel's height (its content, at most about a screen); on wide screens
+    // the tree pane is pinned to that height and scrolls inside, so it never leaves dead space.
+    <div className="grid overflow-hidden rounded-2xl border border-border bg-surface shadow-sm lg:min-h-[30rem] lg:grid-cols-[18.75rem_minmax(0,1fr)]">
+      <div className="relative min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+        <aside className="flex max-h-[45vh] min-h-0 flex-col bg-surface-sunken/60 lg:absolute lg:inset-0 lg:max-h-none">
+          <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Explorer</span>
+            {files.data && (
+              <span className="text-[11px] tabular-nums text-muted">
+                {files.data.length} file{files.data.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            {files.isLoading ? (
+              <div className="space-y-2 p-2">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <Skeleton key={i} className="h-5" style={{ width: `${60 + ((i * 17) % 35)}%` }} />
+                ))}
+              </div>
+            ) : (
+              <>
+                <FileTree
+                  className="min-h-full pb-6"
+                  rootLabel={<span className="font-mono text-xs">/systems/{systemId}</span>}
+                  showCounts
+                  entries={(files.data ?? []).map((f) => ({
+                    path: f.path,
+                    title: `v${f.version} · ${formatBytes(f.size)} · by ${actorLabel(f.createdBy)} · ${formatRelative(f.createdAt)}`,
+                    meta: (
+                      <span className="flex items-center gap-1.5">
+                        <span className="hidden group-hover:inline">{formatBytes(f.size)}</span>
+                        {f.version > 1 && (
+                          <span className="rounded bg-primary/10 px-1 font-medium text-primary">
+                            v{f.version}
+                          </span>
+                        )}
+                      </span>
+                    ),
+                  }))}
+                  selected={selected}
+                  onSelect={setSelected}
+                  folderAction={addButton}
+                  onDropFiles={onFiles}
+                  busyFolder={busyFolder}
                 />
-              )}
-            </>
-          )}
-        </div>
-        <p className="hidden border-t border-border px-4 py-2 text-[11px] text-muted lg:block">
-          Hover a folder to add files, or drop files on it. Each upload is a new version.
-        </p>
-      </aside>
-      <section className="min-h-[28rem] min-w-0 lg:min-h-0">
+                {!files.data?.length && (
+                  <EmptyState
+                    compact
+                    icon={<FolderTree />}
+                    title="Empty folder"
+                    description="Drop files here or use the upload button."
+                  />
+                )}
+              </>
+            )}
+          </div>
+          <p className="hidden border-t border-border px-4 py-2 text-[11px] text-muted lg:block">
+            Hover a folder to add files, or drop files on it. Each upload is a new version.
+          </p>
+        </aside>
+      </div>
+      <section className="flex min-h-[28rem] min-w-0 flex-col lg:max-h-[max(30rem,calc(100dvh-7rem))]">
         <FilePreview key={selected ?? ''} systemId={systemId} path={selected} />
       </section>
       <input

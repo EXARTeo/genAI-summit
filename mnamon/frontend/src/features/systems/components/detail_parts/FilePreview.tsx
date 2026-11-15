@@ -114,7 +114,7 @@ export function FilePreview({ systemId, path }: { systemId: string; path: string
   const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-3 sm:px-5">
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-muted [&_svg]:size-4">
           {fileIcon(name)}
