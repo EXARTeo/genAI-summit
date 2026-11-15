@@ -1,12 +1,32 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, BellRing, Check, ExternalLink, GitCompare, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BellRing,
+  Check,
+  ExternalLink,
+  GitCompare,
+  History,
+  X,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { TraceLink } from '@/features/audits/components/artifact_parts/common';
 import { TONE_CLASSES } from '@/features/audits/lib/styling';
 import { formatBytes, formatDateTime, formatRelative } from '@/shared/lib/format';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
-import { Badge, Button, Card, EmptyState, Markdown, Select, Skeleton, StatusPill, toast } from '@/shared/ui';
+import {
+  AgentThinking,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Markdown,
+  Select,
+  Skeleton,
+  StatusPill,
+  toast,
+} from '@/shared/ui';
 import { useDecideChange, useDocDiff, useDocText, useOverrideJudge } from '../hooks/useRegulation';
 import {
   JUDGE,
@@ -215,6 +235,18 @@ export function RegChangeCard({ c }: { c: RegChange }) {
           <TraceLink traceId={c.traceId} className="ml-auto" />
         </div>
 
+        {c.judge === 'running' && (
+          <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2">
+            <AgentThinking size="sm" label="Change judge: impact index, then Oumi Iris per affected system" />
+          </div>
+        )}
+        {c.judge === 'failed' && (
+          <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+            <AlertTriangle className="size-4 shrink-0" />
+            The change judge failed. The change stays accepted; check the trace and run it again.
+          </div>
+        )}
+
         {c.affected.length > 0 ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-text/80">
@@ -257,7 +289,38 @@ export function RegChangeCard({ c }: { c: RegChange }) {
                         </span>
                       ))}
                     </div>
-                    <p className="mt-1 text-sm">{a.reasoning}</p>
+                    <p className="mt-1 text-sm [overflow-wrap:anywhere]">{a.reasoning}</p>
+                    {a.counterArgument && (
+                      <p className="mt-1 text-xs text-muted [overflow-wrap:anywhere]">
+                        Strongest counter-argument: {a.counterArgument}
+                      </p>
+                    )}
+                    {(a.obligations?.length ?? 0) > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                        <span className="mr-1 text-2xs text-muted">Obligations touched</span>
+                        {a.obligations!.map((o) => (
+                          <Badge key={o} className="font-mono">
+                            {o}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {(a.staleFindings?.length ?? 0) > 0 && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                        <Badge tone="warning" icon={<History />}>
+                          {a.staleFindings!.length} finding{a.staleFindings!.length > 1 ? 's' : ''} marked
+                          stale
+                        </Badge>
+                        {a.auditId && (
+                          <Link
+                            to={`/audits/${encodeURIComponent(a.auditId)}?view=findings`}
+                            className="text-xs text-muted hover:text-text hover:underline"
+                          >
+                            in {a.auditId}
+                          </Link>
+                        )}
+                      </div>
+                    )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Select
                         className="h-8 w-56 text-xs"
@@ -280,12 +343,20 @@ export function RegChangeCard({ c }: { c: RegChange }) {
                         }))}
                       />
                       {a.rerunAuditId && (
-                        <Link
-                          to={`/audits/${encodeURIComponent(a.rerunAuditId)}`}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          Re-run {a.rerunAuditId} →
-                        </Link>
+                        <>
+                          <Link
+                            to={`/audits/${encodeURIComponent(a.rerunAuditId)}`}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            Re-run {a.rerunAuditId} →
+                          </Link>
+                          <Link
+                            to={`/audits/${encodeURIComponent(a.rerunAuditId)}?view=findings`}
+                            className="text-xs text-muted hover:text-text hover:underline"
+                          >
+                            delta report
+                          </Link>
+                        </>
                       )}
                     </div>
                   </motion.div>
@@ -294,7 +365,15 @@ export function RegChangeCard({ c }: { c: RegChange }) {
             </motion.div>
           </div>
         ) : (
-          <p className="text-sm text-muted">No system affected (impact index found no linked requirement).</p>
+          c.judge !== 'running' && (
+            <p className="text-sm text-muted">
+              {c.status === 'proposed'
+                ? 'Accept the change to run the impact index and the change judge.'
+                : c.judge === 'done'
+                  ? 'No system affected (the impact index found no linked obligation).'
+                  : 'No judgement yet.'}
+            </p>
+          )
         )}
 
         {c.status === 'proposed' && (

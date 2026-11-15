@@ -16,6 +16,7 @@ import {
   toast,
 } from '@/shared/ui';
 import { RegChangeCard, SourceDetail, SourceRow } from '../components/RegViews';
+import { SimulateChangeButton } from '../components/SimulateChangeDialog';
 import { useCheckNow, useRegChanges, useRegSources } from '../hooks/useRegulation';
 import { latestVersion, openChanges } from '../lib/regulation';
 
@@ -47,22 +48,25 @@ export function RegulationPage() {
           ) : undefined
         }
         actions={
-          <Button
-            variant="secondary"
-            loading={checkNow.isPending}
-            onClick={() =>
-              checkNow.mutate(undefined, {
-                onSuccess: (r) =>
-                  toast.success('Regulation check started', {
-                    description: `Status: ${r?.status ?? 'queued'}. New changes appear in the inbox.`,
-                  }),
-                onError: (e) =>
-                  toast.error('Could not start the check', { description: (e as Error).message }),
-              })
-            }
-          >
-            <RefreshCw /> Check now
-          </Button>
+          <>
+            <SimulateChangeButton />
+            <Button
+              variant="secondary"
+              loading={checkNow.isPending}
+              onClick={() =>
+                checkNow.mutate(undefined, {
+                  onSuccess: (r) =>
+                    toast.success('Regulation check started', {
+                      description: `Status: ${r?.status ?? 'queued'}. New changes appear in the inbox.`,
+                    }),
+                  onError: (e) =>
+                    toast.error('Could not start the check', { description: (e as Error).message }),
+                })
+              }
+            >
+              <RefreshCw /> Check now
+            </Button>
+          </>
         }
       />
       <Tabs value={tab} onValueChange={(t) => setParams({ tab: t })}>

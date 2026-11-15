@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { regulationApi } from '../handlers/regulation';
-import type { JudgeDecision } from '../lib/types';
+import type { DemoMirrorEdit, JudgeDecision } from '../lib/types';
 
 export const regKeys = {
   sources: ['regulation', 'sources'] as const,
@@ -29,8 +29,25 @@ export function useDocDiff(docId: string | undefined, from: number, to: number) 
   });
 }
 
+/** The change inbox; polls while a change judge is running. */
 export function useRegChanges() {
-  return useQuery({ queryKey: regKeys.changes, queryFn: regulationApi.changes });
+  return useQuery({
+    queryKey: regKeys.changes,
+    queryFn: regulationApi.changes,
+    refetchInterval: (q) => (q.state.data?.some((c) => c.judge === 'running') ? 3000 : false),
+  });
+}
+
+/** "Simulate change" (demo): edit the mirror, check it, then refresh the inbox. */
+export function useSimulateChange() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DemoMirrorEdit) => regulationApi.simulateChange({ ...body, check: true }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: regKeys.changes });
+      void qc.invalidateQueries({ queryKey: regKeys.sources });
+    },
+  });
 }
 
 export function useDecideChange() {

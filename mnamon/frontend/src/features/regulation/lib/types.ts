@@ -67,7 +67,17 @@ export interface AffectedSystem {
   reasoning: string;
   humanDecision?: JudgeDecision | null;
   rerunAuditId?: string | null;
+  /** The system's obligations the change touched (the focused re-run's scope). */
+  obligations?: string[];
+  /** Old findings the judge marked `stale`. */
+  staleFindings?: string[];
+  counterArgument?: string | null;
+  /** The audit whose findings the judge read. */
+  auditId?: string | null;
 }
+
+/** The change judge's run: pending → running (started on accept) → done | failed. */
+export type JudgeState = 'pending' | 'running' | 'done' | 'failed';
 
 export interface RegChange {
   id: string;
@@ -83,6 +93,17 @@ export interface RegChange {
   summary: string;
   affected: AffectedSystem[];
   traceId?: string;
+  judge?: JudgeState;
+  impactedObligations?: { obligation_id?: string; id?: string; via?: unknown; [k: string]: unknown }[];
+}
+
+/** PUT /v1/regulation/demo/mirror: "Simulate change" on the mirrored guideline page. */
+export interface DemoMirrorEdit {
+  find?: string;
+  replace?: string;
+  appendHtml?: string;
+  reset?: boolean;
+  check?: boolean;
 }
 
 /** POST /v1/regulation/check-now (reg-memory CheckAccepted, or the CheckRecord when waited for). */

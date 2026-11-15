@@ -1,7 +1,15 @@
 // Regulation memory calls. reg-memory is internal (port 8010, X-Internal-Secret), so the browser goes
 // through backend proxy routes under /v1/regulation (mocked today; backend proxy pending).
 import { api } from '@/shared/lib/api';
-import type { CheckNowResult, DocDiff, DocText, JudgeDecision, RegChange, RegSource } from '../lib/types';
+import type {
+  CheckNowResult,
+  DemoMirrorEdit,
+  DocDiff,
+  DocText,
+  JudgeDecision,
+  RegChange,
+  RegSource,
+} from '../lib/types';
 
 export const regulationApi = {
   sources: () => api.get<RegSource[]>('/v1/regulation/sources'),
@@ -19,4 +27,10 @@ export const regulationApi = {
     ),
   /** Ask reg-memory to re-check every watched source now (queued; changes land in the inbox). */
   checkNow: () => api.post<CheckNowResult>('/v1/regulation/check-now', { wait: false }),
+  /** Demo: edit the mirrored guideline page and re-check it at once (a RegChange appears). */
+  simulateChange: (body: DemoMirrorEdit) =>
+    api.put<{ check?: { release?: { change_id?: string } } } & Record<string, unknown>>(
+      '/v1/regulation/demo/mirror',
+      body,
+    ),
 };
