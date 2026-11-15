@@ -165,4 +165,24 @@ export const mockSystems = {
   },
   versions: (id: string, path: string) => (files.get(key(id, path)) ?? []).map(strip).reverse(),
   events: (id: string) => events.filter((e) => e.namespace === `system:${id}`),
+  /** POST /v1/systems (the Register a system wizard). */
+  create: (s: { id: string; name: string; status: string; data: SystemCard }) => {
+    const at = new Date().toISOString();
+    const row: System = { ...s, createdAt: at, updatedAt: at };
+    systems.set(s.id, row);
+    return row;
+  },
+  /** PATCH-like: merge into the stored system (an approved classification updates the card). */
+  update: (id: string, patch: { status?: string; data?: Partial<SystemCard> }) => {
+    const cur = systems.get(id);
+    if (!cur) return undefined;
+    const next: System = {
+      ...cur,
+      status: patch.status ?? cur.status,
+      data: { ...cur.data, ...patch.data },
+      updatedAt: new Date().toISOString(),
+    };
+    systems.set(id, next);
+    return next;
+  },
 };

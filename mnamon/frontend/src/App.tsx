@@ -6,6 +6,7 @@ import { WorkspaceShell } from './app/WorkspaceShell';
 const HomeView = lazy(() => import('./pages/HomeView'));
 const SystemsView = lazy(() => import('./pages/SystemsView'));
 const SystemDetailView = lazy(() => import('./pages/SystemDetailView'));
+const RegisterSystemView = lazy(() => import('./pages/RegisterSystemView'));
 const AuditsView = lazy(() => import('./pages/AuditsView'));
 const RegulationView = lazy(() => import('./pages/RegulationView'));
 const ChatView = lazy(() => import('./pages/ChatView'));
@@ -17,6 +18,7 @@ export default function App() {
       <Route element={<WorkspaceShell />}>
         <Route index element={<HomeView />} />
         <Route path="systems" element={<SystemsView />} />
+        <Route path="systems/new" element={<RegisterSystemView />} />
         <Route path="systems/:systemId" element={<SystemDetailView />} />
         <Route path="systems/:systemId/:tab" element={<SystemDetailView />} />
         <Route path="audits/*" element={<AuditsView />} />
