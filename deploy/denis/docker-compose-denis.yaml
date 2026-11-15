@@ -83,6 +83,7 @@ services:
       SEED_CASES_DIR: /seed-cases
       REG_MEMORY_URL: http://reg-memory:8010
       REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:?set in Portainer}
+      MLFLOW_TRACKING_URI: http://mlflow:5000   # plugin form defaults (read-only)
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}

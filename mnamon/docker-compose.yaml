@@ -116,6 +116,8 @@ services:
       # /v1/regulation proxies reg-memory (X-Internal-Secret).
       REG_MEMORY_URL: ${REG_MEMORY_URL:-http://reg-memory:8010}
       REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:-genai-summit-dev-reg-memory}
+      # The plugin form reads model versions and signatures from the local registry.
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       # Telegram HITL approvals (docs/guides/telegram.md); no token = off.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
@@ -201,6 +203,8 @@ services:
       # The audit pipeline (pipeline/): reg-memory lookups, redo budgets, the change judge.
       REG_MEMORY_URL: ${REG_MEMORY_URL:-http://reg-memory:8010}
       REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:-genai-summit-dev-reg-memory}
+      # The plugin form reads model versions and signatures from the local registry.
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       PIPELINE_MAX_REDOS: ${PIPELINE_MAX_REDOS:-3}
       PIPELINE_MAX_AUTO_REDOS: ${PIPELINE_MAX_AUTO_REDOS:-1}
       PIPELINE_PUBLIC_DATA_ENABLED: ${PIPELINE_PUBLIC_DATA_ENABLED:-true}
@@ -271,6 +275,8 @@ services:
       REG_MEMORY_DATA_DIR: /data
       # Callers send it as X-Internal-Secret. Required outside development.
       REG_MEMORY_INTERNAL_SECRET: ${REG_MEMORY_INTERNAL_SECRET:-genai-summit-dev-reg-memory}
+      # The plugin form reads model versions and signatures from the local registry.
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       REG_MEMORY_BOOTSTRAP_ON_START: ${REG_MEMORY_BOOTSTRAP_ON_START:-true}
       REG_MEMORY_WATCH_INTERVAL_MINUTES: ${REG_MEMORY_WATCH_INTERVAL_MINUTES:-60}
       REG_MEMORY_DISCOVERY_ENABLED: ${REG_MEMORY_DISCOVERY_ENABLED:-true}

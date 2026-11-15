@@ -149,6 +149,16 @@ class RegMemorySettings(BaseSettings):
     check_timeout_seconds: float = Field(300.0, validation_alias="REG_MEMORY_CHECK_TIMEOUT_SECONDS")
 
 
+class MlflowSettings(BaseSettings):
+    """The local MLflow registry: the plugin form reads a model's version, description and
+    signature from it to prefill a new plugin (utils/plugins.py). Read-only."""
+
+    model_config = _BASE_MODEL_CONFIG
+
+    tracking_uri: str = Field("http://mlflow:5000", validation_alias="MLFLOW_TRACKING_URI")
+    timeout_seconds: float = Field(5.0, validation_alias="MLFLOW_TIMEOUT_SECONDS")
+
+
 class TelegramSettings(BaseSettings):
     """HITL approvals over Telegram. No token = every Telegram call is a no-op."""
 
@@ -524,6 +534,7 @@ class Settings(BaseSettings):
     tls: TlsSettings = Field(default_factory=TlsSettings)
     upstream: UpstreamSettings = Field(default_factory=UpstreamSettings)
     reg_memory: RegMemorySettings = Field(default_factory=RegMemorySettings)
+    mlflow: MlflowSettings = Field(default_factory=MlflowSettings)
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     inference: InferenceSettings = Field(default_factory=InferenceSettings)
     attachments: AttachmentSettings = Field(default_factory=AttachmentSettings)
