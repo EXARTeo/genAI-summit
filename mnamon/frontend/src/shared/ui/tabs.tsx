@@ -11,7 +11,8 @@ export const TabsList = forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'inline-flex h-8 max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-surface-muted p-0.5 text-muted',
+      // Scrolls sideways when it doesn't fit, but never shows a scrollbar (a 1-2 px overflow drew one).
+      'inline-flex h-8 max-w-full items-center gap-0.5 overflow-x-auto overflow-y-hidden rounded-lg bg-surface-muted p-0.5 text-muted [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
       className,
     )}
     {...props}

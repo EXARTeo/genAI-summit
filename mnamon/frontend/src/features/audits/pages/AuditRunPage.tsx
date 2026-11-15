@@ -53,7 +53,7 @@ const VIEWS: { id: AuditView; label: string; icon: typeof Workflow }[] = [
 function ViewTabs({ view, onChange }: { view: AuditView; onChange: (v: AuditView) => void }) {
   return (
     <Tabs value={view} onValueChange={(v) => onChange(v as AuditView)}>
-      <Tabs.List aria-label="Audit view" className="pg-float h-9 rounded-xl p-1">
+      <Tabs.List aria-label="Audit view" className="pg-float h-auto rounded-xl p-1">
         {VIEWS.map(({ id, label, icon: Icon }) => (
           <Tabs.Trigger key={id} value={id} className="h-7 rounded-lg">
             <Icon /> {label}
