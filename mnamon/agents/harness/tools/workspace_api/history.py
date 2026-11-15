@@ -155,43 +155,59 @@ def _filter_provisions(rows: list[dict[str, Any]], wanted: list[str] | None) -> 
     return [r for r in rows if any(rerun.touches(str(r.get("id")), w) for w in wanted)]
 
 
+def _judges(judges: Any) -> dict[str, Any] | None:
+    """``{judge: verdict}`` from a sealed finding's judges block."""
+    if not isinstance(judges, dict):
+        return None
+    out = {}
+    for name, value in judges.items():
+        verdict = value.get("verdict") if isinstance(value, dict) else value
+        if isinstance(verdict, str | bool | int | float):
+            out[name] = verdict
+    return out or None
+
+
 def _finding_row(raw: dict[str, Any]) -> dict[str, Any]:
-    """One finding (a findings-table row or a ``finding`` artifact) as a short summary."""
-    data = raw.get("data") if isinstance(raw.get("data"), dict) and "verdict" not in raw else raw
-    data = data or {}
+    """One finding (a sealed findings-table row or a ``finding`` artifact) as a short summary."""
+    nested = raw.get("data") if isinstance(raw.get("data"), dict) else {}
+    # A sealed row carries the verdict at the top and extras (title, ...) in data;
+    # an artifact carries everything in data.
+    data = {**nested, **raw} if "verdict" in raw else {**raw, **nested}
     evidence = []
-    for e in (data.get("evidence") or [])[:3]:
+    for e in (data.get("evidence") or data.get("evidence_refs") or [])[:3]:
         if isinstance(e, dict):
-            evidence.append(
-                {
-                    k: e.get(k)
-                    for k in ("test_id", "metric", "value", "ci95", "threshold", "threshold_source")
-                    if e.get(k) not in (None, "", [])
-                }
-            )
+            keys = ("test_id", "metric", "value", "ci95", "threshold", "threshold_source")
+            keys += ("path", "sha256", "mlflow_run_id")
+            evidence.append({k: e.get(k) for k in keys if e.get(k) not in (None, "", [])})
+    counters = data.get("counter_evidence") or data.get("counter_arguments") or []
+    if isinstance(counters, str):
+        counters = [counters]
     citations = [
         c.get("provision_id") if isinstance(c, dict) else c
         for c in (data.get("citations") or [])[:6]
     ]
     row = {
-        "id": data.get("gap_id") or data.get("id") or raw.get("name"),
+        "id": data.get("gap_id") or nested.get("id") or raw.get("name") or raw.get("id"),
         "obligation": data.get("obligation_id") or data.get("requirement"),
         "title": data.get("title"),
         "verdict": data.get("verdict"),
         "severity": data.get("severity"),
         "confidence": data.get("confidence"),
-        "status": raw.get("status") or data.get("status"),
-        "sealed": data.get("sealed") if "sealed" in data else raw.get("sealed"),
-        "stale": data.get("stale") if "stale" in data else raw.get("stale"),
-        "audit_id": raw.get("auditId") or raw.get("audit_id") or data.get("audit_id"),
-        "kb_version": data.get("kb_version") or raw.get("kb_version"),
+        "status": raw.get("status"),
+        "sealed": raw.get("sealed"),
+        "stale": raw.get("stale") or None,
+        "audit_id": raw.get("audit_id") or raw.get("auditId"),
+        "kb_version": data.get("kb_version"),
+        "metrics": data.get("metrics_ref") if isinstance(data.get("metrics_ref"), dict) else None,
         "evidence": evidence,
-        "counter_evidence": [clip(c, 160) for c in (data.get("counter_evidence") or [])[:2]],
+        "judges": _judges(data.get("judges")),
+        "counter_evidence": [clip(str(c), 160) for c in counters[:2] if c],
         "citations": citations,
         "reasoning": clip(data.get("reasoning"), 280),
+        "annotations": len(raw.get("annotations") or []) or None,
         "artifact_id": raw.get("id") if raw.get("kind") == "finding" else None,
     }
-    return {k: v for k, v in row.items() if v not in (None, "", [])}
+    return {k: v for k, v in row.items() if v not in (None, "", [], {})}
 
 
 _GAP_VERDICTS = frozenset({"gap", "indicates_gap", "partial"})
@@ -249,6 +265,12 @@ def _obligation_row(row: dict[str, Any]) -> dict[str, Any]:
         if key in out:
             out[key] = clip(out[key], 200)
     return out
+
+
+def _audit_error(audit_id: str, exc: WorkspaceAPIError) -> str:
+    if exc.status == 404:
+        return f"Audit {audit_id} does not exist; call list_audits for the real ids."
+    return f"Could not read audit {audit_id}: {exc.public}."
 
 
 # ---------------------------------------------------------------------------
@@ -417,7 +439,7 @@ def history_builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Call
             audit = await api.audit(aid)
             active, _ = await _active_and_releases()
         except WorkspaceAPIError as exc:
-            return f"Could not check audit {aid}: {exc.public}."
+            return _audit_error(aid, exc)
         pins = rerun.audit_pins(audit)
         pinned = pins.get("kb_version")
         relied = rerun.audit_provisions(audit)
@@ -484,6 +506,8 @@ def history_builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Call
                 except WorkspaceAPIError as exc:
                     if exc.status not in _MISSING:
                         raise
+                    raw = []
+                if not raw:
                     audits = await api.audits(sid)
                     if not audits:
                         return f"{sid} has no audits yet."
@@ -494,7 +518,7 @@ def history_builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Call
                     kb = rerun.audit_pins(audit).get("kb_version")
                     scope_label = {"system_id": sid, "audit_id": latest.get("id")}
         except WorkspaceAPIError as exc:
-            return f"Could not list findings: {exc.public}."
+            return _audit_error(aid, exc) if aid else f"Could not list findings: {exc.public}."
         rows = [_finding_row(r) for r in raw or [] if isinstance(r, dict)]
         out: dict[str, Any] = {**scope_label, "source": source}
         if kb:
@@ -510,7 +534,7 @@ def history_builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Call
         try:
             audit = await api.audit(aid)
         except WorkspaceAPIError as exc:
-            return f"Could not read audit {aid}: {exc.public}."
+            return _audit_error(aid, exc)
         kinds = {
             str(a.get("id")): f"{a.get('kind')}/{a.get('name')}"
             for a in audit.get("artifacts") or []

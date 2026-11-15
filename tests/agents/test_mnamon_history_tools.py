@@ -19,6 +19,7 @@ from conftest import CLIENT_ID, SERVICE_ROOT
 from harness.tools import builtins
 from harness.tools.workspace_api import WorkspaceAPI, WorkspaceScope, build_workspace_tool, rerun
 from harness.tools.workspace_api import client as workspace_client
+from harness.tools.workspace_api.history import _finding_row
 from utils.agents import build_registry
 
 SLUG = "mnamon"
@@ -569,3 +570,34 @@ async def test_a_run_has_a_call_budget(fake, monkeypatch):
     assert "active" in await tool.ainvoke({})
     assert "active" in await tool.ainvoke({})
     assert "429" in await tool.ainvoke({})
+
+
+def test_a_sealed_findings_row_keeps_title_judges_and_counter_arguments():
+    row = _finding_row(
+        {
+            "id": "fnd-1",
+            "audit_id": AUDIT,
+            "obligation_id": "OBL.AIA.10.2.f",
+            "verdict": "gap",
+            "severity": "high",
+            "gap_id": "G-SYS-001-01",
+            "counter_arguments": ["Small subgroup"],
+            "judges": {"gemini": {"verdict": "gap"}, "iris": {"verdict": "gap"}},
+            "citations": [{"provision_id": "AIA.10.2.f", "kb_version": OLD_KB}],
+            "kb_version": OLD_KB,
+            "data": {"title": "Nationality proxy"},
+            "status": "current",
+            "stale": False,
+            "sealed": True,
+            "annotations": [{"id": "a1"}],
+        }
+    )
+    assert row["id"] == "G-SYS-001-01" and row["title"] == "Nationality proxy"
+    assert row["judges"] == {"gemini": "gap", "iris": "gap"}
+    assert row["counter_evidence"] == ["Small subgroup"] and row["annotations"] == 1
+    assert "stale" not in row and row["sealed"] is True
+
+
+async def test_an_unknown_audit_says_it_does_not_exist(fake):
+    out = await _call("audit_needs_rerun", {"audit_id": "SYS-009-20261115-0000"})
+    assert "does not exist" in out and "list_audits" in out
