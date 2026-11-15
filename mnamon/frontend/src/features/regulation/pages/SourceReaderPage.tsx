@@ -226,7 +226,7 @@ export function SourceReaderPage() {
       ) : (
         <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
-            <div className="sticky top-[calc(var(--topbar-height)+4rem)] max-h-[calc(100vh-var(--topbar-height)-6rem)] overflow-y-auto pb-8 pr-1">
+            <div className="sticky top-[calc(var(--topbar-height)+4rem)] max-h-[calc(100vh-var(--topbar-height)-6rem)] overflow-y-auto overflow-x-hidden pb-8 pr-1">
               {outline}
             </div>
           </aside>

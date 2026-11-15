@@ -21,7 +21,7 @@ export function ReaderOutline({
 }) {
   if (sections.length === 0) return <p className="px-2 py-3 text-xs text-muted">Nothing matches.</p>;
   return (
-    <nav aria-label="Contents" className="text-sm">
+    <nav aria-label="Contents" className="min-w-0 overflow-x-hidden text-sm">
       {sections.map((s, i) => {
         const startsGroup = i === 0 || sections[i - 1].group !== s.group;
         return (
@@ -43,7 +43,13 @@ export function ReaderOutline({
                   : 'text-text/80 hover:bg-hover hover:text-text',
               )}
             >
-              <span className="shrink-0 whitespace-nowrap text-xs font-medium tabular-nums">
+              <span
+                title={s.title ? undefined : s.label}
+                className={cn(
+                  'whitespace-nowrap text-xs font-medium tabular-nums',
+                  s.title ? 'shrink-0' : 'min-w-0 truncate',
+                )}
+              >
                 {shortSectionLabel(s.label)}
               </span>
               {s.title && <span className="min-w-0 truncate text-xs text-muted">{s.title}</span>}
