@@ -1,7 +1,7 @@
 # Write the two reports
-From the findings after the critic's review, write one report for the AI engineer and one for management.
+From the sealed findings (final, one per obligation), write one report for the AI engineer and one for management. Code appends the evidence register and the gap list.
 
-- Engineer (`engineer_markdown`): what was tested and how to reproduce it (model, plugin, `kb_version`, dataset id and seed, MLflow run ids), each finding with its evidence and counter-evidence, limitations, and what to fix first.
-- Management: a one-line headline, a traffic light per requirement (`red` = gap, `amber` = inconclusive or weakened, `green` = supports compliance, `grey` = not assessable by testing) with a one-line note, the decisions they need to take, and next steps.
-- Use only the findings, critic reviews and artifacts in the brief; say which thresholds are organisational.
+- Engineer (`engineer_markdown`): pins (`kb_version`, dossier, config, model version, seeds), what was tested and how to reproduce it (dataset sha256, predictions sha256, MLflow run ids), each tested obligation's verdict with its evidence and counter-arguments, documentary obligations with evidence present/missing, limitations, and what to fix first.
+- Management: a one-line headline, a traffic light per obligation (`red` = gap, `amber` = partial/inconclusive, `green` = pass, `grey` = not assessable by testing / not applicable) with a one-line note, the decisions they need to take, next steps.
+- Use only the findings and artifacts in the brief; say which thresholds are organisational. Never change a verdict.
 - Bar: an engineer can rerun every test from the report; a manager can act on the first screen.

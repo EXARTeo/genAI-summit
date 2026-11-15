@@ -1,7 +1,8 @@
-# Try to overturn each finding
-You are the second opinion. For each finding, build the strongest case against it, then decide.
+# Try to overturn each verdict
+You are the second opinion on the proposed per-obligation verdicts. For each, build the strongest case against it, then decide.
 
-- Check the finding against the test results and the dataset analysis in the brief: do the numbers match, does the CI support the verdict, was the data realistic enough, does the threshold apply, is the cited provision the right one (look it up when unsure)?
-- `upheld`: the objection fails. `weakened`: it lowers confidence or softens the verdict. `overturned`: the verdict does not follow from the evidence.
-- `adjusted_verdict` and `adjusted_confidence` are what the finding should say after your review; `checked_evidence` lists what you actually checked (test ids, run ids, provisions).
-- Bar: every finding reviewed; every objection has a reason a reviewer can check.
+- Check against the brief: do the numbers match `tests`, does the CI support the verdict, is the evidence synthetic-only, is the obligation mapping weak, is a threshold missing, do the judges disagree? Look provisions up when unsure.
+- `upheld: true` when the objection fails; `false` when the verdict does not follow (then `adjusted_verdict`).
+- `grounds`: always, for every verdict: the checkable reason it stands or falls (metric, CI, threshold, provision). `objection`: the best argument against it.
+- `overall`: two or three sentences on the audit as a whole (strongest and weakest verdicts, what to retest).
+- Bar: one review per obligation id in the brief; no empty grounds.

@@ -61,16 +61,15 @@ def test_gemini_model_roles():
 
 async def test_the_real_path_uses_the_step_role_and_validates_the_result():
     roles: list[str] = []
-    payload = fakes.critic(
-        {"findings": [{"id": "F-01", "verdict": "inconclusive", "confidence": 0.5}]}
-    )
+    payload = fakes.critic({"verdicts": [{"obligation_id": "OBL.A", "verdict": "inconclusive"}]})
 
     def factory(role: str) -> ScriptedChatModel:
         roles.append(role)
         return ScriptedChatModel(
             script=[
-                tool_call_message("CriticReport", {"reviews": [{"finding_id": "F-01"}]}),  # invalid
-                tool_call_message("CriticReport", payload.model_dump(mode="json")),
+                # invalid: no grounds, no overall
+                tool_call_message("ObligationCriticReport", {"reviews": [{"obligation_id": "A"}]}),
+                tool_call_message("ObligationCriticReport", payload.model_dump(mode="json")),
             ]
         )
 
@@ -78,9 +77,10 @@ async def test_the_real_path_uses_the_step_role_and_validates_the_result():
     pipeline_scope = __import__("pipeline.steps", fromlist=["StepScope"]).StepScope(
         audit_id=AUDIT_ID, system_id=SYSTEM_ID, kb_version="kb", step="critic"
     )
-    result = await h.deps.steps.run("critic", {"findings": []}, pipeline_scope)
+    result = await h.deps.steps.run("critic", {"verdicts": []}, pipeline_scope)
     assert roles == ["reasoning"]
-    assert result.reviews[0].call == "weakened"  # type: ignore[attr-defined]
+    assert result.reviews[0].upheld and result.reviews[0].grounds  # type: ignore[attr-defined]
+    assert result.overall  # type: ignore[attr-defined]
 
 
 def test_prompts_are_layered_short_and_state_precedence():
@@ -201,7 +201,7 @@ async def test_the_agent_streams_steps_and_the_gate_as_ag_ui():
     agent = _agent(make_harness())
     events = await _frames(agent)
     steps = [e["stepName"] for e in events if e["type"] == "STEP_STARTED"]
-    assert steps[:3] == ["load_context", "profile_model", "plan_scenarios"]
+    assert steps[:4] == ["load_context", "pin", "ground_obligations", "profile_model"]
     hitl = [e for e in events if e.get("name") == "HITL_INTERRUPT"]
     assert hitl and hitl[-1]["value"]["interrupt"]["value"]["gate"] == "scenarios"
     assert any(e.get("name") == "AUDIT_ARTIFACT" for e in events)

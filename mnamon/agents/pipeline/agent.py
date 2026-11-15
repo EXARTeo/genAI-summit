@@ -32,6 +32,7 @@ from harness.tools.public_datasets.tools import run_fetch, run_search
 from pipeline.clients import BackendInternal, RegMemory, SandboxRunner
 from pipeline.graph import AuditPipeline, PipelineDeps
 from pipeline.steps import StepRunner
+from utils.change_judge import delta_for_audit
 
 logger = get_logger(__name__)
 
@@ -65,6 +66,7 @@ def default_deps(context: Mapping[str, Any], trace_id: str | None, thread_id: st
         run_id=run_id,
         thread_id=thread_id,
         trace_id=trace_id,
+        delta=delta_for_audit,
     )
 
 

@@ -137,6 +137,10 @@ class BackendInternal:
             },
         )
 
+    async def seal_finding(self, finding: Mapping[str, Any]) -> dict[str, Any]:
+        """``POST /internal/audits/{id}/findings``: one sealed finding (append-only)."""
+        return await self._call("POST", "/findings", json=dict(finding))
+
 
 class BackendImpact:
     """The backend's cross-system internal routes the impact pipeline needs."""

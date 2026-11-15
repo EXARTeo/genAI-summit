@@ -4,14 +4,16 @@ The commands follow ``docs/services/sandbox.md``: the audit's files go to
 ``input/`` (``plugin.yaml``, ``data/data-dictionary.yaml``, ``data/sample.csv``,
 ``generation-spec.yaml``, ``model-profile.json``, ``test-plan.yaml``, an approved
 public dataset under ``datasets/public/<slug>/``), commands run in ``output/``.
-Generation is deterministic from ``(spec, seed)``, so a later step regenerates
-the dataset in ``../tmp`` instead of carrying it between calls; the Data Card's
-``content_sha256`` proves it is the same data.
+``generate`` writes the dataset to ``generated/`` in ``output/``; the pipeline
+keeps the parquet (and its sha256) and hands the SAME file to every later call
+as ``input/data/generated/`` (:data:`DATA_DIR`) instead of regenerating it.
 
-``synthkit run-tests --plan test-plan.yaml --target plugin.yaml --data <dir>
---out results/`` (written in parallel by the sandbox team) runs one MLflow run
-per test and writes ``results/test-results.json``; :func:`normalise_results`
-reads it defensively.
+Raw before analysis (plan 01 P4): ``synthkit run-inference`` only calls the
+model and saves ``inference/predictions.parquet`` + ``run.json`` (hashed, one
+MLflow run); ``synthkit metrics --predictions`` then computes every metric from
+those saved predictions without calling the model (one MLflow run per test) and
+writes ``results/test-results.json``; :func:`normalise_results` reads it
+defensively.
 """
 
 from __future__ import annotations
@@ -23,6 +25,11 @@ import yaml
 
 #: Where a regenerated dataset lives inside one sandbox call (not returned).
 TMP_DATA = "../tmp/data"
+#: Where the saved dataset is handed to a sandbox call (input-relative and absolute).
+DATA_REL = "data/generated"
+DATA_DIR = f"../input/{DATA_REL}"
+#: Where the saved predictions are handed to a sandbox call.
+INFERENCE_REL = "inference"
 
 #: Scenario template -> the reg-memory / synthkit run-tests template id.
 TEMPLATE_IDS = {
@@ -51,6 +58,41 @@ def scenarios_check_command(has_profile: bool) -> str:
         "synthkit scenarios-check --scenarios ../input/scenarios.yaml "
         f"--plugin ../input/plugin.yaml --dictionary ../input/data/data-dictionary.yaml"
         f"{profile} --out-dir ."
+    )
+
+
+def generate_saved_command(seed: int) -> str:
+    """Generate into ``generated/`` (returned): parquet + DataCard + 20 sample rows."""
+    return (
+        "synthkit generate --spec ../input/generation-spec.yaml "
+        f"--seed {int(seed)} --out-dir generated --format both"
+        " && head -n 21 generated/dataset.csv > sample-rows.csv && rm -f generated/dataset.csv"
+    )
+
+
+def analyze_saved_command(seed: int, has_profile: bool) -> str:
+    profile = " --profile ../input/model-profile.json" if has_profile else ""
+    return (
+        f"synthkit analyze --dataset {DATA_DIR}/dataset.parquet "
+        f"--spec ../input/generation-spec.yaml{profile} --seed {int(seed)} --out-dir ."
+    )
+
+
+def run_inference_command(seed: int) -> str:
+    """Only the model calls: ``inference/predictions.parquet`` + ``inference/run.json``."""
+    return (
+        f"synthkit run-inference --data {DATA_DIR} --target ../input/plugin.yaml "
+        f"--plan ../input/test-plan.yaml --seed {int(seed)} --out inference"
+    )
+
+
+def metrics_command(seed: int) -> str:
+    """Every metric from the saved predictions (no model call): ``results/test-results.json``."""
+    return (
+        "synthkit metrics --plan ../input/test-plan.yaml --target ../input/plugin.yaml "
+        f"--data {DATA_DIR} --predictions ../input/{INFERENCE_REL}/predictions.parquet "
+        f"--seed {int(seed)} --out results; code=$?; "
+        'if [ "$code" -le 1 ]; then exit 0; else exit "$code"; fi'
     )
 
 
@@ -103,6 +145,8 @@ def build_test_plan(state: dict[str, Any], seed: int) -> dict[str, Any]:
             "requirements": [sc.get("requirement")] if sc.get("requirement") else [],
             "scenario": sc.get("id"),
         }
+        if sc.get("obligation_id"):
+            test["obligation_id"] = sc["obligation_id"]
         attributes = [a for a in [needs.get("attribute"), *(sc.get("protected") or [])] if a]
         if attributes and template in (
             "TT.fairness.group_metrics",
@@ -185,6 +229,7 @@ def normalise_results(raw: Any, plan: dict[str, Any]) -> dict[str, Any]:
                 "template": item.get("template") or planned.get("template"),
                 "requirement": reqs[0] if reqs else None,
                 "requirements": reqs,
+                "obligation_id": item.get("obligation_id") or planned.get("obligation_id"),
                 "metric": item.get("metric"),
                 "value": value,
                 "ci95": _ci(_first(item, "ci95", "ci")),
@@ -207,6 +252,7 @@ def normalise_results(raw: Any, plan: dict[str, Any]) -> dict[str, Any]:
                     "template": planned.get("template"),
                     "requirement": (planned.get("requirements") or [None])[0],
                     "requirements": planned.get("requirements") or [],
+                    "obligation_id": planned.get("obligation_id"),
                     "metric": None,
                     "value": None,
                     "ci95": None,
@@ -230,6 +276,8 @@ def normalise_results(raw: Any, plan: dict[str, Any]) -> dict[str, Any]:
                 "dataset_id",
                 "kb_version",
                 "mlflow",
+                "inference",
+                "predictions_sha256",
             )
         }
         if isinstance(raw, dict)
@@ -252,7 +300,14 @@ def loads_json(text: str | None) -> Any:
 
 
 __all__ = [
+    "DATA_DIR",
+    "DATA_REL",
+    "INFERENCE_REL",
     "analyze_command",
+    "analyze_saved_command",
+    "generate_saved_command",
+    "metrics_command",
+    "run_inference_command",
     "build_test_plan",
     "dumps_yaml",
     "generate_command",

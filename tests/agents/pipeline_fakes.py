@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pipeline.clients import ExecResult
+from pipeline.clients import ExecResult, PipelineHTTPError
 from pipeline.graph import AuditPipeline, PipelineDeps
 from pipeline.steps import StepRunner
 
@@ -44,6 +44,8 @@ class FakeBackend:
         self.patches: list[dict[str, Any]] = []
         self.reads: list[str] = []
         self.audit_data: dict[str, Any] = {"dossier_version": 3}
+        self.sealed: list[dict[str, Any]] = []
+        self.findings_endpoint = True
 
     async def audit(self) -> dict[str, Any]:
         return {
@@ -75,6 +77,12 @@ class FakeBackend:
         }
         self.artifacts.append(art)
         return art
+
+    async def seal_finding(self, finding: dict[str, Any]) -> dict[str, Any]:
+        if not self.findings_endpoint:
+            raise PipelineHTTPError("backend", 404, "not found")
+        self.sealed.append(json.loads(json.dumps(finding, default=str)))
+        return {"id": f"fnd-{len(self.sealed)}", **finding}
 
     def kinds(self) -> list[str]:
         return [a["kind"] for a in self.artifacts]
@@ -129,6 +137,10 @@ class FakeRegMemory:
         return {}
 
 
+#: Stand-in bytes for the saved dataset and predictions (the pipeline only hashes them).
+DATASET = b"PAR1-fake-dataset"
+PREDICTIONS = b"PAR1-fake-predictions"
+
 PROFILE = {
     "notes": ["postcode_region moves the output and stands in for nationality"],
     "sensitivity": {
@@ -157,7 +169,23 @@ class FakeSandbox:
         for key, result in self.fail.items():
             if f"synthkit {key}" in command:
                 return result
-        if "synthkit run-tests" in command:
+        if "synthkit run-inference" in command:
+            run = {
+                "dataset": {"file": "dataset.parquet", "sha256": "d" * 64, "n_rows": 10},
+                "predictions": {"file": "predictions.parquet", "sha256": "p" * 64, "n_rows": 10},
+                "model": {"uri_or_url": "models:/sys-001-cv-ranker@champion", "version": "3"},
+                "mlflow_run_id": "run-inference",
+            }
+            return ExecResult(
+                0,
+                "",
+                "",
+                files={
+                    "inference/predictions.parquet": PREDICTIONS,
+                    "inference/run.json": json.dumps(run).encode(),
+                },
+            )
+        if "synthkit metrics" in command or "synthkit run-tests" in command:
             plan = yaml.safe_load(files["test-plan.yaml"])
             results = self.results or {
                 "system": "SYS-001",
@@ -242,7 +270,8 @@ class FakeSandbox:
                 "",
                 "",
                 files={
-                    "DataCard.yaml": yaml.safe_dump(card).encode(),
+                    "generated/DataCard.yaml": yaml.safe_dump(card).encode(),
+                    "generated/dataset.parquet": DATASET,
                     "sample-rows.csv": b"a,b\n1,2\n",
                 },
             )

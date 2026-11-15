@@ -1,0 +1,12 @@
+# Iris question for the independent per-obligation verdict (pipeline/verdict_review.py).
+# Iris scores the options; the code compares its pick with the rule and Gemini verdicts.
+verdict:
+  type: choice
+  instructions: >-
+    Given the test results in `tests` (metric, value, 95% CI, the organisation's threshold and
+    its status) for `obligation`, which verdict does the evidence support?
+  criteria:
+    pass: Every judged metric meets the organisation's threshold with its whole confidence interval.
+    partial: A confidence interval crosses the threshold, or some subgroups fail while others pass.
+    gap: At least one metric clearly fails the organisation's threshold.
+    inconclusive: No usable test result, no threshold, or the results cannot show it.

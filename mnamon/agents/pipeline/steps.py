@@ -18,9 +18,10 @@ through the very same agent, middleware and traces.
 
 from __future__ import annotations
 
+import functools
 import json
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,6 +29,7 @@ from deepagents import create_deep_agent
 from langchain.agents.structured_output import ToolStrategy
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool, StructuredTool
+from langgraph.errors import GraphBubbleUp
 from pydantic import BaseModel, Field
 
 from core.logging import get_logger
@@ -48,6 +50,9 @@ STEP_ROLES: dict[str, ModelRole] = {
     "scenario_review": "default",
     "draft_spec": "default",
     "analyse": "default",
+    "analyse_results": "default",
+    "assess": "reasoning",
+    "verdict_judge": "default",
     "critic": "reasoning",
     "report": "default",
     "change_judge": "reasoning",
@@ -59,6 +64,9 @@ STEP_TOOLS: dict[str, tuple[str, ...]] = {
     "scenario_review": (),
     "draft_spec": ("files", "memory"),
     "analyse": ("files", "regulation", "sandbox", "memory"),
+    "analyse_results": ("files", "sandbox", "memory"),
+    "assess": ("files", "regulation", "memory"),
+    "verdict_judge": (),
     "critic": ("files", "regulation", "sandbox", "memory"),
     "report": ("regulation", "memory"),
     "change_judge": ("regulation",),
@@ -66,6 +74,8 @@ STEP_TOOLS: dict[str, tuple[str, ...]] = {
 
 #: Recursion cap of one step's agent loop (model + tool turns).
 STEP_RECURSION_LIMIT = 60
+#: Attempts of one step's agent run (a provider hiccup or a missing result is retried once).
+STEP_ATTEMPTS = 2
 
 
 @dataclass
@@ -83,6 +93,46 @@ class StepScope:
     memory_store: MemoryStoreProtocol | None = None
     run_id: str | None = None
     thread_id: str | None = None
+    #: Every sandbox_execute call of the step (command, exit code, outputs): saved as evidence.
+    exec_log: list[dict[str, Any]] = field(default_factory=list)
+
+
+ToolBody = Callable[..., Awaitable[str]]
+
+
+def safe_tool(name: str) -> Callable[[ToolBody], ToolBody]:
+    """A tool body that never raises: any error comes back to the agent as text."""
+
+    def wrap(fn: ToolBody) -> ToolBody:
+        @functools.wraps(fn)
+        async def inner(*args: Any, **kwargs: Any) -> str:
+            try:
+                return await fn(*args, **kwargs)
+            except GraphBubbleUp:
+                raise
+            except PipelineHTTPError as exc:
+                return f"{name} failed: {exc.public}. Carry on without it or try another input."
+            except Exception as exc:
+                logger.warning("pipeline_tool_error", "Pipeline tool failed", tool=name)
+                return (
+                    f"{name} failed: {type(exc).__name__}: {str(exc)[:200]}. "
+                    "Carry on without it or try another input."
+                )
+
+        return inner
+
+    return wrap
+
+
+def _ids(items: Any, limit: int) -> list[Any]:
+    """Children / interpretations as reg-memory returns them: id strings or dicts."""
+    out: list[Any] = []
+    for item in (items if isinstance(items, list) else [])[:limit]:
+        if isinstance(item, dict):
+            out.append({k: item.get(k) for k in ("id", "summary") if item.get(k) is not None})
+        else:
+            out.append(str(item))
+    return out
 
 
 def _dump(value: Any, limit: int = 12_000) -> str:
@@ -123,6 +173,7 @@ def _file_tools(scope: StepScope) -> list[BaseTool]:
     if backend is None:
         return []
 
+    @safe_tool("list_system_files")
     async def list_system_files(prefix: str | None = None) -> str:
         try:
             tree = await backend.tree(prefix)
@@ -130,6 +181,7 @@ def _file_tools(scope: StepScope) -> list[BaseTool]:
             return f"Could not list files: {exc.public}."
         return "\n".join(f"{f.get('path')} (v{f.get('version')})" for f in tree) or "(no files)"
 
+    @safe_tool("read_system_file")
     async def read_system_file(path: str) -> str:
         try:
             text = await backend.read(path.lstrip("/").removeprefix(f"systems/{scope.system_id}/"))
@@ -159,19 +211,20 @@ def _regulation_tools(scope: StepScope) -> list[BaseTool]:
         return []
     kb = scope.kb_version
 
+    @safe_tool("lookup_provision")
     async def lookup_provision(provision_id: str) -> str:
         try:
             body = await regmem.provision(provision_id, kb)
         except PipelineHTTPError as exc:
             return f"Could not read {provision_id}: {exc.public}."
+        if not isinstance(body, dict):
+            return f"{provision_id}: no such provision at kb_version {kb}."
         keep = {k: body.get(k) for k in ("id", "title", "text", "valid_from", "kb_version")}
-        keep["children"] = [c.get("id") for c in body.get("children") or []][:40]
-        keep["interpretations"] = [
-            {"id": i.get("id"), "summary": i.get("summary")}
-            for i in (body.get("interpretations") or [])[:10]
-        ]
+        keep["children"] = _ids(body.get("children"), 40)
+        keep["interpretations"] = _ids(body.get("interpretations"), 10)
         return _dump(keep)
 
+    @safe_tool("search_regulation")
     async def search_regulation(query: str) -> str:
         try:
             items = await regmem.search_provisions(
@@ -179,7 +232,8 @@ def _regulation_tools(scope: StepScope) -> list[BaseTool]:
             )
         except PipelineHTTPError as exc:
             return f"Search failed: {exc.public}."
-        return _dump([{"id": i.get("id"), "title": i.get("title")} for i in items]) or "[]"
+        rows = [{"id": i.get("id"), "title": i.get("title")} for i in items if isinstance(i, dict)]
+        return _dump(rows) or "[]"
 
     return [
         StructuredTool.from_function(
@@ -204,16 +258,26 @@ def _sandbox_tools(scope: StepScope) -> list[BaseTool]:
         return []
     files = dict(scope.sandbox_files or {})
 
+    @safe_tool("sandbox_execute")
     async def sandbox_execute(command: str) -> str:
         try:
             result = await sandbox.run(command, files, timeout=300)
         except PipelineHTTPError as exc:
             return f"The sandbox could not run the command: {exc.public}."
         text_files = {
-            name: result.text(name)[:4000]
+            name: (result.text(name) or "")[:4000]
             for name in result.files
-            if name.endswith((".json", ".md", ".csv", ".txt", ".yaml"))
+            if name.endswith((".json", ".md", ".csv", ".txt", ".yaml", ".py"))
         }
+        scope.exec_log.append(
+            {
+                "command": command,
+                "exit_code": result.exit_code,
+                "stdout_tail": result.stdout[-2000:],
+                "stderr_tail": result.stderr[-1000:],
+                "files": text_files,
+            }
+        )
         return _dump({**result.summary(4000), "text_files": text_files})
 
     return [
@@ -232,6 +296,7 @@ def _memory_tools(scope: StepScope, binding: MemoryBinding) -> list[BaseTool]:
     if store is None:
         return []
 
+    @safe_tool("read_memory")
     async def read_memory(path: str) -> str:
         try:
             records = await store.list_system(scope.system_id)
@@ -356,14 +421,29 @@ class StepRunner:
         }
         if config and config.get("callbacks") is not None:
             run_config["callbacks"] = config["callbacks"]
-        result = await agent.ainvoke(
-            {"messages": [HumanMessage(content=render_brief(step, brief, feedback))]},
-            config=run_config,
-        )
-        structured = result.get("structured_response") if isinstance(result, dict) else None
-        if structured is None:
-            raise StepResultMissing(step)
-        return structured if isinstance(structured, schema) else schema.model_validate(structured)
+        message = HumanMessage(content=render_brief(step, brief, feedback))
+        last: Exception = StepResultMissing(step)
+        for attempt in range(1, STEP_ATTEMPTS + 1):
+            try:
+                result = await agent.ainvoke({"messages": [message]}, config=run_config)
+                structured = result.get("structured_response") if isinstance(result, dict) else None
+                if structured is None:
+                    raise StepResultMissing(step)
+                if isinstance(structured, schema):
+                    return structured
+                return schema.model_validate(structured)
+            except GraphBubbleUp:
+                raise
+            except Exception as exc:  # a provider error or no result: one more try
+                last = exc
+                logger.warning(
+                    "pipeline_step_attempt_failed",
+                    "Pipeline step attempt failed",
+                    step=step,
+                    attempt=attempt,
+                    failure_reason=type(exc).__name__,
+                )
+        raise last
 
 
 class StepResultMissing(RuntimeError):
@@ -383,5 +463,6 @@ __all__ = [
     "StepRunner",
     "StepScope",
     "build_step_tools",
+    "safe_tool",
     "memory_index",
 ]

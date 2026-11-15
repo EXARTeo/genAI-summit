@@ -38,6 +38,15 @@ SPEC_KEYS = {
     "generation",
 }
 BLOCKING_GATES = ("schema", "business_rules", "coverage", "privacy")
+#: The spec keys code owns: the model may never move them (paths synthkit resolves).
+FIXED_SPEC_KEYS = {
+    "version": 1,
+    "dictionary": "data/data-dictionary.yaml",
+    "plugin": "plugin.yaml",
+    "model_profile": "model-profile.json",
+}
+#: Dictionary field types that form coverage / strata cells.
+CATEGORICAL_TYPES = {"category", "categorical", "boolean", "bool", "enum"}
 
 
 def scenario_problems(analysis: dict[str, Any] | None) -> list[str]:
@@ -65,6 +74,62 @@ def parse_spec(spec_yaml: str) -> tuple[dict[str, Any] | None, list[str]]:
     return spec, spec_problems(spec)
 
 
+def _categorical(dictionary_yaml: str | None) -> set[str] | None:
+    try:
+        data = yaml.safe_load(dictionary_yaml or "")
+    except yaml.YAMLError:
+        return None
+    fields = (data or {}).get("fields") if isinstance(data, dict) else None
+    if not isinstance(fields, dict):
+        return None
+    return {
+        name
+        for name, f in fields.items()
+        if isinstance(f, dict) and str(f.get("type", "")).lower() in CATEGORICAL_TYPES
+    }
+
+
+def normalise_spec(
+    spec_yaml: str, dictionary_yaml: str | None, *, has_profile: bool = True
+) -> tuple[str, list[str]]:
+    """Code-owned keys overwritten, numeric fields out of coverage/strata cells.
+
+    Returns the spec YAML to use and what code changed (for the artifact). A spec
+    that does not parse comes back unchanged (``parse_spec`` reports it).
+    """
+    try:
+        spec = yaml.safe_load(spec_yaml)
+    except yaml.YAMLError:
+        return spec_yaml, []
+    if not isinstance(spec, dict):
+        return spec_yaml, []
+    notes: list[str] = []
+    for key, value in FIXED_SPEC_KEYS.items():
+        if key == "model_profile" and not has_profile:
+            if spec.pop(key, None) is not None:
+                notes.append("model_profile removed: no profile in this audit")
+            continue
+        if spec.get(key) != value:
+            notes.append(f"{key} set to {value!r} (was {spec.get(key)!r})")
+            spec[key] = value
+    categorical = _categorical(dictionary_yaml)
+    if categorical is not None:
+        for block, list_key in (("coverage", "cells"), ("strata", "by")):
+            part = spec.get(block)
+            if not isinstance(part, dict) or not isinstance(part.get(list_key), list):
+                continue
+            keep = [f for f in part[list_key] if f in categorical or f == "_test"]
+            dropped = [f for f in part[list_key] if f not in keep]
+            if dropped:
+                notes.append(f"{block}.{list_key}: dropped non-categorical {dropped}")
+                part[list_key] = keep
+            if not keep:
+                spec.pop(block, None)
+    if not notes:
+        return spec_yaml, []
+    return yaml.safe_dump(spec, sort_keys=False, allow_unicode=True), notes
+
+
 def spec_problems(spec: dict[str, Any]) -> list[str]:
     out = [f"unknown top-level key {key!r}" for key in spec if key not in SPEC_KEYS]
     for key in ("version", "name", "dictionary", "n"):
@@ -81,9 +146,26 @@ def dataset_problems(analysis: dict[str, Any] | None) -> list[str]:
     for name in BLOCKING_GATES:
         gate = gates.get(name)
         if isinstance(gate, dict) and gate.get("status") == "fail":
+            if name == "coverage":
+                out.append(coverage_feedback(gate))
+                continue
             detail = "; ".join(str(p) for p in (gate.get("problems") or [])[:5])
             out.append(f"gate {name} failed" + (f": {detail}" if detail else ""))
     return out
+
+
+def coverage_feedback(gate: dict[str, Any]) -> str:
+    """The coverage failure as a fix the spec writer can act on (cells, counts, the min)."""
+    low = gate.get("below_min") or {}
+    need = gate.get("min_per_cell")
+    worst = sorted(low.items(), key=lambda kv: kv[1])[:6]
+    shown = ", ".join(f"{cell} ({n})" for cell, n in worst)
+    return (
+        f"gate coverage failed: {len(low)} of {len(gate.get('counts') or {})} cells over "
+        f"{gate.get('cells')} have fewer than min_per_cell={need} base rows: {shown}. "
+        "Fix: use only categorical fields in coverage.cells, fewer cells, a lower "
+        "min_per_cell, or a larger n."
+    )
 
 
 def _close(a: float, b: float) -> bool:
@@ -114,7 +196,10 @@ def evidence_problems(findings: list[dict[str, Any]], results: dict[str, Any]) -
 
 
 __all__ = [
+    "FIXED_SPEC_KEYS",
+    "coverage_feedback",
     "dataset_problems",
+    "normalise_spec",
     "evidence_problems",
     "parse_spec",
     "scenario_problems",

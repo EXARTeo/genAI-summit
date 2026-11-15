@@ -16,17 +16,21 @@ from typing import Any
 import yaml
 
 from pipeline.schemas import (
+    Assessment,
+    AssessmentSet,
     AuditReport,
     ChangeJudgement,
     Citation,
-    CriticReport,
-    CriticReview,
     DataNeeds,
     Evidence,
     Finding,
     FindingSet,
     GenerationSpecDraft,
     ManagementReport,
+    MetricClaim,
+    ObligationCriticReport,
+    ObligationCriticReview,
+    ResultsAnalysis,
     Scenario,
     ScenarioPlan,
     SpecAssumption,
@@ -307,80 +311,113 @@ def analyse(state: dict[str, Any]) -> FindingSet:
     return FindingSet(findings=findings, summary=f"{len(findings)} findings from the test results.")
 
 
-def critic(state: dict[str, Any]) -> CriticReport:
+def analyse_results(brief: dict[str, Any]) -> ResultsAnalysis:
+    """Echo synthkit's headline numbers (the scripted analyst 'recomputes' them exactly)."""
+    tests = [t for t in brief.get("tests") or [] if t.get("value") is not None][:6]
+    return ResultsAnalysis(
+        headline=[
+            MetricClaim(
+                test_id=str(t.get("test_id")), metric=str(t.get("metric")), value=t["value"]
+            )
+            for t in tests
+        ],
+        observations=[f"{len(brief.get('tests') or [])} metric rows over the saved predictions."],
+        code_files=[],
+        summary="Recomputed the headline metrics from predictions.parquet.",
+    )
+
+
+def assess(brief: dict[str, Any]) -> AssessmentSet:
+    """Keep the rule verdict; cite the obligation's article at the pinned kb."""
+    kb = str(brief.get("kb_version") or "unknown")
+    out = []
+    for ob in brief.get("obligations") or []:
+        rows = ob.get("tests") or []
+        out.append(
+            Assessment(
+                obligation_id=ob["obligation_id"],
+                verdict=ob.get("rule_verdict") or "inconclusive",
+                reasoning=f"{ob.get('rule_reason')}. Thresholds are the organisation's "
+                "(system card), not the AI Act's.",
+                counter_arguments=["The test data is synthetic; real applicants may differ."],
+                would_change_if=["A re-run on a real labelled sample lands on the other side."],
+                citations=[Citation(provision_id=str(ob.get("article")), kb_version=kb)]
+                if ob.get("article")
+                else [],
+                evidence_test_ids=[str(r.get("id")) for r in rows[:6]],
+            )
+        )
+    if not out:
+        out.append(
+            Assessment(obligation_id="none", verdict="inconclusive", reasoning="Nothing to assess.")
+        )
+    return AssessmentSet(assessments=out)
+
+
+def critic(brief: dict[str, Any]) -> ObligationCriticReport:
     reviews = []
-    for finding in state.get("findings") or []:
-        crossing = finding.get("verdict") == "inconclusive"
+    for v in brief.get("verdicts") or []:
+        crossing = v.get("verdict") in ("partial", "inconclusive")
         reviews.append(
-            CriticReview(
-                finding_id=finding["id"],
-                call="weakened" if crossing else "upheld",
-                strongest_objection=(
-                    "The CI crosses the threshold; the data cannot separate pass from fail."
+            ObligationCriticReview(
+                obligation_id=v["obligation_id"],
+                upheld=True,
+                grounds=(
+                    "The CI crosses the threshold or the judges disagree; the verdict already "
+                    "says the evidence cannot separate pass from fail."
                     if crossing
-                    else "Synthetic twins may be less realistic than real applicants."
+                    else f"The metrics in the brief support {v.get('verdict')} against the "
+                    "organisation's threshold."
                 ),
-                adjusted_verdict=finding["verdict"],
-                adjusted_confidence=max(
-                    0.0, float(finding.get("confidence", 0.5)) - (0.1 if crossing else 0)
-                ),
-                checked_evidence=[e.get("test_id") for e in finding.get("evidence") or []],
+                objection="Synthetic twins may be less realistic than real applicants.",
             )
         )
     if not reviews:
         reviews.append(
-            CriticReview(
-                finding_id="F-01",
-                call="upheld",
-                strongest_objection="No findings to review.",
-                adjusted_verdict="inconclusive",
-                adjusted_confidence=0.2,
-            )
+            ObligationCriticReview(obligation_id="none", upheld=True, grounds="No verdicts.")
         )
-    return CriticReport(reviews=reviews, overall="Reviewed every finding against the test results.")
+    return ObligationCriticReport(
+        reviews=reviews, overall=f"Reviewed {len(reviews)} verdicts against the test results."
+    )
 
 
 _LIGHT = {
-    "indicates_gap": "red",
+    "gap": "red",
+    "partial": "amber",
     "inconclusive": "amber",
-    "supports_compliance": "green",
+    "pass": "green",
     "not_assessable_by_testing": "grey",
+    "not_applicable": "grey",
 }
 
 
 def report(state: dict[str, Any]) -> AuditReport:
-    findings = state.get("findings") or []
-    dataset_id = ((state.get("dataset") or {}).get("data_card") or {}).get("dataset_id")
+    findings = state.get("sealed") or []
+    pins = state.get("pins") or {}
     lines = [
         f"# Audit {state.get('audit_id')} - {state.get('system_id')} ({state.get('target')})",
-        f"kb_version {state.get('kb_version')}, dataset {dataset_id}",
+        f"kb_version {pins.get('kb_version') or state.get('kb_version')}, "
+        f"model {pins.get('model_version')}, seed {pins.get('seeds')}",
         "",
     ]
     for f in findings:
-        lines.append(f"## {f['id']} {f.get('title')}: {f.get('verdict')} ({f.get('confidence')})")
-        for ev in f.get("evidence") or []:
-            lines.append(
-                f"- {ev.get('metric')} = {ev.get('value')} CI {ev.get('ci95')} "
-                f"vs {ev.get('threshold')} "
-                f"({ev.get('threshold_source')}), MLflow {ev.get('mlflow_run_id')}"
-            )
-    gaps = [f for f in findings if f.get("verdict") == "indicates_gap"]
+        lines.append(f"## {f['obligation_id']}: {f.get('verdict')} ({f.get('severity')})")
+        lines.append(str(f.get("reasoning") or ""))
+    gaps = [f for f in findings if f.get("gap_id")]
     return AuditReport(
         engineer_markdown="\n".join(lines),
         management=ManagementReport(
-            headline=f"{len(gaps)} gap(s) in {len(findings)} findings "
+            headline=f"{len(gaps)} gap(s) in {len(findings)} obligations "
             f"for {state.get('system_id')}.",
             traffic_lights=[
                 TrafficLight(
-                    requirement=str(f.get("requirement")),
+                    requirement=str(f.get("obligation_id")),
                     status=_LIGHT.get(str(f.get("verdict")), "grey"),
-                    note=str(f.get("title")),
+                    note=str(f.get("reasoning") or "")[:120],
                 )
                 for f in findings
             ],
-            decisions_needed=["Approve a mitigation plan for each red requirement."]
-            if gaps
-            else [],
+            decisions_needed=["Approve a mitigation plan for each red obligation."] if gaps else [],
             next_steps=["Fix the gaps, then re-run this audit."] if gaps else ["Keep monitoring."],
         ),
     )

@@ -47,6 +47,20 @@ class AuditState(TypedDict, total=False):
     findings: list[dict[str, Any]]
     critic: dict[str, Any]
     report: dict[str, Any]
+    # obligation-driven pipeline (plan 01)
+    focus: list[str]  # audit.data.obligations: a focused audit's scope
+    change_id: str | None  # a regulation-change re-run (delta report at the end)
+    dossier_paths: list[str]  # the system folder's paths (documentary evidence check)
+    dossier_version: Any  # the folder version the audit locked (backend)
+    config_version: Any  # the plugin.yaml version under test
+    pins: dict[str, Any]  # kb_version, dossier_version, config_version, model_version, seeds
+    obligation_map: list[dict[str, Any]]  # every catalogue row with its decision
+    scope: list[dict[str, Any]]  # the applicable entries this audit judges
+    inference: dict[str, Any]  # run.json + predictions sha256 (+ the parquet, base64)
+    analysis: dict[str, Any]  # the analyst's recomputation, code and mismatches
+    verdicts: list[dict[str, Any]]  # proposed per-obligation verdicts (pre-seal)
+    sealed: list[dict[str, Any]]  # sealed findings, hash-chained
+    failure: dict[str, Any]  # the node that failed and why (incomplete report)
     # control
     artifacts: Annotated[dict[str, Any], merge]  # kind -> latest artifact id
     feedback: Annotated[dict[str, Any], merge]  # step -> {source, reason, category, attempt}

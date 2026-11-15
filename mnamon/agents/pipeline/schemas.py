@@ -30,6 +30,12 @@ Template = Literal[
 ]
 TwinMode = Literal["attribute_only", "causal", "proxy_only"]
 ReviewVerdict = Literal["relevant", "needs_change", "not_relevant"]
+#: The per-obligation verdict of plan 01 §7.1 (sealed findings).
+ObligationVerdict = Literal[
+    "pass", "partial", "gap", "inconclusive", "not_applicable", "not_assessable_by_testing"
+]
+#: What a judge may say about a tested obligation.
+TestedVerdict = Literal["pass", "partial", "gap", "inconclusive"]
 
 
 class _Strict(BaseModel):
@@ -49,6 +55,9 @@ class DataNeeds(_Strict):
 class Scenario(_Strict):
     id: str = Field(description="SC-01, SC-02, ...")
     requirement: str = Field(description="Requirement id from the context (REQ.AIA...).")
+    obligation_id: str = Field(
+        "", description="The obligation this scenario tests (OBL.AIA..., from `obligations`)."
+    )
     target: str = Field(description="The plugin id under test, e.g. SYS-001.cv-ranker.")
     template: Template
     test_template: str = Field("", description="reg-memory test template id (TT....).")
@@ -148,6 +157,64 @@ class FindingSet(_Strict):
     summary: str = ""
 
 
+# ------------------------------------------------------------- analyse_results
+class MetricClaim(_Strict):
+    test_id: str = Field(description="The test id of the headline metric (T-01, ...).")
+    metric: str = Field(description="Metric name exactly as in test-results.json.")
+    value: float | None = Field(None, description="What YOUR code computed from the predictions.")
+    note: str = ""
+
+
+class ResultsAnalysis(_Strict):
+    headline: list[MetricClaim] = Field(
+        default_factory=list, description="Headline metrics you recomputed from predictions."
+    )
+    observations: list[str] = Field(
+        default_factory=list, description="Subgroup, CI, calibration or flip-rate observations."
+    )
+    code_files: list[str] = Field(default_factory=list, description="Scripts you wrote and ran.")
+    summary: str = ""
+
+
+# ------------------------------------------------------------ assess_obligations
+class Assessment(_Strict):
+    obligation_id: str
+    verdict: TestedVerdict
+    reasoning: str = Field(description="Why, citing metric values and the org threshold.")
+    counter_arguments: list[str] = Field(default_factory=list)
+    would_change_if: list[str] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    evidence_test_ids: list[str] = Field(default_factory=list)
+
+
+class AssessmentSet(_Strict):
+    assessments: list[Assessment] = Field(min_length=1)
+
+
+class VerdictJudgement(_Strict):
+    """An independent verdict on ONE tested obligation (Iris, or Gemini as the fallback)."""
+
+    verdict: TestedVerdict
+    rationale: str
+    confidence: float | None = Field(None, ge=0, le=1)
+
+
+# ---------------------------------------------------------- critic (obligations)
+class ObligationCriticReview(_Strict):
+    obligation_id: str
+    upheld: bool
+    grounds: str = Field(min_length=1, description="Why it stands or falls, checkable.")
+    objection: str = Field("", description="The strongest argument against the verdict.")
+    adjusted_verdict: TestedVerdict | None = Field(
+        None, description="Only when not upheld: what the verdict should be."
+    )
+
+
+class ObligationCriticReport(_Strict):
+    reviews: list[ObligationCriticReview] = Field(min_length=1)
+    overall: str = Field(min_length=1)
+
+
 # ---------------------------------------------------------------------- critic
 class CriticReview(_Strict):
     finding_id: str
@@ -202,13 +269,25 @@ STEP_RESULTS: dict[str, type[BaseModel]] = {
     "scenario_review": ScenarioReview,
     "draft_spec": GenerationSpecDraft,
     "analyse": FindingSet,
-    "critic": CriticReport,
+    "analyse_results": ResultsAnalysis,
+    "assess": AssessmentSet,
+    "verdict_judge": VerdictJudgement,
+    "critic": ObligationCriticReport,
     "report": AuditReport,
     "change_judge": ChangeJudgement,
 }
 
 __all__ = [
     "STEP_RESULTS",
+    "Assessment",
+    "AssessmentSet",
+    "MetricClaim",
+    "ObligationCriticReport",
+    "ObligationCriticReview",
+    "ObligationVerdict",
+    "ResultsAnalysis",
+    "TestedVerdict",
+    "VerdictJudgement",
     "AuditReport",
     "ChangeDecision",
     "ChangeJudgement",

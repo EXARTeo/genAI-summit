@@ -2,10 +2,22 @@
 
 Order (fixed by code, CLAUDE.md § The product)::
 
-    load_context → profile_model → plan_scenarios → analyse_scenarios →
-    [gate scenarios] → find_public_data → [gate public_data] → draft_spec →
-    generate_data → analyse_datasets → [gate datasets] → run_tests →
-    analyse → critic → report → finalize
+    load_context → pin → ground_obligations → profile_model → plan_scenarios →
+    analyse_scenarios → [gate scenarios] → find_public_data → [gate public_data] →
+    draft_spec → generate_data → analyse_datasets → [gate datasets] →
+    run_inference → analyse_results → assess_obligations → critic → seal →
+    report → finalize
+
+Plan 01 (obligation-driven): ``pin`` records kb / dossier / config / the concrete
+model version / seeds on the audit; ``ground_obligations`` builds the system's
+obligation map (``pipeline/obligations.py``, the requirement list as fallback)
+and every scenario names an obligation; ``run_inference`` only calls the model
+and saves the raw predictions (hashed, MLflow); ``analyse_results`` computes
+the metrics from those saved files (synthkit) and lets the analyst run its own
+code over them; ``assess_obligations`` gives every obligation in scope a rule
+verdict, a Gemini explanation and an independent Iris verdict (disagreement =
+``inconclusive`` + needs_human); ``seal`` hash-chains exactly one finding per
+obligation. Any unrecoverable node failure writes an incomplete-audit report.
 
 The public data search runs after the scenarios are approved, so it looks for
 datasets that carry what those scenarios need (their fields, protected
@@ -39,16 +51,21 @@ where it stopped.
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
+import os
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 import yaml
 from ag_ui.core import EventType, StepFinishedEvent, StepStartedEvent
 from langgraph.config import get_stream_writer
+from langgraph.errors import GraphBubbleUp
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
@@ -57,29 +74,61 @@ from core.settings import settings
 from harness.agui.emitter import AGUIEmitter, encode
 from harness.memory.store import MemoryStoreProtocol
 from pipeline import fakes
-from pipeline.clients import BackendInternal, ExecResult, RegMemory, SandboxRunner
+from pipeline.clients import (
+    BackendInternal,
+    ExecResult,
+    PipelineHTTPError,
+    RegMemory,
+    SandboxRunner,
+)
 from pipeline.decision import DecisionModel, IrisClient
 from pipeline.scenario_review import SCENARIO_REVIEW, review_brief, review_context
-from pipeline.schemas import ScenarioReview
+from pipeline.schemas import ScenarioReview, VerdictJudgement
 from pipeline.state import AuditState
 from pipeline.steps import StepRunner, StepScope
 from pipeline.testplan import (
-    analyze_command,
+    DATA_REL,
+    INFERENCE_REL,
+    TEMPLATE_IDS,
+    analyze_saved_command,
     build_test_plan,
     dumps_yaml,
-    generate_command,
+    generate_saved_command,
     loads_json,
+    metrics_command,
     normalise_results,
     profile_command,
-    run_tests_command,
+    run_inference_command,
     scenarios_check_command,
 )
+from pipeline.verdict_review import VERDICT_JUDGE, judge_brief
+from pipeline.verdicts import (
+    LEGACY_VERDICT,
+    citation_problems,
+    combine,
+    coverage_problems,
+    dossier_evidence,
+    fallback_obligation_map,
+    in_scope,
+    is_tested,
+    obligation_for_requirement,
+    rows_for,
+    rule_verdict,
+    severity,
+    templates_of,
+)
+from pipeline.verdicts import seal as seal_findings
 from pipeline.verify import (
     dataset_problems,
-    evidence_problems,
+    normalise_spec,
     parse_spec,
     scenario_problems,
 )
+
+try:  # Agent B's obligation catalogue client (plan 01 §3.3); the requirement list is the fallback
+    from pipeline.obligations import resolve_obligation_map
+except ImportError:  # pragma: no cover - only before that module lands
+    resolve_obligation_map = None
 
 logger = get_logger(__name__)
 
@@ -108,6 +157,9 @@ DECISIONS = {
 #: Scenario reviews the decision model runs at once.
 REVIEW_CONCURRENCY = 4
 _ANNEX_RE = re.compile(r"Annex\s+([IVX]+)\s*(\d+)?\s*(?:\(([a-z])\))?", re.IGNORECASE)
+_MODEL_URI = re.compile(r"^models:/([^@/]+)(?:@([^/]+)|/(\d+))?$")
+#: MLflow's REST API (the model registry) as the agents service reaches it.
+MLFLOW_URL = os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000").rstrip("/")
 
 #: How a synthkit GenerationSpec looks (the draft_spec brief; from synthkit/spec.py).
 SPEC_FORMAT = """\
@@ -231,6 +283,8 @@ class PipelineDeps:
     thread_id: str | None = None
     trace_id: str | None = None
     iris: IrisClient | None = None  # None = from settings (OUMI_*)
+    #: A focused re-run's delta report (``utils.change_judge.delta_for_audit``), at the end.
+    delta: Callable[[str], Any] | None = None
     today: Callable[[], str] = field(
         default_factory=lambda: lambda: datetime.now(UTC).date().isoformat()
     )
@@ -466,6 +520,11 @@ class AuditPipeline:
             "requirements": reqs,
             "templates": tmpls,
             "status": "running",
+            "focus": [str(x) for x in (audit.get("data") or {}).get("obligations") or [] if x],
+            "change_id": (audit.get("data") or {}).get("change_id"),
+            "dossier_paths": sorted(p for p in paths if p),
+            "dossier_version": (audit.get("data") or {}).get("dossier_version"),
+            "config_version": paths.get(f"plugins/{target_dir}/plugin.yaml"),
         }
         art_id = await self._artifact(
             {**state, **update},  # type: ignore[arg-type]
@@ -647,6 +706,14 @@ class AuditPipeline:
             "plugin_yaml": (state.get("files") or {}).get("plugin.yaml"),
             "data_dictionary": (state.get("files") or {}).get("data/data-dictionary.yaml"),
             "training_data": (state.get("files") or {}).get("data/training-data.md"),
+            "obligations": [
+                {
+                    k: e.get(k)
+                    for k in ("obligation_id", "article", "summary", "checks", "requirements")
+                }
+                for e in state.get("scope") or []
+                if is_tested(e)
+            ],
             "requirements": state.get("requirements"),
             "test_templates": state.get("templates"),
             "model_profile": profile_digest(state.get("profile")),
@@ -660,6 +727,7 @@ class AuditPipeline:
             fake=lambda: fakes.plan_scenarios(dict(state)),
         )
         data = plan.model_dump(mode="json")
+        data["scenarios"] = self._attach_obligations(state, data.get("scenarios") or [])
         art_id = await self._artifact(state, "scenarios", {**data, "yaml": dumps_yaml(data)})
         self._finish("plan_scenarios")
         return {**out, "scenarios": data, "artifacts": {"scenarios": art_id}}
@@ -884,13 +952,20 @@ class AuditPipeline:
             feedback=feedback,
             fake=lambda: fakes.draft_spec(dict(state)),
         )
-        spec, problems = parse_spec(draft.spec_yaml)
+        spec_yaml, code_fixes = normalise_spec(
+            draft.spec_yaml,
+            (state.get("files") or {}).get("data/data-dictionary.yaml"),
+            has_profile=bool(state.get("profile")),
+        )
+        spec, problems = parse_spec(spec_yaml)
         data = draft.model_dump(mode="json")
         spec_doc = {
             **data,
-            "yaml": draft.spec_yaml,
+            "spec_yaml": spec_yaml,
+            "yaml": spec_yaml,
             "parsed": spec,
             "problems": problems,
+            "code_fixes": code_fixes,
             "seed": settings.pipeline.seed,
         }
         art_id = await self._artifact(state, "generation_spec", spec_doc)
@@ -919,7 +994,7 @@ class AuditPipeline:
         if spec.get("parsed") is not None:
             files = {**self._base_files(state), **await self._public_files(state)}
             result = await self._exec(
-                state, "generate_data", generate_command(settings.pipeline.seed), files
+                state, "generate_data", generate_saved_command(settings.pipeline.seed), files
             )
             if not result.ok:
                 problems.append(
@@ -934,11 +1009,19 @@ class AuditPipeline:
             return {**out, **redo}
         if result is None:  # unreachable: no problems means generate ran
             raise StepFailed("synthkit generate did not run.")
-        card = yaml.safe_load(result.text("DataCard.yaml") or "") or {}
+        card_yaml = result.text("generated/DataCard.yaml") or ""
+        card = yaml.safe_load(card_yaml) or {}
+        parquet = result.files.get("generated/dataset.parquet")
+        if parquet is None:
+            raise StepFailed("synthkit generate wrote no dataset.parquet.")
+        sha = hashlib.sha256(parquet).hexdigest()
         dataset = {
             "data_card": card,
             "sample_rows": result.text("sample-rows.csv"),
             "seed": settings.pipeline.seed,
+            "path": f"{DATA_REL}/dataset.parquet",
+            "sha256": sha,
+            "bytes": len(parquet),
             "sandbox": result.summary(300),
         }
         art_id = await self._artifact(
@@ -946,19 +1029,33 @@ class AuditPipeline:
             "dataset",
             dataset,
             file_refs=[
-                {"dataset_id": card.get("dataset_id"), "content_sha256": card.get("content_sha256")}
+                {
+                    "dataset_id": card.get("dataset_id"),
+                    "content_sha256": card.get("content_sha256"),
+                    "path": dataset["path"],
+                    "sha256": sha,
+                }
             ],
         )
         self._finish("generate_data")
-        return {**out, "dataset": dataset, "route": "next", "artifacts": {"dataset": art_id}}
+        saved = {
+            **dataset,
+            "parquet_b64": base64.b64encode(parquet).decode("ascii"),
+            "data_card_yaml": card_yaml,
+        }
+        return {**out, "dataset": saved, "route": "next", "artifacts": {"dataset": art_id}}
 
     async def analyse_datasets(self, state: AuditState) -> dict[str, Any]:
         out = await self._start(state, "analyse_datasets")
-        files = {**self._base_files(state), **await self._public_files(state)}
+        files: dict[str, str | bytes] = {
+            **self._base_files(state),
+            **await self._public_files(state),
+            **self._data_files(state),
+        }
         result = await self._exec(
             state,
             "analyse_datasets",
-            analyze_command(settings.pipeline.seed, "model-profile.json" in files),
+            analyze_saved_command(settings.pipeline.seed, "model-profile.json" in files),
             files,
         )
         analysis = loads_json(result.text("dataset-analysis.json")) or {}
@@ -979,6 +1076,7 @@ class AuditPipeline:
                 "analysis": analysis,
                 "markdown": result.text("dataset-analysis.md"),
                 "data_card": (state.get("dataset") or {}).get("data_card"),
+                "dataset_sha256": (state.get("dataset") or {}).get("sha256"),
                 "verifier": {"problems": problems, "action": update["route"]},
             },
         )
@@ -1000,214 +1098,726 @@ class AuditPipeline:
             },
         )
 
-    async def run_tests(self, state: AuditState) -> dict[str, Any]:
-        out = await self._start(state, "run_tests")
+    # ------------------------------------------------- pin + obligations (plan 01 P3, P1)
+    async def pin(self, state: AuditState) -> dict[str, Any]:
+        """Pin kb, dossier, config, the concrete model version and the seeds; write them back."""
+        out = await self._start(state, "pin")
+        plugin = yaml.safe_load((state.get("files") or {}).get("plugin.yaml") or "") or {}
+        model = await resolve_model_version(plugin.get("access") or {})
+        seed = settings.pipeline.seed
+        pins = {
+            "kb_version": state.get("kb_version"),
+            "dossier_version": state.get("dossier_version"),
+            "config_version": state.get("config_version"),
+            "config_path": f"{state.get('plugin_dir')}/plugin.yaml",
+            "model_version": model.get("version"),
+            "model": model,
+            "seeds": {"generation": seed, "bootstrap": seed, "perturbation": seed},
+            "focus": state.get("focus") or None,
+            "pinned_at": datetime.now(UTC).isoformat(),
+        }
+        try:
+            await self._backend(state).patch(
+                data={"pins": pins, "kb_version": state.get("kb_version")}
+            )
+        except Exception:
+            logger.warning("pipeline_pins_patch_failed", "Could not write the pins")
+        art_id = await self._artifact(state, "pins", pins)
+        self._finish("pin")
+        return {**out, "pins": pins, "artifacts": {"pins": art_id}}
+
+    async def ground_obligations(self, state: AuditState) -> dict[str, Any]:
+        """The system's obligation map at the pinned kb (catalogue + rules + Iris on borderline)."""
+        out = await self._start(state, "ground_obligations")
+        card = state.get("card") or {}
+        kb = state.get("kb_version")
+        source, warning = "catalogue", None
+        entries: list[dict[str, Any]] = []
+        if resolve_obligation_map is not None:
+            try:
+                entries = await resolve_obligation_map(
+                    card, kb, iris=self.deps.iris or IrisClient(), regmem=self.deps.regmem
+                )
+            except Exception as exc:
+                warning = f"obligation catalogue unavailable: {type(exc).__name__}"
+        else:
+            warning = "obligation catalogue module not installed"
+        if not entries:
+            source = "requirements_fallback"
+            entries = fallback_obligation_map(
+                state.get("requirements") or [], today=self.deps.today()
+            )
+        scope = in_scope(entries, state.get("focus"))
+        if state.get("focus") and not scope:
+            warning = f"none of the focused obligations {state.get('focus')} applies"
+        data = {
+            "source": source,
+            "warning": warning,
+            "focus": state.get("focus") or None,
+            "entries": entries,
+            "applicable": [e["obligation_id"] for e in entries if e.get("applicable")],
+            "in_scope": [e["obligation_id"] for e in scope],
+            "tested": [e["obligation_id"] for e in scope if is_tested(e)],
+            "documentary": [e["obligation_id"] for e in scope if not is_tested(e)],
+            "by_iris": [e["obligation_id"] for e in entries if e.get("decided_by") == "iris"],
+        }
+        data["yaml"] = dumps_yaml({"obligations": entries})
+        data["sha256"] = hashlib.sha256(data["yaml"].encode()).hexdigest()
+        art_id = await self._artifact(state, "obligation_map", data)
+        self._finish("ground_obligations")
+        return {
+            **out,
+            "obligation_map": entries,
+            "scope": scope,
+            "artifacts": {"obligation_map": art_id},
+        }
+
+    def _attach_obligations(self, state: AuditState, scenarios: list[dict]) -> list[dict]:
+        """Every scenario names a tested obligation in scope (code fills a missing one)."""
+        tested = [e for e in state.get("scope") or [] if is_tested(e)]
+        ids = {e["obligation_id"] for e in tested}
+        out = []
+        for sc in scenarios:
+            oid = sc.get("obligation_id")
+            if oid not in ids:
+                template = TEMPLATE_IDS.get(str(sc.get("template")), sc.get("test_template"))
+                oid = obligation_for_requirement(tested, sc.get("requirement")) or next(
+                    (e["obligation_id"] for e in tested if template in templates_of(e)),
+                    next(iter(sorted(ids)), None),
+                )
+            out.append({**sc, "obligation_id": oid})
+        return out
+
+    # ------------------------------------------------------- execute (raw, then analyse)
+    def _data_files(self, state: AuditState) -> dict[str, str | bytes]:
+        """The saved dataset (``input/data/generated/``), the same bytes every call."""
+        dataset = state.get("dataset") or {}
+        if not dataset.get("parquet_b64"):
+            return {}
+        files: dict[str, str | bytes] = {
+            f"{DATA_REL}/dataset.parquet": base64.b64decode(dataset["parquet_b64"])
+        }
+        if dataset.get("data_card_yaml"):
+            files[f"{DATA_REL}/DataCard.yaml"] = dataset["data_card_yaml"]
+        return files
+
+    def _inference_files(self, state: AuditState) -> dict[str, str | bytes]:
+        inference = state.get("inference") or {}
+        if not inference.get("predictions_b64"):
+            return {}
+        return {
+            f"{INFERENCE_REL}/predictions.parquet": base64.b64decode(inference["predictions_b64"]),
+            f"{INFERENCE_REL}/run.json": json.dumps(inference.get("run") or {}),
+        }
+
+    async def run_inference(self, state: AuditState) -> dict[str, Any]:
+        """Call the model through modelaccess and SAVE the raw predictions (no metrics)."""
+        out = await self._start(state, "run_inference")
         seed = settings.pipeline.seed
         plan = build_test_plan(dict(state), seed)
         plan_id = await self._artifact(state, "test_plan", plan)
-        files = {**self._base_files(state), **await self._public_files(state)}
+        files: dict[str, str | bytes] = {**self._base_files(state), **self._data_files(state)}
+        if f"{DATA_REL}/dataset.parquet" not in files:
+            raise StepFailed("No saved dataset to run inference on; regenerate the data.")
         files["test-plan.yaml"] = dumps_yaml(plan)
-        result = await self._exec(state, "run_tests", run_tests_command(seed), files)
+        result = await self._exec(state, "run_inference", run_inference_command(seed), files)
+        predictions = result.files.get(f"{INFERENCE_REL}/predictions.parquet")
+        run = loads_json(result.text(f"{INFERENCE_REL}/run.json"))
+        if not result.ok or predictions is None or not isinstance(run, dict):
+            tail = (result.stderr or result.stdout)[-600:]
+            raise StepFailed(f"synthkit run-inference failed (exit {result.exit_code}): {tail}")
+        sha = hashlib.sha256(predictions).hexdigest()
+        inference = {
+            "run": run,
+            "predictions_sha256": sha,
+            "predictions_b64": base64.b64encode(predictions).decode("ascii"),
+            "mlflow_run_id": run.get("mlflow_run_id"),
+            "model_version": (run.get("model") or {}).get("version"),
+        }
+        art_id = await self._artifact(
+            state,
+            "inference",
+            {
+                "run": run,
+                "predictions": {"path": f"{INFERENCE_REL}/predictions.parquet", "sha256": sha},
+                "sandbox": result.summary(300),
+                "note": "Raw predictions saved and hashed before any analysis (plan 01 P4).",
+            },
+            file_refs=[
+                {"path": f"{INFERENCE_REL}/predictions.parquet", "sha256": sha},
+                *([f"mlflow:runs/{run['mlflow_run_id']}"] if run.get("mlflow_run_id") else []),
+            ],
+        )
+        self._finish("run_inference")
+        return {
+            **out,
+            "test_plan": plan,
+            "inference": inference,
+            "artifacts": {"test_plan": plan_id, "inference": art_id},
+        }
+
+    async def analyse_results(self, state: AuditState) -> dict[str, Any]:
+        """synthkit metrics over the saved predictions, then the analyst's own code over them."""
+        out = await self._start(state, "analyse_results")
+        seed = settings.pipeline.seed
+        plan = state.get("test_plan") or {}
+        files: dict[str, str | bytes] = {
+            **self._base_files(state),
+            **self._data_files(state),
+            **self._inference_files(state),
+            "test-plan.yaml": dumps_yaml(plan),
+        }
+        result = await self._exec(state, "analyse_results", metrics_command(seed), files)
         raw = loads_json(result.text("results/test-results.json"))
-        # No results file: every planned test is an error row (the findings say inconclusive).
         results = normalise_results(raw if raw is not None else {"results": []}, plan)
         if raw is None:
             tail = (result.stderr or result.stdout)[-600:]
-            results["error"] = f"synthkit run-tests exit {result.exit_code}: {tail}"
+            results["error"] = f"synthkit metrics exit {result.exit_code}: {tail}"
+        results["predictions_sha256"] = (state.get("inference") or {}).get("predictions_sha256")
         runs = [t["mlflow_run_id"] for t in results["tests"] if t.get("mlflow_run_id")]
         res_id = await self._artifact(
             state,
             "test_result",
             {**results, "sandbox": result.summary(600)},
-            file_refs=[f"mlflow:runs/{run}" for run in runs],
+            file_refs=sorted({f"mlflow:runs/{run}" for run in runs}),
         )
-        self._finish("run_tests")
-        return {
-            **out,
-            "test_plan": plan,
-            "test_results": results,
-            "artifacts": {"test_plan": plan_id, "test_result": res_id},
-        }
-
-    async def analyse(self, state: AuditState) -> dict[str, Any]:
-        out = await self._start(state, "analyse")
-        feedback = (state.get("feedback") or {}).get("analyse")
+        # The analyst: own code over the saved files (advisory; the metrics above are code).
+        tests_digest = [
+            {
+                k: t.get(k)
+                for k in ("id", "test_id", "obligation_id", "metric", "value", "ci95", "status")
+            }
+            for t in results["tests"]
+        ]
         brief = {
             "audit_id": state["audit_id"],
-            "kb_version": state.get("kb_version"),
             "target": state.get("target"),
             "org_thresholds": (state.get("card") or {}).get("org_thresholds"),
-            "requirements": [
-                r
-                for r in state.get("requirements") or []
-                if r.get("id")
-                in {t.get("requirement") for t in (state.get("test_plan") or {}).get("tests") or []}
+            "scenarios": [
+                {k: s.get(k) for k in ("id", "obligation_id", "template", "metric", "protected")}
+                for s in (state.get("scenarios") or {}).get("scenarios") or []
             ],
-            "scenarios": (state.get("scenarios") or {}).get("scenarios"),
-            "test_results": state.get("test_results"),
-            "dataset_analysis": analysis_digest(state.get("dataset_analysis")),
-            "data_card_limitations": ((state.get("dataset") or {}).get("data_card") or {}).get(
-                "limitations"
-            ),
-            "plugin_known_limitations": (
-                (yaml.safe_load((state.get("files") or {}).get("plugin.yaml") or "") or {}).get(
-                    "expected_behaviour"
-                )
-                or {}
-            ).get("known_limitations"),
+            "tests": tests_digest,
+            "files": sorted(files),
         }
-        files = {
-            **self._base_files(state),
-            "test-results.json": json.dumps(state.get("test_results")),
-        }
-        result = await self.deps.steps.run(
-            "analyse",
-            brief,
-            self._scope(state, "analyse", files),
-            feedback=feedback,
-            fake=lambda: fakes.analyse(dict(state)),
+        scope = self._scope(
+            state, "analyse_results", {**files, "test-results.json": json.dumps(raw or {})}
         )
-        findings = [f.model_dump(mode="json") for f in result.findings]  # type: ignore[attr-defined]
-        problems = evidence_problems(findings, state.get("test_results") or {})
-        used = int((state.get("auto_redos") or {}).get("analyse", 0))
-        update: dict[str, Any] = {**out, "findings": findings, "route": "next"}
-        if problems and used < settings.pipeline.max_auto_redos:
-            update.update(
-                route="redo",
-                auto_redos={"analyse": used + 1},
-                feedback={
-                    "analyse": {
-                        "source": "verifier",
-                        "check": "evidence grounding",
-                        "problems": problems,
-                    }
-                },
+        analysis: dict[str, Any] = {"status": "done"}
+        try:
+            report = await self.deps.steps.run(
+                "analyse_results",
+                brief,
+                scope,
+                fake=lambda: fakes.analyse_results(brief),
             )
-            self._finish("analyse")
-            return update
-        ids = {}
-        for finding in findings:
-            finding["grounding_problems"] = [
-                p for p in problems if p.startswith(f"{finding['id']}:")
-            ]
-            ids[finding["id"]] = await self._artifact(
-                state,
-                "finding",
-                finding,
-                name=finding["id"],
-                file_refs=[
-                    f"mlflow:runs/{e['mlflow_run_id']}"
-                    for e in finding.get("evidence") or []
-                    if e.get("mlflow_run_id")
-                ],
-            )
-        update["artifacts"] = {"finding": ids}
-        update["feedback"] = {"analyse": None}
-        self._finish("analyse")
-        return update
+            analysis.update(report.model_dump(mode="json"))
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:
+            analysis.update(status="analyst_failed", error=type(exc).__name__)
+        analysis["mismatches"] = headline_mismatches(analysis.get("headline") or [], results)
+        analysis["code"] = scope.exec_log
+        art_id = await self._artifact(state, "analysis", analysis)
+        self._finish("analyse_results")
+        return {
+            **out,
+            "test_results": results,
+            "analysis": analysis,
+            "artifacts": {"test_result": res_id, "analysis": art_id},
+        }
 
-    async def critic(self, state: AuditState) -> dict[str, Any]:
-        out = await self._start(state, "critic")
-        findings = state.get("findings") or []
+    # ---------------------------------------------------------------- judge (plan 01 §5)
+    async def _known_provisions(self, ids: set[str], kb: str | None) -> dict[str, bool]:
+        known: dict[str, bool] = {}
+        for pid in sorted(i for i in ids if i):
+            try:
+                body = await self.deps.regmem.provision(pid, kb)
+                known[pid] = isinstance(body, dict) and bool(body.get("id") or body.get("text"))
+            except Exception:
+                known[pid] = False
+        return known
+
+    async def assess_obligations(self, state: AuditState) -> dict[str, Any]:
+        """Rule verdict (code) + Gemini assessor + an independent Iris verdict, compared."""
+        out = await self._start(state, "assess_obligations")
+        if not state.get("scope"):  # an audit started before the obligation map existed
+            grounded = await self.ground_obligations(state)
+            state = {**state, "scope": grounded["scope"]}  # type: ignore[assignment]
+            out = {**out, "scope": grounded["scope"], "obligation_map": grounded["obligation_map"]}
+        kb = state.get("kb_version")
+        tests = (state.get("test_results") or {}).get("tests") or []
+        paths = state.get("dossier_paths") or []
+        tested, proposed = [], []
+        for entry in state.get("scope") or []:
+            rows = rows_for(entry, tests) if is_tested(entry) else []
+            if rows:
+                verdict, why = rule_verdict(rows)
+                tested.append({"entry": entry, "rows": rows, "rule": verdict, "why": why})
+            elif is_tested(entry) and entry.get("verification_mode") != "hybrid":
+                proposed.append(self._untested(entry, kb))
+            else:
+                proposed.append(self._documentary(entry, paths, kb))
+        assessments = await self._gemini_assess(state, tested)
+        judgements = await self._iris_judge(state, tested)
+        cited = {
+            str(c.get("provision_id"))
+            for a in assessments.values()
+            for c in a.get("citations") or []
+        } | {str(t["entry"].get("article")) for t in tested if t["entry"].get("article")}
+        known = await self._known_provisions(cited, kb)
+        for t in tested:
+            proposed.append(self._tested_verdict(t, assessments, judgements, known, kb))
+        order = {e["obligation_id"]: n for n, e in enumerate(state.get("scope") or [])}
+        proposed.sort(key=lambda v: order.get(v["obligation_id"], 0))
+        art_id = await self._artifact(
+            state,
+            "verdicts",
+            {
+                "status": "proposed",
+                "verdicts": proposed,
+                "needs_human": [v["obligation_id"] for v in proposed if v.get("needs_human")],
+            },
+        )
+        self._finish("assess_obligations")
+        return {**out, "verdicts": proposed, "artifacts": {"verdicts": art_id}}
+
+    @staticmethod
+    def _untested(entry: dict[str, Any], kb: str | None) -> dict[str, Any]:
+        why = "no scenario of this audit tested it: the evidence cannot show it either way"
+        article = entry.get("article")
+        return {
+            "obligation_id": entry["obligation_id"],
+            "entry": entry,
+            "verdict": "inconclusive",
+            "reasoning": f"Inconclusive: {why}.",
+            "counter_arguments": [],
+            "would_change_if": ["A scenario for this obligation runs and meets its threshold."],
+            "citations": [{"provision_id": article, "kb_version": kb}] if article else [],
+            "judges": {"rule": {"verdict": "inconclusive", "why": why}},
+            "rows": [],
+            "needs_human": False,
+        }
+
+    @staticmethod
+    def _documentary(entry: dict[str, Any], paths: list[str], kb: str | None) -> dict[str, Any]:
+        evidence = dossier_evidence(entry, paths)
+        missing = bool(evidence["missing"])
+        article = entry.get("article")
+        return {
+            "obligation_id": entry["obligation_id"],
+            "entry": entry,
+            "verdict": "not_assessable_by_testing",
+            "documentation_gap": missing,
+            "dossier_evidence": evidence,
+            "reasoning": (
+                f"{entry.get('verification_mode') or 'documentary'} obligation: shown by "
+                "documents, not by a model test. Dossier evidence present: "
+                f"{', '.join(evidence['present']) or 'none'}; missing: "
+                f"{', '.join(evidence['missing']) or 'none'}."
+            ),
+            "counter_arguments": [
+                "A file name is not proof of its content; a human must review it."
+            ],
+            "would_change_if": ["The missing evidence is added to the system folder."]
+            if missing
+            else [],
+            "citations": [{"provision_id": article, "kb_version": kb}] if article else [],
+            "judges": {"rule": {"verdict": "not_assessable_by_testing", "why": "documentary"}},
+            "rows": [],
+            "needs_human": False,
+        }
+
+    async def _gemini_assess(
+        self, state: AuditState, tested: list[dict[str, Any]]
+    ) -> dict[str, dict[str, Any]]:
+        if not tested:
+            return {}
         brief = {
             "audit_id": state["audit_id"],
             "kb_version": state.get("kb_version"),
-            "findings": findings,
-            "test_results": state.get("test_results"),
+            "org_thresholds": (state.get("card") or {}).get("org_thresholds"),
+            "declared_metrics": (state.get("card") or {}).get("declared_metrics"),
+            "obligations": [
+                {
+                    **{
+                        k: t["entry"].get(k)
+                        for k in ("obligation_id", "article", "related", "summary")
+                    },
+                    "rule_verdict": t["rule"],
+                    "rule_reason": t["why"],
+                    "tests": [_row_digest(r) for r in t["rows"][:12]],
+                }
+                for t in tested
+            ],
+        }
+        try:
+            result = await self.deps.steps.run(
+                "assess", brief, self._scope(state, "assess"), fake=lambda: fakes.assess(brief)
+            )
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "pipeline_assess_failed", "Assessor failed", failure_reason=type(exc).__name__
+            )
+            return {}
+        return {
+            a.obligation_id: a.model_dump(mode="json")
+            for a in result.assessments  # type: ignore[attr-defined]
+        }
+
+    async def _iris_judge(
+        self, state: AuditState, tested: list[dict[str, Any]]
+    ) -> dict[str, dict[str, Any]]:
+        model = DecisionModel(
+            "iris", steps=self.deps.steps, iris=self.deps.iris, trace_id=self.deps.trace_id
+        )
+        scope = self._scope(state, "verdict_judge")
+        gate = asyncio.Semaphore(REVIEW_CONCURRENCY)
+
+        async def one(t: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+            oid = t["entry"]["obligation_id"]
+            async with gate:
+                try:
+                    decision = await model.decide(
+                        VERDICT_JUDGE, judge_brief(t["entry"], t["rows"]), VerdictJudgement, scope
+                    )
+                except GraphBubbleUp:
+                    raise
+                except Exception as exc:
+                    logger.warning(
+                        "pipeline_verdict_judge_failed",
+                        "Independent verdict failed",
+                        obligation_id=oid,
+                        failure_reason=type(exc).__name__,
+                    )
+                    return oid, None
+            return oid, {
+                **decision.result.model_dump(mode="json"),
+                "model": decision.model,
+                "fallback": decision.fallback,
+                "failure": decision.failure,
+            }
+
+        results = await asyncio.gather(*(one(t) for t in tested))
+        return {oid: j for oid, j in results if j}
+
+    @staticmethod
+    def _tested_verdict(
+        t: dict[str, Any],
+        assessments: dict[str, dict[str, Any]],
+        judgements: dict[str, dict[str, Any]],
+        known: dict[str, bool],
+        kb: str | None,
+    ) -> dict[str, Any]:
+        entry, oid = t["entry"], t["entry"]["obligation_id"]
+        gemini = assessments.get(oid)
+        iris = judgements.get(oid)
+        verdict, needs_human = combine(
+            t["rule"], (gemini or {}).get("verdict"), (iris or {}).get("verdict")
+        )
+        citations = [
+            {"provision_id": c.get("provision_id"), "kb_version": kb}
+            for c in (gemini or {}).get("citations") or []
+        ]
+        problems = citation_problems(citations, entry, known)
+        bad = {p.split(":")[0] for p in problems}
+        citations = [c for c in citations if c["provision_id"] not in bad]
+        article = entry.get("article")
+        if not citations and article and known.get(str(article)):
+            citations = [{"provision_id": article, "kb_version": kb}]
+        reasoning = (gemini or {}).get("reasoning") or (
+            f"Rule verdict: {t['why']}. Thresholds are the organisation's, not the AI Act's."
+        )
+        if needs_human:
+            reasoning += (
+                f" Judges disagree (rule {t['rule']}, Gemini {(gemini or {}).get('verdict')}, "
+                f"Iris {(iris or {}).get('verdict')}): inconclusive until a human decides."
+            )
+        return {
+            "obligation_id": oid,
+            "entry": entry,
+            "verdict": verdict,
+            "needs_human": needs_human,
+            "reasoning": reasoning,
+            "counter_arguments": (gemini or {}).get("counter_arguments") or [],
+            "would_change_if": (gemini or {}).get("would_change_if") or [],
+            "citations": citations,
+            "citation_problems": problems,
+            "judges": {
+                "rule": {"verdict": t["rule"], "why": t["why"]},
+                "gemini": {"verdict": (gemini or {}).get("verdict")}
+                if gemini
+                else {"verdict": None, "error": "assessor gave no verdict"},
+                "iris": iris or {"verdict": None, "error": "no independent verdict"},
+            },
+            "rows": [r.get("id") for r in t["rows"]],
+            "mlflow_runs": sorted(
+                {r["mlflow_run_id"] for r in t["rows"] if r.get("mlflow_run_id")}
+            ),
+        }
+
+    async def critic(self, state: AuditState) -> dict[str, Any]:
+        """The critic tries to overturn each verdict; grounds per verdict, ``overall`` required."""
+        out = await self._start(state, "critic")
+        verdicts = state.get("verdicts") or []
+        tests = {t.get("id"): t for t in (state.get("test_results") or {}).get("tests") or []}
+        brief = {
+            "audit_id": state["audit_id"],
+            "kb_version": state.get("kb_version"),
+            "org_thresholds": (state.get("card") or {}).get("org_thresholds"),
             "dataset_analysis": analysis_digest(state.get("dataset_analysis")),
             "data_card_limitations": ((state.get("dataset") or {}).get("data_card") or {}).get(
                 "limitations"
             ),
-            "model_profile": profile_digest(state.get("profile")),
-            "org_thresholds": (state.get("card") or {}).get("org_thresholds"),
+            "verdicts": [
+                {
+                    "obligation_id": v["obligation_id"],
+                    "verdict": v["verdict"],
+                    "needs_human": v.get("needs_human"),
+                    "judges": {k: (j or {}).get("verdict") for k, j in v["judges"].items()},
+                    "reasoning": str(v.get("reasoning") or "")[:800],
+                    "tests": [_row_digest(tests[r]) for r in v.get("rows") or [] if r in tests][:8],
+                }
+                for v in verdicts
+                if v["verdict"] != "not_assessable_by_testing"
+            ],
         }
-        files = {
-            **self._base_files(state),
-            "test-results.json": json.dumps(state.get("test_results")),
-        }
-        report = await self.deps.steps.run(
-            "critic",
-            brief,
-            self._scope(state, "critic", files),
-            fake=lambda: fakes.critic(dict(state)),
-        )
-        reviews = {r.finding_id: r.model_dump(mode="json") for r in report.reviews}  # type: ignore[attr-defined]
-        adjusted = []
-        finding_ids = dict((state.get("artifacts") or {}).get("finding") or {})
-        for finding in findings:
-            review = reviews.get(finding["id"])
-            if review is None:
-                adjusted.append(finding)
-                continue
-            new = {
-                **finding,
-                "verdict_before_critic": finding["verdict"],
-                "confidence_before_critic": finding["confidence"],
-                "verdict": review["adjusted_verdict"],
-                "confidence": review["adjusted_confidence"],
-                "critic": {
-                    k: review[k] for k in ("call", "strongest_objection", "checked_evidence")
-                },
-            }
-            adjusted.append(new)
-            if review["call"] != "upheld" or new["verdict"] != finding["verdict"]:
-                finding_ids[finding["id"]] = await self._artifact(
-                    state, "finding", new, name=finding["id"]
+        reviews: dict[str, dict[str, Any]] = {}
+        overall, error = "", None
+        if brief["verdicts"]:
+            try:
+                report = await self.deps.steps.run(
+                    "critic",
+                    brief,
+                    self._scope(state, "critic"),
+                    fake=lambda: fakes.critic(brief),
                 )
+                reviews = {r.obligation_id: r.model_dump(mode="json") for r in report.reviews}  # type: ignore[attr-defined]
+                overall = report.overall  # type: ignore[attr-defined]
+            except GraphBubbleUp:
+                raise
+            except Exception as exc:
+                error = type(exc).__name__
+        adjusted = []
+        for v in verdicts:
+            review = reviews.get(v["obligation_id"])
+            new = dict(v)
+            if v["verdict"] == "not_assessable_by_testing":
+                new["critic"] = {"upheld": True, "objection": "", "grounds": "documentary"}
+            elif review is None:
+                new["critic"] = {
+                    "upheld": True,
+                    "objection": "",
+                    "grounds": f"not reviewed by the critic{f' ({error})' if error else ''}",
+                }
+            else:
+                new["critic"] = {
+                    "upheld": bool(review["upheld"]),
+                    "objection": review.get("objection") or "",
+                    "grounds": review.get("grounds") or "",
+                }
+                if not review["upheld"]:
+                    new["verdict_before_critic"] = v["verdict"]
+                    new["verdict"] = review.get("adjusted_verdict") or "inconclusive"
+                    new["needs_human"] = True
+            adjusted.append(new)
         art_id = await self._artifact(
             state,
             "critic",
             {
-                **report.model_dump(mode="json"),
-                "unreviewed": [f["id"] for f in findings if f["id"] not in reviews],
+                "reviews": list(reviews.values()),
+                "overall": overall or f"The critic did not run ({error})."
+                if error
+                else overall or "No tested verdict to review.",
+                "overturned": [
+                    v["obligation_id"] for v in adjusted if "verdict_before_critic" in v
+                ],
+                "unreviewed": [
+                    v["obligation_id"]
+                    for v in verdicts
+                    if v["verdict"] != "not_assessable_by_testing"
+                    and v["obligation_id"] not in reviews
+                ],
+                "error": error,
             },
         )
         self._finish("critic")
         return {
             **out,
-            "findings": adjusted,
-            "critic": report.model_dump(mode="json"),
-            "artifacts": {"critic": art_id, "finding": finding_ids},
+            "verdicts": adjusted,
+            "critic": {"overall": overall, "reviews": list(reviews.values()), "error": error},
+            "artifacts": {"critic": art_id},
+        }
+
+    async def seal(self, state: AuditState) -> dict[str, Any]:
+        """One sealed verdict per obligation in scope: severity, gap ids, hash chain, stored."""
+        out = await self._start(state, "seal")
+        kb = state.get("kb_version")
+        today = datetime.fromisoformat(self.deps.today()).date()
+        inference = state.get("inference") or {}
+        dataset = state.get("dataset") or {}
+        res_art = (state.get("artifacts") or {}).get("test_result")
+        proposed = []
+        for v in state.get("verdicts") or []:
+            entry = v["entry"]
+            refs: list[dict[str, Any]] = []
+            if v.get("rows"):
+                if inference.get("predictions_sha256"):
+                    refs.append(
+                        {
+                            "path": f"{INFERENCE_REL}/predictions.parquet",
+                            "sha256": inference["predictions_sha256"],
+                            "mlflow_run_id": inference.get("mlflow_run_id"),
+                        }
+                    )
+                if dataset.get("sha256"):
+                    refs.append(
+                        {"path": f"{DATA_REL}/dataset.parquet", "sha256": dataset["sha256"]}
+                    )
+                refs += [
+                    {"path": f"mlflow:runs/{run}", "sha256": None, "mlflow_run_id": run}
+                    for run in v.get("mlflow_runs") or []
+                ]
+            for present in (v.get("dossier_evidence") or {}).get("present") or []:
+                refs.append({"path": present.split(": ", 1)[-1], "sha256": None})
+            proposed.append(
+                {
+                    "obligation_id": v["obligation_id"],
+                    "verdict": v["verdict"],
+                    "severity": severity(
+                        v["verdict"], entry, today, doc_gap=bool(v.get("documentation_gap"))
+                    ),
+                    "metrics_ref": {"artifact_id": res_art, "rows": v.get("rows") or []}
+                    if v.get("rows")
+                    else None,
+                    "evidence_refs": refs,
+                    "citations": v.get("citations") or [],
+                    "kb_version": kb,
+                    "reasoning": v.get("reasoning"),
+                    "counter_arguments": v.get("counter_arguments") or [],
+                    "would_change_if": v.get("would_change_if") or [],
+                    "judges": v.get("judges") or {},
+                    "critic": v.get("critic") or {},
+                    # Not hashed, kept by the backend in ``data``:
+                    "article": entry.get("article"),
+                    "title": entry.get("summary"),
+                    "in_force_date": entry.get("in_force_date"),
+                    "verification_mode": entry.get("verification_mode"),
+                    "needs_human": bool(v.get("needs_human")),
+                    "documentation_gap": bool(v.get("documentation_gap")),
+                    "dossier_evidence": v.get("dossier_evidence"),
+                    "verdict_before_critic": v.get("verdict_before_critic"),
+                    "citation_problems": v.get("citation_problems") or [],
+                }
+            )
+        sealed = seal_findings(proposed, str(state.get("system_id")))
+        problems = coverage_problems(state.get("scope") or [], sealed)
+        if problems:
+            raise StepFailed(f"Coverage invariant broken: {'; '.join(problems[:5])}")
+        stored, endpoint = 0, True
+        backend = self._backend(state)
+        for finding in sealed:
+            if not endpoint:
+                break
+            try:
+                await backend.seal_finding(finding)
+                stored += 1
+            except PipelineHTTPError as exc:
+                if exc.status in (404, 405):
+                    endpoint = False
+                    logger.warning("pipeline_findings_endpoint_missing", "No findings endpoint")
+                else:
+                    raise
+        ids = {}
+        for n, finding in enumerate(sealed, start=1):
+            ids[finding["obligation_id"]] = await self._artifact(
+                state,
+                "finding",
+                legacy_finding(finding, n, (state.get("test_results") or {}).get("tests") or []),
+                name=finding["obligation_id"],
+                file_refs=[r["path"] for r in finding["evidence_refs"] if r.get("path")],
+            )
+        art_id = await self._artifact(
+            state,
+            "seal",
+            {
+                "count": len(sealed),
+                "stored_in_findings_table": stored,
+                "head_hash": sealed[-1]["hash"] if sealed else None,
+                "gaps": [
+                    {k: f.get(k) for k in ("gap_id", "obligation_id", "verdict", "severity")}
+                    for f in sealed
+                    if f.get("gap_id")
+                ],
+                "coverage": {"in_scope": len(state.get("scope") or []), "sealed": len(sealed)},
+            },
+        )
+        self._finish("seal")
+        return {
+            **out,
+            "sealed": sealed,
+            "findings": [legacy_finding(f, n, []) for n, f in enumerate(sealed, start=1)],
+            "artifacts": {"finding": ids, "seal": art_id},
         }
 
     async def report(self, state: AuditState) -> dict[str, Any]:
         out = await self._start(state, "report")
+        sealed = state.get("sealed") or []
         card = (state.get("dataset") or {}).get("data_card") or {}
-        plugin = yaml.safe_load((state.get("files") or {}).get("plugin.yaml") or "") or {}
         brief = {
             "audit_id": state["audit_id"],
             "system_id": state.get("system_id"),
-            "kb_version": state.get("kb_version"),
             "target": state.get("target"),
-            "model": plugin.get("access"),
+            "pins": state.get("pins"),
             "dataset": {
                 "dataset_id": card.get("dataset_id"),
-                "seed": settings.pipeline.seed,
-                "content_sha256": card.get("content_sha256"),
+                "sha256": (state.get("dataset") or {}).get("sha256"),
+                "predictions_sha256": (state.get("inference") or {}).get("predictions_sha256"),
+                "inference_mlflow_run": (state.get("inference") or {}).get("mlflow_run_id"),
             },
-            "tests": [
+            "findings": [
                 {
-                    k: t.get(k)
+                    k: f.get(k)
                     for k in (
-                        "id",
-                        "requirement",
-                        "metric",
-                        "value",
-                        "ci95",
-                        "status",
-                        "mlflow_run_id",
+                        "obligation_id",
+                        "article",
+                        "verdict",
+                        "severity",
+                        "gap_id",
+                        "reasoning",
+                        "counter_arguments",
+                        "needs_human",
+                        "dossier_evidence",
                     )
                 }
-                for t in (state.get("test_results") or {}).get("tests") or []
+                for f in sealed
             ],
-            "findings": state.get("findings"),
-            "critic": state.get("critic"),
+            "critic_overall": (state.get("critic") or {}).get("overall"),
+            "analysis": {
+                k: (state.get("analysis") or {}).get(k)
+                for k in ("observations", "mismatches", "summary")
+            },
             "gates": state.get("gates"),
         }
-        result = await self.deps.steps.run(
-            "report", brief, self._scope(state, "report"), fake=lambda: fakes.report(dict(state))
+        try:
+            result = await self.deps.steps.run(
+                "report",
+                brief,
+                self._scope(state, "report"),
+                fake=lambda: fakes.report(dict(state)),
+            )
+            data = result.model_dump(mode="json")
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # the audit still ends with a report (plan 01 P8)
+            data = fakes.report(dict(state)).model_dump(mode="json")
+            data["writer_error"] = type(exc).__name__
+        data["engineer_markdown"] = (
+            f"{data.get('engineer_markdown') or ''}\n\n{report_appendix(state)}"
         )
-        data = result.model_dump(mode="json")
+        data["sealed_head_hash"] = sealed[-1]["hash"] if sealed else None
         art_id = await self._artifact(state, "report", data)
         self._finish("report")
         return {**out, "report": data, "artifacts": {"report": art_id}}
@@ -1215,20 +1825,32 @@ class AuditPipeline:
     async def finalize(self, state: AuditState) -> dict[str, Any]:
         status = "done"
         verdicts: dict[str, int] = {}
-        for f in state.get("findings") or []:
+        for f in state.get("sealed") or []:
             verdicts[f.get("verdict", "?")] = verdicts.get(f.get("verdict", "?"), 0) + 1
         try:
             await self._backend(state).patch(
                 stage="report",
                 status=status,
-                data={"verdicts": verdicts, "finishedAt": datetime.now(UTC).isoformat()},
+                data={
+                    "verdicts": verdicts,
+                    "gaps": sum(1 for f in state.get("sealed") or [] if f.get("gap_id")),
+                    "finishedAt": datetime.now(UTC).isoformat(),
+                },
             )
         except Exception:
             logger.warning("pipeline_stage_patch_failed", "Final patch failed")
+        if state.get("change_id") and self.deps.delta is not None:
+            try:  # a regulation-change re-run: write its delta report (survives restarts)
+                await self.deps.delta(state["audit_id"])
+            except Exception:
+                logger.warning("pipeline_delta_failed", "Delta report failed")
         return {"status": status}
 
     async def stop(self, state: AuditState) -> dict[str, Any]:
-        """A gate's redo budget is spent: the audit ends as rejected."""
+        """A gate's redo budget is spent: the audit ends as rejected, with an incomplete report."""
+        await self._incomplete_report(
+            state, "stop", "A gate's redo budget is spent: the reviewer rejected the step."
+        )
         try:
             await self._backend(state).patch(
                 status="failed",
@@ -1238,14 +1860,97 @@ class AuditPipeline:
             logger.warning("pipeline_stage_patch_failed", "Stop patch failed")
         return {"status": "rejected"}
 
+    # ------------------------------------------------------------ failure (plan 01 §6.3)
+    async def _incomplete_report(self, state: AuditState, stage: str, reason: str) -> None:
+        """Every audit ends with a report: what ran, what did not, why, partial results."""
+        try:
+            artifacts = state.get("artifacts") or {}
+            done = [n for n in NODE_ORDER if _ran(n, state)]
+            not_run = [n for n in NODE_ORDER if n not in done and n != stage]
+            tests = (state.get("test_results") or {}).get("tests") or []
+            lines = [
+                f"# Incomplete audit {state['audit_id']} ({state.get('system_id')})",
+                "",
+                f"The audit stopped at **{stage}**: {reason}",
+                "",
+                "## Pins",
+                "```yaml",
+                dumps_yaml(state.get("pins") or {"kb_version": state.get("kb_version")}).strip(),
+                "```",
+                "",
+                f"## What ran\n{', '.join(done) or 'nothing'}",
+                f"\n## What did not run\n{', '.join(not_run) or 'nothing'}",
+                "\n## Partial results",
+                f"- Obligations in scope: {len(state.get('scope') or [])}",
+                f"- Scenarios: {len((state.get('scenarios') or {}).get('scenarios') or [])}",
+                f"- Dataset sha256: {(state.get('dataset') or {}).get('sha256') or 'none'}",
+                "- Predictions sha256: "
+                f"{(state.get('inference') or {}).get('predictions_sha256') or 'none'}",
+                f"- Metric rows: {len(tests)}",
+                "",
+                "No verdict is given for an obligation that was not tested. "
+                "Retry resumes from the failed step with the same pins.",
+            ]
+            await self._artifact(
+                state,
+                "report",
+                {
+                    "incomplete": True,
+                    "failed_stage": stage,
+                    "reason": reason,
+                    "ran": done,
+                    "not_run": not_run,
+                    "artifacts": artifacts,
+                    "engineer_markdown": "\n".join(lines),
+                    "management": {
+                        "headline": f"Incomplete audit: stopped at {stage}.",
+                        "traffic_lights": [],
+                        "decisions_needed": ["Retry the audit or fix the failing step."],
+                        "next_steps": [reason[:300]],
+                    },
+                },
+            )
+            await self._backend(state).patch(
+                stage=stage,
+                status="failed",
+                data={"failure": {"stage": stage, "reason": reason[:1000]}, "incomplete": True},
+            )
+        except Exception:
+            logger.warning("pipeline_incomplete_report_failed", "Incomplete report not written")
+
+    def _guard(self, name: str, node: Callable[[AuditState], Any]) -> Callable[..., Any]:
+        """Any unrecoverable node failure writes the incomplete report, then re-raises
+        (the checkpoint stays on the failed node, so ``retry`` resumes there)."""
+
+        async def guarded(state: AuditState) -> dict[str, Any]:
+            try:
+                return await node(state)
+            except GraphBubbleUp:
+                raise
+            except Exception as exc:
+                reason = getattr(exc, "public_message", None) or f"{type(exc).__name__}: {exc}"
+                logger.warning(
+                    "pipeline_node_failed",
+                    "Pipeline node failed",
+                    stage=name,
+                    failure_reason=type(exc).__name__,
+                )
+                await self._incomplete_report(state, name, str(reason)[:1500])
+                raise
+
+        guarded.__name__ = name
+        return guarded
+
     # ---------------------------------------------------------------- graph
     def build(self, checkpointer: Any = None) -> Any:
         graph = StateGraph(AuditState)
         for name in NODE_ORDER:
-            graph.add_node(name, getattr(self, name))
+            graph.add_node(name, self._guard(name, getattr(self, name)))
         graph.add_node("stop", self.stop)
         graph.add_edge(START, "load_context")
-        graph.add_edge("load_context", "profile_model")
+        graph.add_edge("load_context", "pin")
+        graph.add_edge("pin", "ground_obligations")
+        graph.add_edge("ground_obligations", "profile_model")
         graph.add_edge("profile_model", "plan_scenarios")
         graph.add_edge("plan_scenarios", "analyse_scenarios")
         graph.add_conditional_edges(
@@ -1268,11 +1973,15 @@ class AuditPipeline:
             "analyse_datasets", _route, {"redo": "draft_spec", "next": "gate_datasets"}
         )
         graph.add_conditional_edges(
-            "gate_datasets", _route, {"redo": "draft_spec", "next": "run_tests", "stop": "stop"}
+            "gate_datasets",
+            _route,
+            {"redo": "draft_spec", "next": "run_inference", "stop": "stop"},
         )
-        graph.add_edge("run_tests", "analyse")
-        graph.add_conditional_edges("analyse", _route, {"redo": "analyse", "next": "critic"})
-        graph.add_edge("critic", "report")
+        graph.add_edge("run_inference", "analyse_results")
+        graph.add_edge("analyse_results", "assess_obligations")
+        graph.add_edge("assess_obligations", "critic")
+        graph.add_edge("critic", "seal")
+        graph.add_edge("seal", "report")
         graph.add_edge("report", "finalize")
         graph.add_edge("finalize", END)
         graph.add_edge("stop", END)
@@ -1283,9 +1992,203 @@ def _route(state: AuditState) -> str:
     return state.get("route") or "next"
 
 
+#: Which state key shows a node has run (for the incomplete report).
+_RAN_BY = {
+    "load_context": "card",
+    "pin": "pins",
+    "ground_obligations": "scope",
+    "profile_model": "profile",
+    "plan_scenarios": "scenarios",
+    "analyse_scenarios": "scenario_analysis",
+    "draft_spec": "spec",
+    "generate_data": "dataset",
+    "analyse_datasets": "dataset_analysis",
+    "run_inference": "inference",
+    "analyse_results": "test_results",
+    "assess_obligations": "verdicts",
+    "critic": "critic",
+    "seal": "sealed",
+    "report": "report",
+}
+
+
+def _ran(node: str, state: AuditState) -> bool:
+    if node.startswith("gate_"):
+        return node.removeprefix("gate_") in (state.get("gates") or {})
+    if node == "find_public_data":
+        return bool(state.get("public_data"))
+    key = _RAN_BY.get(node)
+    return bool(key and state.get(key))  # type: ignore[misc]
+
+
+def _row_digest(row: dict[str, Any]) -> dict[str, Any]:
+    thr = row.get("threshold") or {}
+    return {
+        "id": row.get("id"),
+        "metric": row.get("metric"),
+        "value": row.get("value"),
+        "ci95": row.get("ci95"),
+        "n": row.get("n"),
+        "threshold": f"{thr.get('op')} {thr.get('value')}" if thr.get("op") else None,
+        "threshold_source": row.get("threshold_source"),
+        "status": row.get("status"),
+        "mlflow_run_id": row.get("mlflow_run_id"),
+    }
+
+
+def headline_mismatches(
+    claims: list[dict[str, Any]], results: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """The analyst's recomputed headline numbers vs synthkit's (code flags any mismatch)."""
+    rows = results.get("tests") or []
+    out = []
+    for c in claims:
+        row = next(
+            (
+                r
+                for r in rows
+                if r.get("metric") == c.get("metric")
+                and c.get("test_id") in (r.get("test_id"), r.get("id"))
+            ),
+            None,
+        )
+        if row is None:
+            out.append({**c, "problem": "no such metric in the synthkit results"})
+        elif (
+            c.get("value") is not None
+            and row.get("value") is not None
+            and abs(float(c["value"]) - float(row["value"])) > max(1e-3, 0.01 * abs(row["value"]))
+        ):
+            out.append({**c, "synthkit": row["value"], "problem": "value differs"})
+    return out
+
+
+def legacy_finding(finding: dict[str, Any], n: int, tests: list[dict[str, Any]]) -> dict[str, Any]:
+    """A sealed finding in the ``finding`` artifact shape the UI and impact index read."""
+    rows = {t.get("id"): t for t in tests}
+    entry_reqs = (finding.get("metrics_ref") or {}).get("rows") or []
+    evidence = []
+    for rid in entry_reqs:
+        t = rows.get(rid)
+        if not t:
+            continue
+        thr = t.get("threshold") or {}
+        evidence.append(
+            {
+                "test_id": t.get("id"),
+                "metric": t.get("metric"),
+                "value": t.get("value"),
+                "ci95": t.get("ci95"),
+                "threshold": f"{thr.get('op')} {thr.get('value')}" if thr.get("op") else None,
+                "threshold_source": thr.get("source") or str(t.get("threshold_source")),
+                "mlflow_run_id": t.get("mlflow_run_id"),
+            }
+        )
+    judges = finding.get("judges") or {}
+    iris = judges.get("iris") or {}
+    return {
+        "id": finding.get("gap_id") or f"F-{n:02d}",
+        "requirement": finding["obligation_id"],
+        "obligation_id": finding["obligation_id"],
+        "article": finding.get("article"),
+        "title": finding.get("title") or finding["obligation_id"],
+        "verdict": LEGACY_VERDICT.get(finding["verdict"], "inconclusive"),
+        "obligation_verdict": finding["verdict"],
+        "severity": finding.get("severity"),
+        "gap_id": finding.get("gap_id"),
+        "confidence": float(iris.get("confidence") or 0.6),
+        "reasoning": finding.get("reasoning"),
+        "evidence": evidence[:12],
+        "counter_evidence": finding.get("counter_arguments") or [],
+        "would_change_if": finding.get("would_change_if") or [],
+        "citations": finding.get("citations") or [],
+        "limitations": [],
+        "judges": judges,
+        "critic": finding.get("critic"),
+        "needs_human": finding.get("needs_human"),
+        "evidence_refs": finding.get("evidence_refs"),
+        "hash": finding.get("hash"),
+        "prev_hash": finding.get("prev_hash"),
+        "sealed": True,
+    }
+
+
+def report_appendix(state: AuditState) -> str:
+    """The code-written report sections: pins, evidence register, gap list (plan 01 §8)."""
+    sealed = state.get("sealed") or []
+    lines = ["## Pins", "```yaml", dumps_yaml(state.get("pins") or {}).strip(), "```", ""]
+    lines += [
+        "## Evidence register",
+        "| Obligation | Verdict | Evidence (sha256) | MLflow runs | Citations (kb) | Hash |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for f in sealed:
+        files = "; ".join(
+            f"{r['path']} ({str(r.get('sha256'))[:12]})"
+            for r in f.get("evidence_refs") or []
+            if r.get("sha256")
+        )
+        runs = ", ".join(
+            str(r["mlflow_run_id"])[:12]
+            for r in f.get("evidence_refs") or []
+            if r.get("mlflow_run_id")
+        )
+        cites = ", ".join(
+            f"{c.get('provision_id')} ({c.get('kb_version')})" for c in f.get("citations") or []
+        )
+        lines.append(
+            f"| {f['obligation_id']} | {f['verdict']} | {files or '-'} | {runs or '-'} | "
+            f"{cites or '-'} | {str(f.get('hash'))[:12]} |"
+        )
+    gaps = [f for f in sealed if f.get("gap_id")]
+    lines += [
+        "",
+        "## Gap list",
+        "| Gap | Obligation | Verdict | Severity | In force | Remediation |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for f in gaps:
+        fix = (f.get("would_change_if") or ["Review with the AI Officer."])[0]
+        lines.append(
+            f"| {f['gap_id']} | {f['obligation_id']} | {f['verdict']} | {f.get('severity')} | "
+            f"{f.get('in_force_date') or '-'} | {str(fix)[:160]} |"
+        )
+    if not gaps:
+        lines.append("| - | none | - | - | - | - |")
+    return "\n".join(lines)
+
+
+async def resolve_model_version(access: dict[str, Any]) -> dict[str, Any]:
+    """``models:/<name>@<alias>`` -> the concrete registered version (MLflow REST)."""
+    uri = str(access.get("uri") or "")
+    out: dict[str, Any] = {"type": access.get("type"), "uri": uri or access.get("url")}
+    match = _MODEL_URI.match(uri)
+    if not match:
+        return out
+    name, alias, version = match.group(1), match.group(2), match.group(3)
+    out.update(name=name, alias=alias, version=version)
+    if version:
+        return out
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(
+                f"{MLFLOW_URL}/api/2.0/mlflow/registered-models/alias",
+                params={"name": name, "alias": alias},
+            )
+        body = response.json().get("model_version") or {} if response.status_code < 400 else {}
+        out.update(version=body.get("version"), run_id=body.get("run_id"))
+        if not body:
+            out["error"] = f"mlflow answered {response.status_code}"
+    except Exception as exc:
+        out["error"] = f"mlflow unreachable: {type(exc).__name__}"
+    return out
+
+
 #: The nodes in pipeline order (gates included).
 NODE_ORDER = (
     "load_context",
+    "pin",
+    "ground_obligations",
     "profile_model",
     "plan_scenarios",
     "analyse_scenarios",
@@ -1296,9 +2199,11 @@ NODE_ORDER = (
     "generate_data",
     "analyse_datasets",
     "gate_datasets",
-    "run_tests",
-    "analyse",
+    "run_inference",
+    "analyse_results",
+    "assess_obligations",
     "critic",
+    "seal",
     "report",
     "finalize",
 )
