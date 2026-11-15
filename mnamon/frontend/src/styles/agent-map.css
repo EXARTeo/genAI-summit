@@ -112,7 +112,7 @@
   height: 1.25rem;
 }
 
-/* ---- Composer panels: rise out of the composer (desktop), slide up as a sheet (phone) ---- */
+/* ---- Composer panels: a centred modal rises in (desktop), slide up as a sheet (phone) ---- */
 
 @keyframes composer-panel-in {
   from {

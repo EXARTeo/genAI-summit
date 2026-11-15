@@ -52,7 +52,8 @@ src/features/chat/
     │                       (cmdk dialog, Ctrl/⌘+Shift+S), ArchivedChatsDialog, NewChatIcon
     ├── ChatBody.tsx, ChatMessage.tsx   message list (stick-to-bottom), user bubble (+ inline edit), agent answer
     ├── ChatComposer.tsx    "Message {agent}…" card: textarea, "+" files (button / paste / drop), the agent-map and plan buttons, slash menu, subject chip, one round Send / Stop / Queue button
-    ├── ComposerPanel.tsx   shell of the composer's panels: above the composer on a desktop, a bottom sheet on a phone, modal
+    ├── ComposerPanel.tsx   shell of the composer's panels: a large modal centred on the whole screen on a desktop
+    │                       (min(1200px, 92vw) x min(820px, 88vh), scrim over the sidebar too), a bottom sheet on a phone
     ├── agent_map_parts/    the agent map (below)
     ├── plan_parts/         the plan panel (below)
     ├── HitlTakeover.tsx, AskUserTakeover.tsx   approvals (batched deck) and the agent's questions
@@ -137,7 +138,10 @@ ask questions instead (`ask_user`). Shots: `chat`, `chat-about-system`, `chat-co
 
 Ported from magenticx (`agent_map/*`, `plan/*`, `lib/agentMap.ts`, `lib/agentMapFlow.ts`,
 `lib/conversationPlans.ts`, `inference/planTiming.ts`). Both buttons sit beside "+" once the conversation has
-something to show; each opens a modal panel (`ComposerPanel`).
+something to show; each opens a modal panel (`ComposerPanel`): on a desktop a large card centred on the whole
+viewport, `min(1200px, 92vw)` x `min(820px, 88vh)` (`min(640px, 92vw)` x `min(440px, 88vh)` while empty), the scrim
+over the sidebar too, so the tree and the Flow graph have room; the tree, the detail and the plan keep a readable
+centred column inside it. On a phone it stays a bottom sheet.
 
 - **Agent map** (`agent_map_parts/`, badge = sub-agent count, primary while one works): the main agent, one branch
   per answer that delegated ("Q3 · question", Live while it streams), and its sub-agents with theirs nested below.

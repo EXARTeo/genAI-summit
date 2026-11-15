@@ -205,7 +205,12 @@ export function AgentMapTree({
 
   return (
     // pt: room above the root's orb for its halo, which the scroll area clips.
-    <div role="tree" aria-label="Agent map" onKeyDown={handleKeyDown} className="pb-4 pr-1 pt-3">
+    <div
+      role="tree"
+      aria-label="Agent map"
+      onKeyDown={handleKeyDown}
+      className="mx-auto w-full max-w-5xl pb-4 pr-1 pt-3"
+    >
       {/* The main agent: the root every branch hangs from. */}
       <div
         ref={setRef(ROOT_ID)}

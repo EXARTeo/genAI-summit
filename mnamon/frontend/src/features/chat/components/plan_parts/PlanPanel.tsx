@@ -12,7 +12,7 @@ import { PlanChecklist } from './PlanChecklist';
 import { PlanProgressRing } from './PlanProgressRing';
 
 // The plan's panel, in the composer panels' shell (../ComposerPanel) beside
-// the agent map's: above the composer on a desktop, a bottom sheet on a
+// the agent map's: a large modal centred on the screen on a desktop, a bottom sheet on a
 // phone, modal. The latest plan leads, open; the plans of earlier answers
 // follow, newest first, each folded to its question and its count. Which
 // earlier plans are open is kept while the panel is closed.
@@ -70,7 +70,7 @@ export function PlanPanel({ open, onOpenChange, plans, agentName, anchorRef, id 
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 pt-1 focus:outline-none sm:px-5"
       >
         {current ? (
-          <>
+          <div className="mx-auto w-full max-w-4xl">
             <PlanSection
               answer={current}
               open={!toggled.has(current.id)}
@@ -91,7 +91,7 @@ export function PlanPanel({ open, onOpenChange, plans, agentName, anchorRef, id 
                 ))}
               </div>
             ) : null}
-          </>
+          </div>
         ) : (
           <EmptyState agentName={agentName} />
         )}

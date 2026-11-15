@@ -23,7 +23,7 @@ import { AgentMapViewSwitch } from './AgentMapViewSwitch';
 import { ComposerPanel } from '../ComposerPanel';
 
 // Port of magenticx `agent_map/AgentMapPanel.tsx`. The agent map's panel, in the composer panels' shell (../ComposerPanel):
-// above the composer on a desktop, a bottom sheet on a phone, modal. Two
+// a large modal centred on the screen on a desktop, a bottom sheet on a phone, modal. Two
 // views slide sideways between each other — the map, and one sub-agent's
 // detail — with Esc and Back stepping out of the detail first. The map is the
 // tree or the flow graph (the header's switch, remembered per browser); the

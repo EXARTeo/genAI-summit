@@ -52,7 +52,7 @@ interface ChatComposerProps {
   subject?: ComposerSubject | null;
   queued?: string | null;
   autoFocus?: boolean;
-  /** Buttons beside "+" (the agent map and the plan: their panels rise out of this composer). */
+  /** Buttons beside "+" (the agent map and the plan: they open large centred panels). */
   controls?: ReactNode;
 }
 

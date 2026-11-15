@@ -148,7 +148,7 @@ export function AgentMapDetail({
         };
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="mx-auto w-full max-w-4xl space-y-5 pb-2">
       <motion.header {...reveal(0)} className="flex items-start gap-3.5">
         <span
           className={cn(
