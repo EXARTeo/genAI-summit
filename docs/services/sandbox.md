@@ -74,7 +74,9 @@ plugin.yaml + data-dictionary.yaml (+ sample.csv)
   3. agent drafts generation-spec.yaml (LLM), human may edit; generation.mode reference_sample | zero_shot
      synthkit generate --seed N → dataset.csv/.parquet + DataCard.yaml
   4. synthkit analyze          → dataset-analysis.json/.md shown at the HITL dataset audit
-  5. approve → synthkit run-tests --plan test-plan.yaml → test-results.json/.md + MLflow runs
+  5. approve → synthkit run-inference  → predictions.parquet + run.json (model calls only, saved raw)
+             synthkit metrics --predictions → test-results.json/.md + MLflow runs (replay, no model call)
+     (synthkit run-tests without --predictions still does both in one go)
 ```
 
 All commands run through `execute`, with the plugin files in `input/` and the results in `output/`. For example:
@@ -261,8 +263,37 @@ seeded resamples) meets it (accuracy uses the CI lower bound), otherwise `inconc
 
 `test-results.md` is the same as a table. **MLflow:** one run per plan test in experiment `compliance/<SYS>`
 (run name = test id; tags `system`, `plugin`, `test_id`, `template`, `req_ids`, `card_version`, `kb_version`,
-`dataset_id`, `status`; params template, target, seed; every metric plus `.ci_low` / `.ci_high`; artifact
-`test-result.json`), logged when `MLFLOW_TRACKING_URI` answers (the sandbox reaches mlflow on `sandbox_models`).
+`dataset_id`, `status`, plus `audit_id`, `obligation_id` and, when replaying, `predictions_sha256`; params
+template, target, seed; every metric plus `.ci_low` / `.ci_high`; artifact `test-result.json`), logged when
+`MLFLOW_TRACKING_URI` answers (the sandbox reaches mlflow on `sandbox_models`). Plan tests may carry an
+`obligation_id` (copied to the result rows) and the plan an `audit_id` (copied to the report).
+
+### `synthkit run-inference` + `synthkit metrics` (save raw before analysing)
+
+```sh
+synthkit run-inference --data data --target ../input/plugin.yaml --plan ../input/test-plan.yaml --out inference
+#   [--dictionary data-dictionary.yaml] [--seed 0] [--no-mlflow] [--model-uri URI | --url URL | --model-pickle F]
+synthkit metrics --plan ../input/test-plan.yaml --target ../input/plugin.yaml --data data \
+  --predictions inference/predictions.parquet --out results     # = run-tests --predictions
+```
+
+`run-inference` only calls the model and computes no metric. `inference/predictions.parquet` has one row per
+scored input: `_row_id`, `_test`, `_variant` (`original`, or `perturbed:<test_id>` for the seeded noisy copies
+of each `TT.robustness.perturbation` test, made by the same code and seed as a live run), `score`, `decision`,
+`error`, and for edge rows (scored one at a time, raw) `edge_outcome` + `edge_detail`. Non-edge rows are
+batch-scored; when a batch fails, rows are scored one by one and each failure lands in `error` (nothing scored
+at all = exit 3). `inference/run.json`: `dataset {file, sha256, dataset_id, content_sha256, n_rows}`,
+`predictions {file, sha256, n_rows, variants, errors}`, `model {uri_or_url, kind, version, input_columns,
+stats}`, `system`, `plugin`, `seed`, `audit_id`, `kb_version`, `obligation_ids`, `mlflow_run_id`,
+`started_at`, `finished_at`. One MLflow run `inference` (tags `stage=inference`, `audit_id`, `kb_version`,
+`obligation_ids`, `dataset_sha256`, `predictions_sha256`; artifacts both files).
+
+`run-tests --predictions` (alias `metrics`, where it is required) calls no model: a replay target answers by
+(`_row_id`, `_variant`); a missing row makes that test an `error` row, and so do chat probes and accuracy on an
+external `eval_set` (not replayable). It refuses (exit 2) a predictions file or dataset whose sha256 no longer
+matches `run.json`. The report gains `predictions_sha256` (also on every result row) and `inference
+{predictions_sha256, dataset_sha256, model_version, mlflow_run_id, seed}`; the metric values equal a live run
+on the same data and seed.
 
 ### Self-check against the answer keys
 

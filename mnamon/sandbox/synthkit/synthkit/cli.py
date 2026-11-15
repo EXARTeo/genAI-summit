@@ -13,7 +13,12 @@
     synthkit run-tests --plan test-plan.yaml --target plugin.yaml [--data DIR]
                        [--card system-card.yaml] [--dictionary data-dictionary.yaml]
                        [--model-uri URI | --url URL | --model-pickle F] [--no-mlflow]
-                       [--seed 0] --out DIR
+                       [--seed 0] [--predictions predictions.parquet] --out DIR
+    synthkit run-inference --data DIR --target plugin.yaml [--plan test-plan.yaml]
+                       [--dictionary data-dictionary.yaml]
+                       [--model-uri URI | --url URL | --model-pickle F] [--seed 0]
+                       [--no-mlflow] --out DIR      → predictions.parquet + run.json
+    synthkit metrics   = run-tests with --predictions required (replay, no model call)
 
 Each command prints a short summary on stdout; exit code 2 = bad input,
 3 = the model could not be reached, 1 = a gate failed (analyze) or a test
@@ -32,6 +37,7 @@ from modelaccess.runlog import RunLogger
 
 from synthkit.analyze import load_dataset, run_analysis, write_analysis
 from synthkit.generate import generate
+from synthkit.inference import run_inference
 from synthkit.profile import run_profile, write_profile
 from synthkit.runtests import CHAT_TEMPLATES, chat_client, load_plan, run_tests, summary
 from synthkit.scenarios import check_scenarios, write_report
@@ -122,11 +128,55 @@ def _analyze(args: argparse.Namespace) -> int:
     return 1 if analysis["overall"] == "fail" else 0
 
 
+def _default_dictionary(args: argparse.Namespace, plugin: dict) -> Path | None:
+    """``--dictionary``, else the plugin's ``io.input_schema`` next to plugin.yaml."""
+    if args.dictionary is not None:
+        return args.dictionary
+    schema = (plugin.get("io") or {}).get("input_schema")
+    candidate = Path(args.target).parent / schema if isinstance(schema, str) else None
+    return candidate if candidate and candidate.exists() else None
+
+
+def _run_inference(args: argparse.Namespace) -> int:
+    plugin = load_yaml(args.target) or {}
+    plan = load_plan(args.plan) if args.plan else {}
+    system = plan.get("system") or plugin.get("system") or "unknown"
+    logger = RunLogger(f"compliance/{system}", enabled=False if args.no_mlflow else None)
+    run = run_inference(
+        args.data,
+        args.out,
+        plugin_path=args.target,
+        plan_path=args.plan,
+        dictionary_path=_default_dictionary(args, plugin),
+        target_factory=lambda: load_target(
+            plugin, model_uri=args.model_uri, model_pickle=args.model_pickle, url=args.url
+        ),
+        run_logger=logger,
+        seed=args.seed,
+    )
+    print(
+        json.dumps(
+            {
+                "out": str(args.out),
+                "predictions": run["predictions"],
+                "dataset_sha256": run["dataset"]["sha256"],
+                "model": {k: run["model"][k] for k in ("uri_or_url", "kind", "version")},
+                "mlflow_run_id": run["mlflow_run_id"],
+            },
+            indent=2,
+            default=str,
+        )
+    )
+    return 0
+
+
 def _run_tests(args: argparse.Namespace) -> int:
     plugin = load_yaml(args.target) or {}
     plan = load_plan(args.plan)
     chat_only = all(t["template"] in CHAT_TEMPLATES for t in plan["tests"])
     is_chat = (plugin.get("access") or {}).get("type") == "llm_chat"
+    if args.predictions is not None and not Path(args.predictions).is_file():
+        raise SpecError(f"--predictions {args.predictions} does not exist")
 
     def target_factory():
         return load_target(
@@ -135,11 +185,8 @@ def _run_tests(args: argparse.Namespace) -> int:
 
     system = plan.get("system") or plugin.get("system") or "unknown"
     logger = RunLogger(f"compliance/{system}", enabled=False if args.no_mlflow else None)
-    dictionary = args.dictionary
-    if dictionary is None and not chat_only:
-        schema = (plugin.get("io") or {}).get("input_schema")
-        candidate = Path(args.target).parent / schema if isinstance(schema, str) else None
-        dictionary = candidate if candidate and candidate.exists() else None
+    dictionary = args.dictionary if chat_only else _default_dictionary(args, plugin)
+    live_chat = is_chat and args.predictions is None
     report = run_tests(
         args.plan,
         args.target,
@@ -148,9 +195,10 @@ def _run_tests(args: argparse.Namespace) -> int:
         card_path=args.card,
         dictionary_path=dictionary,
         target_factory=None if is_chat else target_factory,
-        chat_factory=(lambda: chat_client(plugin)) if is_chat else None,
+        chat_factory=(lambda: chat_client(plugin)) if live_chat else None,
         run_logger=logger,
         seed=args.seed,
+        predictions_path=args.predictions,
     )
     print(summary(report))
     return 1 if report["summary"]["fail"] or report["summary"]["error"] else 0
@@ -199,19 +247,44 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--out-dir", type=Path, default=Path("."))
     a.set_defaults(fn=_analyze)
 
-    r = sub.add_parser("run-tests", help="test plan → test-results.json/.md (+ MLflow runs)")
-    r.add_argument("--plan", type=Path, required=True)
-    r.add_argument("--target", type=Path, required=True, help="the plugin.yaml under test")
-    r.add_argument("--data", type=Path, help="a synthkit generate output dir")
-    r.add_argument("--card", type=Path, help="system-card.yaml (thresholds)")
-    r.add_argument("--dictionary", type=Path)
-    r.add_argument("--model-uri")
-    r.add_argument("--model-pickle", type=Path)
-    r.add_argument("--url")
-    r.add_argument("--seed", type=int, default=0)
-    r.add_argument("--no-mlflow", action="store_true", help="do not log MLflow runs")
-    r.add_argument("--out", type=Path, default=Path("results"))
-    r.set_defaults(fn=_run_tests)
+    i = sub.add_parser(
+        "run-inference", help="call the model only → predictions.parquet + run.json (no metrics)"
+    )
+    i.add_argument("--data", type=Path, required=True, help="a synthkit generate output dir")
+    i.add_argument("--target", type=Path, required=True, help="the plugin.yaml under test")
+    i.add_argument("--plan", type=Path, help="test-plan.yaml (perturbed copies, audit ids)")
+    i.add_argument("--dictionary", type=Path)
+    i.add_argument("--model-uri")
+    i.add_argument("--model-pickle", type=Path)
+    i.add_argument("--url")
+    i.add_argument("--seed", type=int, default=0)
+    i.add_argument("--no-mlflow", action="store_true", help="do not log the MLflow run")
+    i.add_argument("--out", type=Path, default=Path("inference"))
+    i.set_defaults(fn=_run_inference)
+
+    for name, help_text, replay_required in (
+        ("run-tests", "test plan → test-results.json/.md (+ MLflow runs)", False),
+        ("metrics", "run-tests replaying --predictions (no model call)", True),
+    ):
+        r = sub.add_parser(name, help=help_text)
+        r.add_argument("--plan", type=Path, required=True)
+        r.add_argument("--target", type=Path, required=True, help="the plugin.yaml under test")
+        r.add_argument("--data", type=Path, help="a synthkit generate output dir")
+        r.add_argument("--card", type=Path, help="system-card.yaml (thresholds)")
+        r.add_argument("--dictionary", type=Path)
+        r.add_argument(
+            "--predictions",
+            type=Path,
+            required=replay_required,
+            help="run-inference's predictions.parquet: replay it, call no model",
+        )
+        r.add_argument("--model-uri")
+        r.add_argument("--model-pickle", type=Path)
+        r.add_argument("--url")
+        r.add_argument("--seed", type=int, default=0)
+        r.add_argument("--no-mlflow", action="store_true", help="do not log MLflow runs")
+        r.add_argument("--out", type=Path, default=Path("results"))
+        r.set_defaults(fn=_run_tests)
     return parser
 
 

@@ -71,6 +71,10 @@ class RunLogger:
             path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
             self._mlflow.log_artifact(str(path))
 
+    def log_artifact(self, path: str | Path) -> None:
+        if self._mlflow:
+            self._mlflow.log_artifact(str(path))
+
     def end(self, status: str = "FINISHED") -> None:
         if self._mlflow:
             self._mlflow.end_run(status=status)

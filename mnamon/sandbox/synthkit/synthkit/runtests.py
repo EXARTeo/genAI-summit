@@ -44,6 +44,7 @@ from modelaccess.plugin import AccessError, access_config
 from modelaccess.rest import EndpointError, RestClient
 from modelaccess.runlog import RunLogger
 
+from synthkit.replay import ReplayTarget, file_sha256, load_run, perturbed_variant, row_keys
 from synthkit.spec import Dictionary, SpecError, load_yaml
 from synthkit.target import Target, TargetError, TargetRejected
 
@@ -212,14 +213,18 @@ class Context:
     seed: int
     target_factory: Callable[[], Target] | None
     chat_factory: Callable[[], Callable[[str], str]] | None
-    _target: Target | None = None
+    _target: Target | ReplayTarget | None = None
     _scores: dict = field(default_factory=dict)
+
+    @property
+    def replay(self) -> bool:
+        return isinstance(self._target, ReplayTarget)
 
     @property
     def output(self) -> dict:
         return (self.plugin.get("io") or {}).get("output") or {}
 
-    def target(self) -> Target:
+    def target(self) -> Target | ReplayTarget:
         if self._target is None:
             if self.target_factory is None:
                 raise TargetError("no model target for this plugin")
@@ -504,7 +509,13 @@ def t_representation(ctx: Context, test: dict) -> list[dict]:
     return out
 
 
-def t_perturbation(ctx: Context, test: dict) -> list[dict]:
+def perturbation_inputs(
+    ctx: Context, test: dict
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str], float]:
+    """(base rows, their seeded noisy copies, perturbed fields, relative noise).
+
+    Shared by ``t_perturbation`` and ``run-inference``, so the saved
+    ``perturbed:<test_id>`` predictions are exactly the copies a live run scores."""
     base = ctx.rows("base")
     if test.get("max_rows"):
         base = base.head(int(test["max_rows"]))
@@ -529,8 +540,22 @@ def t_perturbation(ctx: Context, test: dict) -> list[dict]:
         if (fields.get(f) or {}).get("type") == "integer":
             new = new.round().astype("Int64")
         noisy[f] = new
+    return base, noisy, numeric, rel
+
+
+def score_variant(
+    target: Target | ReplayTarget, frame: pd.DataFrame, variant: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Live targets score the frame; a replay target looks the variant up."""
+    if isinstance(target, ReplayTarget):
+        return target.score(frame, variant)
+    return target.score(frame)
+
+
+def t_perturbation(ctx: Context, test: dict) -> list[dict]:
+    base, noisy, numeric, rel = perturbation_inputs(ctx, test)
     s0, d0 = ctx.score(base)
-    s1, d1 = ctx.target().score(noisy)
+    s1, d1 = score_variant(ctx.target(), noisy, perturbed_variant(test["id"]))
     flips = (d0 != d1).astype(int)
     delta = np.abs(s1 - s0)
     return [
@@ -585,27 +610,44 @@ def _classify_output(out: Any, contract: dict) -> tuple[str, str]:
     return "accepted", json.dumps(shown, default=str)[:200]
 
 
+def edge_columns(target: Target | ReplayTarget, edges: pd.DataFrame) -> list[str]:
+    return target.input_columns or [c for c in edges.columns if not c.startswith("_")]
+
+
+def classify_edge(
+    target: Target, row: pd.Series, cols: list[str], contract: dict
+) -> tuple[str, str]:
+    """Score one edge row alone (raw, uncast) → (outcome, detail).
+
+    Shared by ``t_edge_cases`` and ``run-inference``."""
+    frame = row[[c for c in cols if c in row.index]].to_frame().T.infer_objects()
+    frame = frame.reset_index(drop=True)
+    edge_field = str(row.get("_edge", "")).split(":")[0]
+    try:
+        return _classify_output(target.predict_raw(frame), contract)
+    except TargetRejected as exc:
+        return "rejected", str(exc)[:200]
+    except Exception as exc:  # noqa: BLE001 - observing failures is the point
+        msg = f"{type(exc).__name__}: {exc}"
+        # A clear rejection names the offending field; anything else is a crash.
+        outcome = "rejected" if edge_field and edge_field in str(exc) else "crash"
+        return outcome, msg[:200]
+
+
 def t_edge_cases(ctx: Context, test: dict) -> list[dict]:
     edges = ctx.rows("edge")
     if edges.empty:
         return [measurement(ctx, "crash_rate", None, None, details={"error": "no edge rows"})]
     target = ctx.target()
     contract = _output_contract(ctx)
-    cols = target.input_columns or [c for c in edges.columns if not c.startswith("_")]
+    cols = edge_columns(target, edges)
     log = []
-    for _, row in edges.iterrows():
-        frame = row[[c for c in cols if c in row.index]].to_frame().T.infer_objects()
-        frame = frame.reset_index(drop=True)
-        edge_field = str(row.get("_edge", "")).split(":")[0]
-        try:
-            outcome, detail = _classify_output(target.predict_raw(frame), contract)
-        except TargetRejected as exc:
-            outcome, detail = "rejected", str(exc)[:200]
-        except Exception as exc:  # noqa: BLE001 - observing failures is the point
-            msg = f"{type(exc).__name__}: {exc}"
-            # A clear rejection names the offending field; anything else is a crash.
-            outcome = "rejected" if edge_field and edge_field in str(exc) else "crash"
-            detail = msg[:200]
+    keys = row_keys(edges)
+    for key, (_, row) in zip(keys, edges.iterrows(), strict=True):
+        if isinstance(target, ReplayTarget):
+            outcome, detail = target.edge(key)
+        else:
+            outcome, detail = classify_edge(target, row, cols, contract)
         log.append(
             {
                 "edge": row.get("_edge"),
@@ -656,6 +698,11 @@ def t_edge_cases(ctx: Context, test: dict) -> list[dict]:
 
 
 def t_accuracy(ctx: Context, test: dict) -> list[dict]:
+    if ctx.replay and test.get("eval_set"):
+        raise TargetError(
+            "accuracy on an external eval_set cannot be replayed from predictions "
+            "(run-inference scores only the generated dataset); run this test live"
+        )
     labelled = _labelled(ctx, test)
     if labelled is None:
         return [
@@ -898,16 +945,19 @@ def load_plan(path: Path) -> dict:
     return plan
 
 
-def _load_data(data_dir: Path | None) -> tuple[pd.DataFrame | None, dict]:
-    if data_dir is None:
-        return None, {}
+def dataset_file(data_dir: Path) -> Path:
     data_dir = Path(data_dir)
     for name in ("dataset.parquet", "dataset.csv"):
         if (data_dir / name).exists():
-            path = data_dir / name
-            break
-    else:
-        raise PlanError(f"no dataset.parquet / dataset.csv in {data_dir}")
+            return data_dir / name
+    raise PlanError(f"no dataset.parquet / dataset.csv in {data_dir}")
+
+
+def load_data(data_dir: Path | None) -> tuple[pd.DataFrame | None, dict]:
+    if data_dir is None:
+        return None, {}
+    data_dir = Path(data_dir)
+    path = dataset_file(data_dir)
     frame = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path)
     card_path = data_dir / "DataCard.yaml"
     card = (load_yaml(card_path) or {}) if card_path.exists() else {}
@@ -926,7 +976,10 @@ def run_tests(
     chat_factory: Callable[[], Callable[[str], str]] | None = None,
     run_logger: RunLogger | None = None,
     seed: int = 0,
+    predictions_path: Path | None = None,
 ) -> dict:
+    """Run every plan test. With ``predictions_path`` (a ``run-inference`` output) no
+    model is called: a ``ReplayTarget`` answers from the saved predictions."""
     plan = load_plan(plan_path)
     base_dir = Path(plan_path).resolve().parent
     plugin = load_yaml(plugin_path) or {}
@@ -936,7 +989,15 @@ def run_tests(
         base_dir / plan["dictionary"] if plan.get("dictionary") else None
     )
     dictionary = Dictionary.load(dict_path) if dict_path else None
-    data, data_card = _load_data(data_dir)
+    data, data_card = load_data(data_dir)
+    replay, inference = None, None
+    if predictions_path is not None:
+        run_info = load_run(predictions_path)
+        replay = ReplayTarget(predictions_path, run_info)
+        inference = _inference_block(replay, run_info, data_dir)
+        target_factory = None
+        if chat_factory is None:
+            chat_factory = _no_chat_replay
     system = plan.get("system") or plugin.get("system") or card.get("id") or "unknown"
     card_version = plan.get("card_version") or card.get("card_version")
     kb_version = plan.get("kb_version")
@@ -952,6 +1013,9 @@ def run_tests(
         target_factory,
         chat_factory,
     )
+    if replay is not None:
+        ctx._target = replay
+    predictions_sha = replay.sha256 if replay else None
     logger = run_logger or RunLogger(f"compliance/{system}")
     results = []
     for test in plan["tests"]:
@@ -966,6 +1030,9 @@ def run_tests(
                 "card_version": card_version,
                 "kb_version": kb_version,
                 "dataset_id": data_card.get("dataset_id"),
+                "audit_id": plan.get("audit_id"),
+                "obligation_id": test.get("obligation_id"),
+                "predictions_sha256": predictions_sha,
             },
         )
         try:
@@ -988,16 +1055,19 @@ def run_tests(
             ]
         test_rows = []
         for row in rows:
-            test_rows.append(
-                {
-                    "id": f"{test['id']}/{row['metric']}" if row["metric"] else test["id"],
-                    "test_id": test["id"],
-                    "template": test["template"],
-                    "requirements": list(test.get("requirements") or []),
-                    **row,
-                    "mlflow_run_id": run_id,
-                }
-            )
+            result = {
+                "id": f"{test['id']}/{row['metric']}" if row["metric"] else test["id"],
+                "test_id": test["id"],
+                "template": test["template"],
+                "requirements": list(test.get("requirements") or []),
+                **row,
+                "mlflow_run_id": run_id,
+            }
+            if test.get("obligation_id"):
+                result["obligation_id"] = test["obligation_id"]
+            if replay is not None:
+                result["predictions_sha256"] = predictions_sha
+            test_rows.append(result)
         logger.log_params(
             {
                 "template": test["template"],
@@ -1047,8 +1117,42 @@ def run_tests(
         ),
         "results": results,
     }
+    if plan.get("audit_id"):
+        report["audit_id"] = plan["audit_id"]
+    if replay is not None:
+        report["predictions_sha256"] = predictions_sha
+        report["inference"] = inference
     write_results(report, out_dir)
     return report
+
+
+def _no_chat_replay() -> Callable[[str], str]:
+    raise TargetError("chat probes cannot be replayed from predictions; run them live")
+
+
+def _inference_block(replay: ReplayTarget, run_info: dict, data_dir: Path | None) -> dict:
+    """What the replay rests on; refuses files that changed since inference."""
+    dataset = run_info.get("dataset") or {}
+    saved = run_info.get("predictions") or {}
+    if saved.get("sha256") and saved["sha256"] != replay.sha256:
+        raise PlanError(
+            f"{replay.path.name} sha256 {replay.sha256[:12]} does not match run.json "
+            f"({saved['sha256'][:12]}): the predictions file changed after inference"
+        )
+    if data_dir is not None and dataset.get("sha256"):
+        actual = file_sha256(dataset_file(Path(data_dir)))
+        if actual != dataset["sha256"]:
+            raise PlanError(
+                f"dataset sha256 {actual[:12]} differs from the one inference scored "
+                f"({dataset['sha256'][:12]}); re-run run-inference on this dataset"
+            )
+    return {
+        "predictions_sha256": replay.sha256,
+        "dataset_sha256": dataset.get("sha256"),
+        "model_version": (run_info.get("model") or {}).get("version"),
+        "mlflow_run_id": run_info.get("mlflow_run_id"),
+        "seed": run_info.get("seed"),
+    }
 
 
 def write_results(report: dict, out_dir: Path) -> None:
