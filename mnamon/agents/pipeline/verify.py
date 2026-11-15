@@ -45,6 +45,9 @@ FIXED_SPEC_KEYS = {
     "plugin": "plugin.yaml",
     "model_profile": "model-profile.json",
 }
+#: synthkit's transforms and twin modes (synthkit/spec.py).
+TRANSFORMS = ("twins", "edge_cases", "perturbation")
+TWIN_MODES = ("attribute_only", "causal", "proxy_only")
 #: Dictionary field types that form coverage / strata cells.
 CATEGORICAL_TYPES = {"category", "categorical", "boolean", "bool", "enum"}
 
@@ -74,19 +77,79 @@ def parse_spec(spec_yaml: str) -> tuple[dict[str, Any] | None, list[str]]:
     return spec, spec_problems(spec)
 
 
-def _categorical(dictionary_yaml: str | None) -> set[str] | None:
+def _dictionary_fields(dictionary_yaml: str | None) -> dict[str, Any] | None:
     try:
         data = yaml.safe_load(dictionary_yaml or "")
     except yaml.YAMLError:
         return None
     fields = (data or {}).get("fields") if isinstance(data, dict) else None
-    if not isinstance(fields, dict):
+    return fields if isinstance(fields, dict) else None
+
+
+def _categorical(dictionary_yaml: str | None) -> set[str] | None:
+    fields = _dictionary_fields(dictionary_yaml)
+    if fields is None:
         return None
     return {
         name
         for name, f in fields.items()
         if isinstance(f, dict) and str(f.get("type", "")).lower() in CATEGORICAL_TYPES
     }
+
+
+def _sanitise(spec: dict[str, Any], known: set[str], notes: list[str]) -> None:
+    """What synthkit would reject and code can fix without changing the intent."""
+    rules = spec.get("rules")
+    if isinstance(rules, list):
+        seen: set[str] = set()
+        clean = []
+        for n, rule in enumerate(rules, start=1):
+            if not isinstance(rule, dict) or not rule.get("expr"):
+                notes.append(f"rules[{n}] dropped: no expr")
+                continue
+            rid = str(rule.get("id") or "")
+            if not rid or rid in seen:
+                new = next(f"R{k}" for k in range(n, n + len(rules) + 100) if f"R{k}" not in seen)
+                notes.append(f"rule id {rid or '(none)'} -> {new} (ids must be unique)")
+                rule = {**rule, "id": new}
+                rid = new
+            if rule.get("severity", "hard") not in ("hard", "soft"):
+                rule = {**rule, "severity": "soft"}
+            seen.add(rid)
+            clean.append(rule)
+        spec["rules"] = clean
+    overrides = spec.get("fields")
+    if isinstance(overrides, dict):
+        unknown = [f for f in overrides if f not in known]
+        for f in unknown:
+            overrides.pop(f)
+        if unknown:
+            notes.append(f"fields: dropped overrides of unknown fields {unknown}")
+    transforms = spec.get("transforms")
+    if isinstance(transforms, list):
+        kept = []
+        for t in transforms:
+            if not isinstance(t, dict) or t.get("kind") not in TRANSFORMS:
+                notes.append(f"transform dropped: {t!r:.80}")
+                continue
+            if t["kind"] == "twins":
+                if t.get("attribute") not in known:
+                    notes.append(f"twins dropped: unknown attribute {t.get('attribute')!r}")
+                    continue
+                if t.get("modes"):
+                    t["modes"] = [m for m in t["modes"] if m in TWIN_MODES] or list(TWIN_MODES)
+                if t.get("proxies"):
+                    t["proxies"] = [p for p in t["proxies"] if p in known]
+            if t.get("fields"):
+                bad = [f for f in t["fields"] if f not in known]
+                t["fields"] = [f for f in t["fields"] if f in known]
+                if bad:
+                    notes.append(f"{t['kind']}: dropped unknown fields {bad}")
+                if not t["fields"]:
+                    notes.append(f"{t['kind']} dropped: no known field left")
+                    continue
+            kept.append(t)
+        spec["transforms"] = kept
 
 
 def normalise_spec(
@@ -112,6 +175,9 @@ def normalise_spec(
         if spec.get(key) != value:
             notes.append(f"{key} set to {value!r} (was {spec.get(key)!r})")
             spec[key] = value
+    fields = _dictionary_fields(dictionary_yaml)
+    if fields is not None:
+        _sanitise(spec, set(fields), notes)
     categorical = _categorical(dictionary_yaml)
     if categorical is not None:
         for block, list_key in (("coverage", "cells"), ("strata", "by")):

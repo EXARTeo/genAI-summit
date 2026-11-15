@@ -174,3 +174,32 @@ async def test_lookup_provision_reads_id_string_children_and_never_raises():
     assert "404" in text
     text = await _tool(_RegMem(), "search_regulation").ainvoke({"query": "bias"})
     assert text.startswith("search_regulation failed: RuntimeError")
+
+
+def test_spec_rule_ids_transforms_and_unknown_fields_are_repaired():
+    dictionary = yaml.safe_dump(
+        {"fields": {"sex": {"type": "category"}, "years": {"type": "integer"}}}
+    )
+    draft = yaml.safe_dump(
+        {
+            "version": 1,
+            "name": "x",
+            "n": 100,
+            "rules": [{"id": "R1", "expr": "years >= 0"}, {"id": "R1", "expr": "years < 60"}],
+            "fields": {"nope": {"provenance": "llm_assumption"}},
+            "transforms": [
+                {"kind": "twins", "attribute": "sex", "modes": ["causal", "bogus"]},
+                {"kind": "twins", "attribute": "ghost"},
+                {"kind": "perturbation", "fields": ["years", "ghost"]},
+                {"kind": "shuffle"},
+            ],
+        }
+    )
+    fixed, _ = normalise_spec(draft, dictionary)
+    spec = yaml.safe_load(fixed)
+    assert [r["id"] for r in spec["rules"]] == ["R1", "R2"]
+    assert spec["fields"] == {}
+    assert spec["transforms"] == [
+        {"kind": "twins", "attribute": "sex", "modes": ["causal"]},
+        {"kind": "perturbation", "fields": ["years"]},
+    ]
