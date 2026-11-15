@@ -356,14 +356,20 @@ async def test_change_judge_writes_artifacts_and_triggers_reruns():
         regmem=FakeRegMemory(),  # type: ignore[arg-type]
         backend=impact,  # type: ignore[arg-type]
         audit_backend=lambda aid: backend,  # type: ignore[arg-type,return-value]
+        spawn=lambda coro: coro.close(),  # the delta watcher: tests/agents/test_change_flow.py
     )
     by_system = {j.system_id: j for j in out.judgements}
     assert by_system["SYS-001"].decision == "rerun_tests"
     assert by_system["SYS-001"].affected_findings == ["F-01"]
     assert by_system["SYS-003"].decision == "new_tests_needed"
     assert by_system["SYS-001"].rerun_audit_id == "AUD-new-SYS-001"
-    (art,) = backend.artifacts
+    # SYS-001's on its latest audit, SYS-003's (no audit yet) on its re-run
+    judged = [a for a in backend.artifacts if a["kind"] == "change_judgement"]
+    assert len(judged) == 2
+    art = judged[0]
     assert art["kind"] == "change_judgement" and art["name"] == CHANGE["id"]
+    (stale,) = [a for a in backend.artifacts if a["kind"] == "finding_status"]
+    assert stale["data"]["finding"] == "F-01" and stale["data"]["status"] == "stale"
     assert art["data"]["to_kb_version"] == "2026.11.15-1"
     assert impact.started[0][1]["trigger"] == f"regchange:{CHANGE['id']}"
     ((change_id, rows, decided_by),) = impact.stored

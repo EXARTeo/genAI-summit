@@ -4,7 +4,9 @@ decision:
   type: choice
   instructions: >-
     What does `change` mean for this AI system's existing evidence (`findings`, `tests`), given
-    `impacted_requirements` and `changed_cited_provisions`?
+    the obligations of its map the change touched (`affected_obligations`),
+    `impacted_requirements` and `changed_cited_provisions`? An affected obligation with no
+    finding yet needs new tests.
   criteria:
     no_impact: >-
       The change touches no requirement the findings or tests rely on, or only its wording

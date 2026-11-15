@@ -360,11 +360,12 @@ async def test_the_change_judge_runs_through_the_decision_model(status, decided_
         backend=impact,  # type: ignore[arg-type]
         model=judge,
         audit_backend=lambda aid: backend,  # type: ignore[arg-type,return-value]
+        spawn=lambda coro: coro.close(),
     )
     (judgement,) = out.judgements
     assert judgement.decision == "rerun_tests" and judgement.decided_by == decided_by
     assert judgement.affected_findings == ["F-01"]
-    (art,) = backend.artifacts
+    (art,) = [a for a in backend.artifacts if a["kind"] == "change_judgement"]
     assert art["data"]["decided_by"] == decided_by
     assert art["data"]["decision_fallback"] is (decided_by == "gemini")
     assert impact.stored[0][2] == decided_by

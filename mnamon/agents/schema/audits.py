@@ -56,6 +56,14 @@ class ChangeJudgeIn(BaseModel):
     change: dict[str, Any] | None = Field(
         None, description="The RegChange itself (default: fetched from reg-memory by id)."
     )
+    systems: list[dict[str, Any]] | None = Field(
+        None,
+        description=(
+            "Per system {system_id, name, card, findings}: the card the obligation map is "
+            "resolved from and its current sealed findings (the backend sends them on accept)."
+        ),
+        max_length=500,
+    )
 
 
 class ChangeJudgementOut(BaseModel):
@@ -70,6 +78,10 @@ class ChangeJudgementOut(BaseModel):
     decided_by: str
     artifact_id: str | None = None
     rerun_audit_id: str | None = None
+    #: The system's applicable obligations the change touched (the focused re-run's scope).
+    affected_obligations: list[str] = Field(default_factory=list)
+    #: Old findings marked ``stale`` (sealed status events or ``finding_status`` artifacts).
+    stale_findings: list[str] = Field(default_factory=list)
 
 
 class ChangeJudgeOut(BaseModel):

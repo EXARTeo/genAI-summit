@@ -273,7 +273,7 @@ async def resolve_obligation_map(
     """The obligation map of one system at ``kb_version`` (see the module docstring)."""
     rows = catalogue if catalogue is not None else await fetch_catalogue(kb_version, regmem)
     entries = activate_rows(card, rows, on=on)
-    if iris is not None:
+    if iris:
         state, questions = iris_questions(card, entries)
         if questions:
             try:
