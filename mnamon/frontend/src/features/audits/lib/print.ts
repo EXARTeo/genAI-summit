@@ -12,13 +12,18 @@ export function printElement(el: HTMLElement, title: string): void {
     window.print();
     return;
   }
-  const styles = [
-    ...document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style'),
-  ]
-    .map((n) =>
-      n instanceof HTMLLinkElement ? `<link rel="stylesheet" href="${escapeHtml(n.href)}">` : n.outerHTML,
-    )
-    .join('\n');
+  // Inline the app's CSS rules (same-origin sheets are readable), so nothing has to load in the new window.
+  const css = [...document.styleSheets]
+    .map((sheet) => {
+      try {
+        return [...sheet.cssRules].map((r) => r.cssText).join('\n');
+      } catch {
+        return sheet.href ? `@import url("${sheet.href}");` : '';
+      }
+    })
+    .join('\n')
+    .replace(/<\/style/gi, '<\\/style');
+  const styles = `<style>${css}</style>`;
   w.document.open();
   w.document.write(`<!doctype html>
 <html lang="en" data-theme="light">
@@ -39,11 +44,23 @@ ${styles}
 <body class="bg-surface text-text"><div class="report-print-root">${el.innerHTML}</div></body>
 </html>`);
   w.document.close();
-  const go = () => {
-    w.focus();
-    w.print();
-  };
-  // Wait for the stylesheets and fonts, then print.
-  if (w.document.readyState === 'complete') setTimeout(go, 300);
-  else w.addEventListener('load', () => setTimeout(go, 300));
+  // Print only once every stylesheet has loaded (or failed, or 4 s passed) and fonts are ready:
+  // printing earlier gives an unstyled PDF.
+  const sheets = [...w.document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')].map(
+    (l) =>
+      new Promise<void>((resolve) => {
+        if (l.sheet) return resolve();
+        l.addEventListener('load', () => resolve(), { once: true });
+        l.addEventListener('error', () => resolve(), { once: true });
+      }),
+  );
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 4000));
+  void Promise.race([Promise.all(sheets), timeout])
+    .then(() =>
+      Promise.race([w.document.fonts?.ready, new Promise<void>((resolve) => setTimeout(resolve, 1500))]),
+    )
+    .then(() => {
+      w.focus();
+      w.print();
+    });
 }
