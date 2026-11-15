@@ -61,6 +61,10 @@ export function Dialog({
 export interface SheetProps extends BaseProps {
   side?: 'right' | 'left';
   width?: string;
+  /** false = no overlay and the page stays usable behind it (an inspector beside a canvas). */
+  modal?: boolean;
+  /** Return true for outside clicks that should keep it open (e.g. picking another item). */
+  keepOpenOn?: (target: HTMLElement) => boolean;
 }
 
 /** Side panel (drawer) for details and inspectors. */
@@ -75,13 +79,18 @@ export function Sheet({
   className,
   side = 'right',
   width = 'w-[min(36rem,100vw)]',
+  modal = true,
+  keepOpenOn,
 }: SheetProps) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       {trigger && <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>}
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className={overlay} />
+        {modal && <DialogPrimitive.Overlay className={overlay} />}
         <DialogPrimitive.Content
+          onInteractOutside={(e) => {
+            if (keepOpenOn && e.target instanceof HTMLElement && keepOpenOn(e.target)) e.preventDefault();
+          }}
           className={cn(
             'fixed inset-y-0 z-50 flex flex-col border-border bg-surface shadow-pop',
             side === 'right'

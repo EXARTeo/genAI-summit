@@ -111,13 +111,28 @@ function StepHeader({
   index,
   duration,
   traceId,
+  compact,
 }: {
   stage: StageDef;
   state: StepState;
   index: number;
   duration?: number;
   traceId?: string;
+  /** The title lives in a surrounding panel header: show only the position, time and trace. */
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <div className="mb-4 flex items-center gap-3 text-xs text-muted">
+        <span className="num font-medium">
+          Step {index + 1} of {STAGES.length}
+          {stage.gate && ' · Human gate'}
+        </span>
+        {state === 'done' && duration != null && <span className="num">· {formatDuration(duration)}</span>}
+        <span className="ml-auto">{state !== 'pending' && <TraceLink traceId={traceId} label="Trace" />}</span>
+      </div>
+    );
+  }
   return (
     <div className="mb-5 flex flex-wrap items-start gap-x-4 gap-y-2 border-b border-border pb-4">
       <div className="min-w-0 flex-1">
@@ -148,6 +163,8 @@ export interface ArtifactPanelProps {
   onReview?: () => void;
   /** Step facts shown under the step header (status, memory, redo history, decisions). */
   facts?: ReactNode;
+  /** false = a surrounding panel shows the step title (the side panel on the graph page). */
+  showHeader?: boolean;
 }
 
 export function ArtifactPanel({
@@ -159,6 +176,7 @@ export function ArtifactPanel({
   index = 0,
   onReview,
   facts,
+  showHeader = true,
 }: ArtifactPanelProps) {
   const list = artifactsForStage(stage, artifacts);
   const reports = stage.id === 'report' ? reportsFromArtifacts(list) : [];
@@ -267,7 +285,14 @@ export function ArtifactPanel({
         animate="animate"
         exit="exit"
       >
-        <StepHeader stage={stage} state={state} index={index} duration={duration} traceId={traceId} />
+        <StepHeader
+          stage={stage}
+          state={state}
+          index={index}
+          duration={duration}
+          traceId={traceId}
+          compact={!showHeader}
+        />
         {facts}
         {body}
       </motion.div>

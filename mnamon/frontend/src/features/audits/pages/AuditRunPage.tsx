@@ -5,7 +5,7 @@ import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { ApprovalDrawer } from '@/features/approvals/components/ApprovalDrawer';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { cn } from '@/shared/lib/utils';
-import { AnimatedNumber, Button, Card, ErrorState, PageHeader, Skeleton, StatusPill } from '@/shared/ui';
+import { AnimatedNumber, Button, Card, ErrorState, PageHeader, Sheet, Skeleton, StatusPill } from '@/shared/ui';
 import { ArtifactPanel } from '../components/ArtifactPanel';
 import { AuditPipeline } from '../components/AuditPipeline';
 import { PipelineFlow } from '../components/PipelineFlow';
@@ -26,6 +26,17 @@ import {
 } from '../lib/pipeline';
 import { auditCardVersion, auditKbVersion } from '../lib/adapters';
 import { auditLabel } from '@/shared/lib/labels';
+
+/** The step panel's width (42rem); the graph keeps the selected node clear of it. */
+const PANEL_PX = 672;
+
+const STATE_PILL = {
+  done: 'done',
+  active: 'running',
+  pending: 'pending',
+  blocked: 'failed',
+  'needs-approval': 'awaiting_approval',
+} as const;
 
 function RunSkeleton() {
   return (
@@ -64,6 +75,8 @@ export function AuditRunPage() {
   const [selected, setSelected] = useState<string | null>(pinned);
   const [follow, setFollow] = useState(!pinned);
   const [drawer, setDrawer] = useState(false);
+  // Wide screens: the picked step opens in a side panel beside the graph (a deep link opens it too).
+  const [panel, setPanel] = useState(!!pinned);
 
   // Follow the live step until the user picks one.
   const live = audit ? defaultSelectedStage(audit) : null;
@@ -78,6 +91,7 @@ export function AuditRunPage() {
     (id: string) => {
       setFollow(false);
       setSelected(id);
+      setPanel(true);
       setParams(
         (p) => {
           p.set('step', id);
@@ -221,17 +235,31 @@ export function AuditRunPage() {
               }}
             />
             <div className="px-4 pb-4">
-              <PipelineFlow audit={audit} selected={stage.id} onSelect={pick} onReview={openReview} />
+              <PipelineFlow
+                audit={audit}
+                selected={stage.id}
+                onSelect={pick}
+                onReview={openReview}
+                coveredRight={panel ? PANEL_PX : 0}
+              />
             </div>
           </Card>
-          <Card
-            className={cn(
-              'min-w-0 p-5',
-              state === 'active' && 'glow-border border-primary/30',
-              state === 'needs-approval' && 'border-warning/40',
-            )}
+          <Sheet
+            open={panel}
+            onOpenChange={setPanel}
+            modal={false}
+            keepOpenOn={(t) => !!t.closest('.react-flow__node-step, [role="dialog"]')}
+            width="w-[min(42rem,100vw)]"
+            title={
+              <span className="flex items-center gap-2">
+                {stage.label}
+                <StatusPill status={STATE_PILL[state]} />
+              </span>
+            }
+            description={stage.description}
           >
             <ArtifactPanel
+              showHeader={false}
               stage={stage}
               state={state}
               artifacts={audit.artifacts}
@@ -241,7 +269,7 @@ export function AuditRunPage() {
               onReview={() => setDrawer(true)}
               facts={<StepFacts audit={audit} stage={stage} state={state} />}
             />
-          </Card>
+          </Sheet>
         </div>
       ) : (
         <div className="grid items-start gap-4">

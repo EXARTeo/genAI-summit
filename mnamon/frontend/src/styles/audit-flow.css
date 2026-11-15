@@ -571,6 +571,42 @@
   fill: rgb(var(--warning) / 0.9);
 }
 
+/* Canvas: grab to pan; nodes fade up one after another on first paint. */
+.audit-flow .react-flow__pane {
+  cursor: grab;
+}
+.audit-flow .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+.audit-flow .react-flow__node-step .pg-node {
+  animation: pg-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--pg-delay, 0ms);
+}
+@keyframes pg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.audit-flow .pg-controls {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--border));
+  box-shadow: 0 8px 20px -12px rgb(var(--foreground) / 0.35);
+}
+.audit-flow .pg-controls .react-flow__controls-button {
+  width: 28px;
+  height: 28px;
+  border-bottom-color: rgb(var(--border));
+}
+.audit-flow .pg-controls .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
 /* ---- Stepper (mobile) -------------------------------------------------- */
 
 .audit-step-rail {
@@ -605,6 +641,7 @@
     animation: none;
     stroke-dasharray: none;
   }
+  .pg-node,
   .pg-node .pg-box-wrap::before,
   .pg-node .pg-box-wrap::after,
   .pg-halo {

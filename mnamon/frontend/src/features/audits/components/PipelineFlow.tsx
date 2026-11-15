@@ -3,15 +3,17 @@ import {
   Background,
   BackgroundVariant,
   BaseEdge,
+  Controls,
   EdgeLabelRenderer,
   ReactFlow,
   type Edge,
   type EdgeProps,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import { useReducedMotion } from 'framer-motion';
-import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { GRAPH, PHASES, graphLayout, graphModel } from '../lib/graph';
 import { STAGES, type StageDef, type StepState } from '../lib/pipeline';
@@ -23,7 +25,8 @@ import { GraphNode } from './pipeline_parts/GraphNode';
 // the run wrapping from the end of a phase into the next. The step that runs now wears
 // mAgenticX's sub-agent running light, and particles flow along the edge into it; a gate that
 // waits for a person does the same in amber. Redo loops arc back over the row. Drawn at
-// zoom 1 so text is its real size. Click a node (or Enter on a focused one) to open the step.
+// zoom 1 so text is its real size; drag to pan, Ctrl + scroll or pinch to zoom, the controls fit it back.
+// Click a node (or Enter on a focused one) to open the step in the side panel.
 
 type StepData = {
   stage: StageDef;
@@ -180,11 +183,14 @@ export interface PipelineFlowProps {
   selected: string;
   onSelect: (stageId: string) => void;
   onReview: () => void;
+  /** Width (px) of a side panel covering the right of the screen: the graph slides so the selected node stays in view. */
+  coveredRight?: number;
 }
 
-export function PipelineFlow({ audit, selected, onSelect, onReview }: PipelineFlowProps) {
+export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight = 0 }: PipelineFlowProps) {
   const reduced = !!useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
+  const flow = useRef<ReactFlowInstance | null>(null);
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -244,7 +250,7 @@ export function PipelineFlow({ audit, selected, onSelect, onReview }: PipelineFl
           type: 'step',
           ariaLabel: `Step ${i + 1}: ${s.label}${s.gate ? ' (human gate)' : ''}, ${STATE_WORD[states[s.id]]}. Press Enter to open.`,
           position: { x: pos.x, y: pos.y },
-          style: { width: layout.colWidth, height: pos.height },
+          style: { width: layout.colWidth, height: pos.height, ['--pg-delay' as string]: `${i * 45}ms` },
           data: {
             stage: s,
             state: states[s.id],
@@ -291,6 +297,28 @@ export function PipelineFlow({ audit, selected, onSelect, onReview }: PipelineFl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, stateKey, selected, summaries, redos.map((r) => r.count).join(), reduced, onReview]);
 
+  // With a side panel open, centre the selected node in the part of the canvas still visible;
+  // slide back to the resting view when it closes.
+  const sel = layout.positions[selected];
+  const hasSel = !!sel;
+  const selX = sel ? sel.x + layout.colWidth / 2 : 0;
+  useEffect(() => {
+    const rf = flow.current;
+    const el = wrap.current;
+    if (!rf || !el) return;
+    const duration = reduced ? 0 : 450;
+    if (!coveredRight || !hasSel) {
+      void rf.setViewport({ x: 0, y: 0, zoom: 1 }, { duration });
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const visibleRight = Math.min(rect.right, window.innerWidth - coveredRight);
+    // Step back a little so more of the graph fits beside the panel.
+    const zoom = 0.85;
+    const centre = (Math.max(visibleRight, rect.left + 160) - rect.left) / 2;
+    void rf.setViewport({ x: centre - selX * zoom, y: 0, zoom }, { duration });
+  }, [coveredRight, selected, selX, reduced, hasSel]);
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const target = e.target as HTMLElement;
@@ -318,28 +346,44 @@ export function PipelineFlow({ audit, selected, onSelect, onReview }: PipelineFl
             edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
+            onInit={(rf) => (flow.current = rf)}
             onNodeClick={(_, n) => n.type === 'step' && onSelect(n.id)}
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-            minZoom={1}
-            maxZoom={1}
+            minZoom={0.5}
+            maxZoom={1.6}
+            translateExtent={[
+              [-240 - layout.width, -160],
+              [layout.width + 240, layout.height + 160],
+            ]}
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}
             nodesFocusable
             edgesFocusable={false}
-            panOnDrag={false}
+            panOnDrag
             panOnScroll={false}
             zoomOnScroll={false}
-            zoomOnPinch={false}
+            zoomOnPinch
             zoomOnDoubleClick={false}
             preventScrolling={false}
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} />
+            <Controls
+              position="bottom-right"
+              showInteractive={false}
+              fitViewOptions={{ padding: 0.04, duration: 300 }}
+              className="pg-controls"
+            />
           </ReactFlow>
         )}
       </div>
-      <Legend />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Legend />
+        <span className="mt-3 px-1 text-[11.5px] text-muted">
+          Drag to move · Ctrl + scroll or pinch to zoom
+        </span>
+      </div>
     </div>
   );
 }
