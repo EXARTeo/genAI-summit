@@ -7,3 +7,4 @@ For every obligation in `obligations`, give the verdict its evidence supports an
 - `citations`: provision ids from the obligation's `article` or `related` only, with the brief's `kb_version`; check unsure ones with `lookup_provision`.
 - `evidence_test_ids`: the result row ids you relied on.
 - Bar: one assessment per obligation id in the brief; every number appears in `tests`.
+- `register` (when present): this system's state from earlier audits. An `open` item you assess again: say in `reasoning` whether it is still open or now fixed, and since which audit. An `accepted_risks` item was closed by a human with `close_reason`: judge it on the evidence as usual, and say so only if the verdict is worse than when it was closed.

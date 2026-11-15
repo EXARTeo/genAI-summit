@@ -82,6 +82,7 @@ from pipeline.clients import (
     SandboxRunner,
 )
 from pipeline.decision import DecisionModel, IrisClient
+from pipeline.register import annotate, load_register, register_brief
 from pipeline.scenario_review import SCENARIO_REVIEW, review_brief, review_context
 from pipeline.schemas import ScenarioReview, VerdictJudgement
 from pipeline.state import AuditState
@@ -525,6 +526,7 @@ class AuditPipeline:
             "dossier_paths": sorted(p for p in paths if p),
             "dossier_version": (audit.get("data") or {}).get("dossier_version"),
             "config_version": paths.get(f"plugins/{target_dir}/plugin.yaml"),
+            "register": await load_register(backend),
         }
         art_id = await self._artifact(
             {**state, **update},  # type: ignore[arg-type]
@@ -1471,6 +1473,7 @@ class AuditPipeline:
             "kb_version": state.get("kb_version"),
             "org_thresholds": (state.get("card") or {}).get("org_thresholds"),
             "declared_metrics": (state.get("card") or {}).get("declared_metrics"),
+            "register": register_brief(state.get("register")),
             "obligations": [
                 {
                     **{
@@ -1604,6 +1607,7 @@ class AuditPipeline:
             "data_card_limitations": ((state.get("dataset") or {}).get("data_card") or {}).get(
                 "limitations"
             ),
+            "register": register_brief(state.get("register")),
             "verdicts": [
                 {
                     "obligation_id": v["obligation_id"],
@@ -1745,6 +1749,7 @@ class AuditPipeline:
                     "citation_problems": v.get("citation_problems") or [],
                 }
             )
+        annotate(proposed, state.get("register"))  # not hashed: kept in ``data``
         # The chain starts from this audit's own genesis (audit id + pins), so identical
         # content in two audits never yields the same hash.
         genesis = hashlib.sha256(
@@ -1834,10 +1839,13 @@ class AuditPipeline:
                         "counter_arguments",
                         "needs_human",
                         "dossier_evidence",
+                        "register_status",
+                        "register_since",
                     )
                 }
                 for f in sealed
             ],
+            "register": register_brief(state.get("register")),
             "critic_overall": (state.get("critic") or {}).get("overall"),
             "analysis": {
                 k: (state.get("analysis") or {}).get(k)

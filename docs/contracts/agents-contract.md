@@ -34,6 +34,17 @@ in the background and reports through the backend's internal API):
 | `POST` | `/changes/{change_id}/judge` | `{"system_ids"?, "rerun"?, "change"?, "systems"?: [{system_id, name, card, findings}]}` | `{change_id, kb_version, impacted_requirements, judgements: [{..., affected_obligations, stale_findings, rerun_audit_id}]}`; also writes `PUT /internal/regulation/changes/{id}/judgement` on the backend |
 | `POST` | `/changes/delta/{audit_id}` | | (Re)writes the `delta_report` artifact of a finished regulation-change re-run and returns it |
 
+### Findings register (hydration)
+
+`load_context` reads `GET /internal/audits/{id}/register` (backend, same secret; best effort: missing or
+down = an empty register) into the run state `register` (`pipeline/register.py`). The assess, critic and
+report briefs carry `register` = `{note, open[], accepted_risks[] (with close_reason), resolved[]}`: open
+items must be re-tested and reported still open or fixed; human-closed items are accepted risks (not new
+gaps; only a worse verdict is reported). `seal` stamps every finding (not hashed, kept in `data`) with
+`register_status` (`new | still_open | resolved | regressed | accepted_risk | unchanged`),
+`register_since` (first audit that saw it) and `register_state_before`. The backend folds the sealed
+findings into the register when the audit goes `done` ([backend § Findings register](../services/backend-systems.md#findings-register)).
+
 ### Regulation change (plan 01 §9)
 
 The backend's accept (`POST /v1/regulation/changes/{id}/decision`, also from Telegram) activates

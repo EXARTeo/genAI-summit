@@ -5,3 +5,4 @@ From the sealed findings (final, one per obligation), write one report for the A
 - Management: a one-line headline, a traffic light per obligation (`red` = gap, `amber` = partial/inconclusive, `green` = pass, `grey` = not assessable by testing / not applicable) with a one-line note, the decisions they need to take, next steps.
 - Use only the findings and artifacts in the brief; say which thresholds are organisational. Never change a verdict.
 - Bar: an engineer can rerun every test from the report; a manager can act on the first screen.
+- Each finding's `register_status` (`new`, `still_open`, `resolved`, `regressed`, `accepted_risk`, `unchanged`) and `register`: say per obligation what changed since the earlier audits (fixed, still open since <audit>, regressed); list accepted risks with their reason, separately from new gaps.

@@ -53,6 +53,7 @@ class AuditState(TypedDict, total=False):
     dossier_paths: list[str]  # the system folder's paths (documentary evidence check)
     dossier_version: Any  # the folder version the audit locked (backend)
     config_version: Any  # the plugin.yaml version under test
+    register: list[dict[str, Any]]  # the system's findings register before this audit
     pins: dict[str, Any]  # kb_version, dossier_version, config_version, model_version, seeds
     obligation_map: list[dict[str, Any]]  # every catalogue row with its decision
     scope: list[dict[str, Any]]  # the applicable entries this audit judges

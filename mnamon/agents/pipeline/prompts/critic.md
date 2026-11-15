@@ -6,3 +6,4 @@ You are the second opinion on the proposed per-obligation verdicts. For each, bu
 - `grounds`: always, for every verdict: the checkable reason it stands or falls (metric, CI, threshold, provision). `objection`: the best argument against it.
 - `overall`: two or three sentences on the audit as a whole (strongest and weakest verdicts, what to retest).
 - Bar: one review per obligation id in the brief; no empty grounds.
+- `register` (when present): earlier audits' state. Challenge a verdict that calls an open gap fixed without a test that shows it; never reopen an accepted risk on the same evidence.

@@ -151,6 +151,10 @@ class BackendInternal:
         """``POST /internal/audits/{id}/findings``: one sealed finding (append-only)."""
         return await self._call("POST", "/findings", json=dict(finding))
 
+    async def register(self) -> dict[str, Any]:
+        """``GET /internal/audits/{id}/register``: the system's findings register."""
+        return await self._call("GET", "/register")
+
 
 class BackendImpact:
     """The backend's cross-system internal routes the impact pipeline needs."""
