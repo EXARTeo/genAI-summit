@@ -1891,7 +1891,7 @@ class AuditPipeline:
             )
         except Exception:
             logger.warning("pipeline_stage_patch_failed", "Final patch failed")
-        if state.get("change_id") and self.deps.delta is not None:
+        if (state.get("change_id") or state.get("focus")) and self.deps.delta is not None:
             try:  # a regulation-change re-run: write its delta report (survives restarts)
                 await self.deps.delta(state["audit_id"])
             except Exception:
