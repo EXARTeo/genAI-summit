@@ -277,8 +277,13 @@ def release_diff(from_version: str, to_version: str, provisions: list[str]) -> R
         {k: e[k] for k in ("id", "change", "title", "old_hash", "new_hash", "diff")}
         for e in diff_maps(old, new, "provision")
     ]
-    old_o = {o["id"]: o for o in kb.obligations(from_version)[0]}
-    new_o = {o["id"]: o for o in kb.obligations(to_version)[0]}
+
+    # A release older than the catalogue has no snapshot: its rows count as added.
+    def snapshot(version: str) -> dict[str, dict[str, Any]]:
+        items, source = kb.obligations(version)
+        return {o["id"]: o for o in items} if source == "release" else {}
+
+    old_o, new_o = snapshot(from_version), snapshot(to_version)
     changed_obligations = []
     for oid in sorted(set(old_o) | set(new_o)):
         a, b = old_o.get(oid) or {}, new_o.get(oid) or {}
