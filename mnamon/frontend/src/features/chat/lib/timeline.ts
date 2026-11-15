@@ -17,6 +17,7 @@ import {
   type AskUserAnswer,
   type AskUserQuestion,
 } from './hitl';
+import { advancePlanTimings, planSnapshotTime, type PlanStepTiming } from './planTiming';
 import type { RawEvent } from './types';
 
 export type ToolState = 'input-streaming' | 'input-available' | 'output-available' | 'output-error';
@@ -90,7 +91,11 @@ export interface SubagentBlock {
   type?: string;
   label?: string;
   description?: string;
+  /** What it was asked, in full (the sub-agent's first input, `BEFORE_AGENT_EVENT`). */
+  prompt?: string;
   namespace?: string;
+  /** The sub-agent whose `task` call started this one (nested delegation); unset for the main agent's. */
+  parentTaskId?: string;
   spawned?: boolean;
   status: SubagentStatus;
   startedAt?: number;
@@ -171,12 +176,16 @@ interface Fold {
   subFolds: Record<string, SubFold>;
   /** An approved tool re-executes under a fresh call id: merge it into the stalled step. */
   pendingRetool: (ToolPath & { name: string; subKey?: string }) | null;
+  /** `task` calls a sub-agent made (key: the nested call id): who called, and what it asked. */
+  nestedTasks: Record<string, { parentKey: string; type?: string; description?: string }>;
   counter: number;
 }
 
 export interface RunTimeline {
   blocks: TimelineBlock[];
   plan: PlanItem[] | null;
+  /** When each plan step started and finished, index-aligned with `plan` (lib/planTiming). */
+  planTimings: PlanStepTiming[];
   interrupts: Approval[];
   sources: Record<string, Source>;
   usage: RunUsage | null;
@@ -191,6 +200,7 @@ export const BRIDGE_HITL_RESOLVED = 'BRIDGE_HITL_RESOLVED';
 export const SUBAGENT_EVENT = 'SUBAGENT_EVENT';
 export const TASK_SUBAGENT = 'TASK_SUBAGENT';
 export const SUBAGENT_COMPLETED = 'SUBAGENT_COMPLETED';
+export const BEFORE_AGENT_EVENT = 'BEFORE_AGENT_EVENT';
 export const PRESENT_ARTIFACT = 'PRESENT_ARTIFACT';
 export const PLAN_SNAPSHOT = 'PLAN_SNAPSHOT';
 export const TOKEN_USAGE = 'TOKEN_USAGE';
@@ -204,6 +214,7 @@ export function createTimeline(): RunTimeline {
   return {
     blocks: [],
     plan: null,
+    planTimings: [],
     interrupts: [],
     sources: {},
     usage: null,
@@ -217,6 +228,7 @@ export function createTimeline(): RunTimeline {
       namespaceToKey: {},
       subFolds: {},
       pendingRetool: null,
+      nestedTasks: {},
       counter: 0,
     },
   };
@@ -492,7 +504,33 @@ function ensureSubagent(state: RunTimeline, key: string, at?: number): SubagentB
   };
   pushStandalone(state, block, at);
   state.fold.subagentIndexByKey[key] = state.blocks.length - 1;
+  const nested = state.fold.nestedTasks?.[key];
+  if (nested) applyNestedTask(block, nested);
   return block;
+}
+
+/** A nested sub-agent learns who delegated to it and what it was asked. */
+function applyNestedTask(
+  block: SubagentBlock,
+  nested: { parentKey: string; type?: string; description?: string },
+) {
+  block.parentTaskId ||= nested.parentKey;
+  block.type ||= nested.type;
+  block.label ||= toTitleCase(nested.type);
+  block.description ||= nested.description;
+}
+
+/** A sub-agent returned (`SUBAGENT_COMPLETED`, top level or inside its parent's envelope). */
+function applySubagentCompleted(state: RunTimeline, v: Record<string, unknown>, at?: number) {
+  const taskId = str(v.task_id);
+  const ns = Array.isArray(v.namespace) ? v.namespace.map(String).join(' / ') : '';
+  const key = (ns && state.fold.namespaceToKey[ns]) || taskId;
+  const index = key ? state.fold.subagentIndexByKey[key] : undefined;
+  if (index === undefined) return;
+  const block = state.blocks[index] as SubagentBlock;
+  block.status = v.status === 'error' || v.status === 'failed' ? 'failed' : 'done';
+  block.startedAt = num(v.started_at) ?? block.startedAt;
+  block.endedAt = num(v.ended_at) ?? at;
 }
 
 function applySubagentEvent(state: RunTimeline, value: unknown, at?: number) {
@@ -519,11 +557,32 @@ function applySubagentEvent(state: RunTimeline, value: unknown, at?: number) {
   const innerAt = ts(inner) ?? at;
   const type = inner.type;
   if (type === 'CUSTOM') {
+    const value = rec(inner.value);
     if (inner.name === HITL_INTERRUPT) {
       const approval = pushInterrupt(state, inner.value, key);
       if (approval) {
         block.status = 'awaiting_approval';
         placeInterrupt(state, scope, approval, innerAt);
+      }
+    } else if (inner.name === TASK_SUBAGENT) {
+      // This sub-agent delegated in turn: remember the call for the nested block it starts.
+      const nestedId = str(value.task_id);
+      if (!nestedId || nestedId === key) return;
+      const nested = {
+        parentKey: key,
+        type: str(value.subagent_type),
+        description: str(value.description),
+      };
+      state.fold.nestedTasks = { ...(state.fold.nestedTasks ?? {}), [nestedId]: nested };
+      const nestedIndex = state.fold.subagentIndexByKey[nestedId];
+      if (nestedIndex !== undefined) applyNestedTask(state.blocks[nestedIndex] as SubagentBlock, nested);
+    } else if (inner.name === SUBAGENT_COMPLETED) {
+      applySubagentCompleted(state, value, innerAt);
+    } else if (inner.name === BEFORE_AGENT_EVENT) {
+      const prompt = str(value.message);
+      if (prompt) {
+        block.prompt ||= prompt;
+        block.description ||= prompt;
       }
     }
     return;
@@ -605,17 +664,9 @@ function applyCustom(state: RunTimeline, name: string, value: unknown, event: Ra
       block.description ||= str(v.description);
       return;
     }
-    case SUBAGENT_COMPLETED: {
-      const taskId = str(v.task_id);
-      const ns = Array.isArray(v.namespace) ? v.namespace.map(String).join(' / ') : '';
-      const key = (ns && state.fold.namespaceToKey[ns]) || taskId;
-      const index = key ? state.fold.subagentIndexByKey[key] : undefined;
-      if (index === undefined) return;
-      const block = state.blocks[index] as SubagentBlock;
-      block.status = v.status === 'error' || v.status === 'failed' ? 'failed' : 'done';
-      block.endedAt = at;
+    case SUBAGENT_COMPLETED:
+      applySubagentCompleted(state, v, at);
       return;
-    }
     case PRESENT_ARTIFACT: {
       const filename = str(v.filename);
       if (!filename) return;
@@ -639,10 +690,12 @@ function applyCustom(state: RunTimeline, name: string, value: unknown, event: Ra
     case 'plan_snapshot': {
       const items = Array.isArray(v.items) ? v.items : Array.isArray(v.todos) ? v.todos : null;
       if (!items) return;
-      state.plan = items
+      const next = items
         .map((it) => rec(it))
         .filter((it) => str(it.content))
         .map((it) => ({ content: String(it.content), status: str(it.status) ?? 'pending' }));
+      state.planTimings = advancePlanTimings(state.plan, state.planTimings, next, planSnapshotTime(v, event));
+      state.plan = next;
       return;
     }
     case TOKEN_USAGE: {
