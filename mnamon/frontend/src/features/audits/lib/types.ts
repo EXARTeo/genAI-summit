@@ -14,7 +14,13 @@ export type ArtifactKind =
   | 'test_result'
   | 'finding'
   | 'critic'
-  | 'report';
+  | 'report'
+  | 'pins'
+  | 'obligation_map'
+  | 'inference'
+  | 'analysis'
+  | 'verdicts'
+  | 'seal';
 
 export type ArtifactStatus = 'proposed' | 'approved' | 'rejected' | 'changes_requested' | 'superseded';
 export type Decision = 'approved' | 'rejected' | 'changes_requested';

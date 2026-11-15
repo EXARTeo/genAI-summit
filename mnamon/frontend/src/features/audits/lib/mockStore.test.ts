@@ -22,7 +22,7 @@ describe('mock audit store', () => {
       reasonCategory: 'other',
     })!;
     expect(res.approval.decision).toBe('approved');
-    expect(mockGet('aud-sys001-r3')!).toMatchObject({ status: 'running', stage: 'run_tests' });
+    expect(mockGet('aud-sys001-r3')!).toMatchObject({ status: 'running', stage: 'run_inference' });
     vi.advanceTimersByTime(60_000);
     const done = mockGet('aud-sys001-r3')!;
     expect(done.status).toBe('done');

@@ -10,7 +10,7 @@ import {
   type GapRow,
   type SealedFinding,
 } from './findings';
-import { STAGES } from './pipeline';
+import { STAGES, stageIndex } from './pipeline';
 import type { Artifact, AuditDetail, ReportData, Traffic } from './types';
 
 export interface ExtraSection {
@@ -180,7 +180,7 @@ export function reportModel(audit: AuditDetail, findings: SealedFinding[]): Repo
 
   // A failed audit with no incomplete report: say what ran and where it stopped.
   if (!incomplete && audit.status === 'failed') {
-    const at = STAGES.findIndex((s) => s.id === audit.stage);
+    const at = stageIndex(audit.stage);
     incomplete = {
       reason: str(audit.data.error) ?? 'The pipeline stopped before the report.',
       ran: at > 0 ? STAGES.slice(0, at).map((s) => s.label) : [],

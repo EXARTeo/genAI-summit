@@ -9,6 +9,9 @@ import {
   FlaskConical,
   Gauge,
   Hand,
+  Lock,
+  Pin,
+  Scale,
   Layers,
   ListChecks,
   Microscope,
@@ -36,6 +39,8 @@ import type { AuditDetail } from './types';
 
 export const STEP_ICON: Record<string, LucideIcon> = {
   load_context: BookOpenCheck,
+  pin: Pin,
+  ground_obligations: Scale,
   profile_model: Gauge,
   plan_scenarios: ListChecks,
   analyse_scenarios: ScanSearch,
@@ -45,15 +50,19 @@ export const STEP_ICON: Record<string, LucideIcon> = {
   generate_data: Layers,
   analyse_datasets: BarChart3,
   approve_datasets: Hand,
-  run_tests: FlaskConical,
-  analyse: Microscope,
+  run_inference: FlaskConical,
+  analyse_results: Microscope,
+  assess_obligations: Scale,
   critic: Swords,
+  seal: Lock,
   report: FileText,
 };
 
 /** Shown before a step has produced anything. */
 export const STEP_HINT: Record<string, string> = {
   load_context: 'System card, plugins, requirements',
+  pin: 'Model, regulation and data versions',
+  ground_obligations: 'Obligations that apply to this system',
   profile_model: 'Sensitivity and decision boundaries',
   plan_scenarios: 'Requirements to test scenarios',
   analyse_scenarios: 'Coverage check and relevance review',
@@ -63,9 +72,11 @@ export const STEP_HINT: Record<string, string> = {
   generate_data: 'Synthetic rows and twins',
   analyse_datasets: 'Five quality gates',
   approve_datasets: 'You approve the synthetic data',
-  run_tests: 'Sandbox, one MLflow run per test',
-  analyse: 'Findings with counter-evidence',
+  run_inference: 'The pinned model scores the data',
+  analyse_results: 'Metrics computed in the sandbox',
+  assess_obligations: 'A verdict per obligation',
   critic: 'Tries to overturn each finding',
+  seal: 'Findings locked, read-only',
   report: 'Engineer and management reports',
 };
 
@@ -148,24 +159,56 @@ export function stepSummary(stageId: string, audit: AuditDetail): string | undef
     }
     case 'approve_datasets':
       return decision('datasets');
-    case 'run_tests': {
+    case 'pin': {
+      const p = data('pins') as { model_version?: string; kb_version?: string } | undefined;
+      if (!p) return undefined;
+      return [p.model_version && `model v${p.model_version}`, p.kb_version && `kb ${p.kb_version}`]
+        .filter(Boolean)
+        .join(' · ');
+    }
+    case 'ground_obligations': {
+      const yaml = (data('obligation_map') as { yaml?: string } | undefined)?.yaml;
+      if (typeof yaml !== 'string') return undefined;
+      const total = (yaml.match(/obligation_id:/g) ?? []).length;
+      const applicable = (yaml.match(/applicable: true/g) ?? []).length;
+      return `${plural(total, 'obligation')} · ${applicable} apply`;
+    }
+    case 'run_inference': {
+      const run = (data('inference') as { run?: { model?: { stats?: { rows?: number; errors?: number } } } })
+        ?.run;
+      const stats = run?.model?.stats;
+      if (stats?.rows != null)
+        return `${stats.rows.toLocaleString()} predictions${stats.errors ? ` · ${stats.errors} errors` : ''}`;
       if (!data('test_result')) return undefined;
       const t = toTestResults(data('test_result'));
       if (t.summary) return `${t.summary.runs ?? 0} runs · ${t.summary.failed ?? 0} failed`;
       const failed = t.tests.filter((x) => x.passed === false).length;
       return `${plural(t.tests.length, 'test')}${failed ? ` · ${failed} failed` : ''}`;
     }
-    case 'analyse': {
+    case 'analyse_results': {
+      const code = (data('analysis') as { code?: unknown[] } | undefined)?.code;
+      return Array.isArray(code) ? `${plural(code.length, 'code run')} in the sandbox` : undefined;
+    }
+    case 'assess_obligations': {
       const f = findingsFromArtifacts(audit.artifacts);
       if (!f.length) return undefined;
-      const gaps = f.filter((x) => x.verdict === 'indicates_gap').length;
-      return `${plural(f.length, 'finding')}${gaps ? ` · ${plural(gaps, 'gap')}` : ''}`;
+      const gaps = f.filter((x) => x.verdict === 'gap' || x.verdict === 'indicates_gap').length;
+      // The UI copy of a finding labels both gap and partial as a gap ("indicates_gap").
+      return `${plural(f.length, 'finding')}${gaps ? ` · ${gaps} gap or partial` : ''}`;
     }
     case 'critic': {
       if (!data('critic')) return undefined;
       const c = toCritic(data('critic'));
       const changed = c.reviews.filter((r) => r.outcome !== 'upheld').length;
       return `${plural(c.reviews.length, 'review')}${changed ? ` · ${changed} changed` : ''}`;
+    }
+    case 'seal': {
+      const seal = data('seal') as { count?: number; head_hash?: string; gaps?: unknown[] } | undefined;
+      if (!seal) return undefined;
+      const n = seal.count ?? (Array.isArray(seal.gaps) ? seal.gaps.length : undefined);
+      return [n != null && `${n} sealed`, seal.head_hash && `chain ${seal.head_hash.slice(0, 8)}`]
+        .filter(Boolean)
+        .join(' · ');
     }
     case 'report': {
       const r = reportsFromArtifacts(audit.artifacts);

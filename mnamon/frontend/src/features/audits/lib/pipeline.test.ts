@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { buildMockAudits } from './mocks';
 import {
   STAGES,
@@ -15,8 +15,8 @@ import {
 import type { Artifact } from './types';
 
 describe('stage mapping', () => {
-  it('has the 14 pipeline stages with three HITL gates', () => {
-    expect(STAGES).toHaveLength(14);
+  it('has the 18 pipeline stages with three HITL gates', () => {
+    expect(STAGES).toHaveLength(18);
     expect(STAGES.filter((s) => s.gate).map((s) => s.id)).toEqual([
       'approve_scenarios',
       'find_public_data',
@@ -43,7 +43,9 @@ describe('stage mapping', () => {
 
   it('maps artifact kinds to stages', () => {
     expect(stageForKind('generation_spec')?.id).toBe('draft_spec');
-    expect(stageForKind('finding')?.id).toBe('analyse');
+    expect(stageForKind('finding')?.id).toBe('assess_obligations');
+    expect(stageForKind('pins')?.id).toBe('pin');
+    expect(stageIndex('run_tests')).toBe(stageIndex('run_inference'));
     expect(stageForKind('unknown')).toBeUndefined();
   });
 });

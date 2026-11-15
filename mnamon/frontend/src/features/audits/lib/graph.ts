@@ -1,4 +1,4 @@
-// The engineer pipeline as a graph: three phase bands (one row of nodes each), edge states and the redo
+// The engineer pipeline as a graph: four phase bands (one row of nodes each), edge states and the redo
 // loops a gate rejection or a verifier redo leaves behind. Pure; the React Flow view is
 // components/PipelineFlow.tsx.
 import { STAGES, stepStates, type StepState } from './pipeline';
@@ -7,21 +7,30 @@ import type { AuditDetail } from './types';
 /** Phase lanes, in pipeline order; each one ends at a human gate (the last one at the report). */
 export const PHASES: { id: string; label: string; stages: string[] }[] = [
   {
+    id: 'ground',
+    label: 'Ground in the regulation',
+    stages: ['load_context', 'pin', 'ground_obligations', 'profile_model'],
+  },
+  {
     id: 'plan',
-    label: 'Understand & plan',
-    stages: ['load_context', 'profile_model', 'plan_scenarios', 'analyse_scenarios', 'approve_scenarios'],
+    label: 'Plan scenarios',
+    stages: ['plan_scenarios', 'analyse_scenarios', 'approve_scenarios'],
   },
   {
     id: 'data',
     label: 'Synthetic data',
     stages: ['find_public_data', 'draft_spec', 'generate_data', 'analyse_datasets', 'approve_datasets'],
   },
-  { id: 'test', label: 'Test & judge', stages: ['run_tests', 'analyse', 'critic', 'report'] },
+  {
+    id: 'test',
+    label: 'Test & judge',
+    stages: ['run_inference', 'analyse_results', 'assess_obligations', 'critic', 'seal', 'report'],
+  },
 ];
 
 /**
  * Graph geometry (px, drawn at zoom 1 so text is its real size). Each phase is a band with
- * one row of nodes, left to right, on a shared five-column grid; a node is an icon box with
+ * one row of nodes, left to right, on a shared six-column grid; a node is an icon box with
  * its label under it (a waiting gate adds its decision button below the label).
  */
 export const GRAPH = {
@@ -32,8 +41,8 @@ export const GRAPH = {
   action: 40,
   padBottom: 16,
   groupGap: 34,
-  columns: 5,
-  minWidth: 600,
+  columns: 6,
+  minWidth: 720,
 } as const;
 
 export function phaseOf(stageId: string): number {

@@ -11,23 +11,26 @@ const audit = real as unknown as AuditDetail;
 describe('pipeline graph', () => {
   it('places every stage exactly once, in pipeline order per row', () => {
     expect(PHASES.flatMap((p) => p.stages)).toEqual(STAGES.map((s) => s.id));
-    expect(phaseOf('approve_scenarios')).toBe(0);
-    expect(phaseOf('find_public_data')).toBe(1);
+    expect(phaseOf('pin')).toBe(0);
+    expect(phaseOf('approve_scenarios')).toBe(1);
+    expect(phaseOf('find_public_data')).toBe(2);
+    expect(phaseOf('seal')).toBe(3);
     const l = graphLayout(1100, (id) => id === 'approve_datasets');
-    expect(l.positions.load_context.y).toBe(l.positions.approve_scenarios.y);
+    expect(l.positions.load_context.y).toBe(l.positions.profile_model.y);
+    expect(l.positions.plan_scenarios.y).toBe(l.positions.approve_scenarios.y);
     expect(l.positions.find_public_data.x).toBe(l.positions.load_context.x);
     expect(l.positions.draft_spec.x).toBeCloseTo(l.positions.find_public_data.x + l.colWidth);
     expect(l.positions.find_public_data.y).toBeGreaterThan(l.positions.approve_scenarios.y);
     expect(l.positions.approve_datasets.height).toBe(GRAPH.box + GRAPH.label + GRAPH.action);
     expect(l.positions.load_context.height).toBe(GRAPH.box + GRAPH.label);
-    expect(l.height).toBe(l.groups[2].y + l.groups[2].height);
+    expect(l.height).toBe(l.groups[3].y + l.groups[3].height);
   });
 
   it('edges lead into the live step and wrap between rows', () => {
     const { edges, states } = graphModel(audit);
     expect(states.approve_datasets).toBe('needs-approval');
     expect(edges.find((e) => e.target === 'approve_datasets')?.state).toBe('waiting');
-    expect(edges.find((e) => e.target === 'run_tests')?.state).toBe('pending');
+    expect(edges.find((e) => e.target === 'run_inference')?.state).toBe('pending');
     expect(edges.find((e) => e.source === 'approve_scenarios')?.wrap).toBe(true);
     expect(edgeState('done', 'active')).toBe('live');
   });
@@ -130,6 +133,6 @@ describe('step summaries', () => {
     expect(stepSummary('load_context', audit)).toMatch(/^\d+ requirements · \d+ testable$/);
     expect(stepSummary('generate_data', audit)).toBe('3,654 rows · 3,123 twins');
     expect(stepSummary('approve_scenarios', audit)).toBe('Approved');
-    expect(stepSummary('run_tests', audit)).toBeUndefined();
+    expect(stepSummary('run_inference', audit)).toBeUndefined();
   });
 });

@@ -12,12 +12,15 @@ export const auditKeys = {
 };
 
 const isLive = (status?: string) => status === 'running' || status === 'open';
+// A gate is still a live run: an approval resumes it in the background, so keep polling or the page
+// stays on "waiting" until a manual refresh.
+const isActive = (status?: string) => isLive(status) || status === 'waiting_approval';
 
 export function useAudits(systemId?: string) {
   return useQuery({
     queryKey: auditKeys.list(systemId),
     queryFn: () => auditsApi.list(systemId),
-    refetchInterval: (q) => (q.state.data?.some((a) => isLive(a.status)) ? 4000 : 15000),
+    refetchInterval: (q) => (q.state.data?.some((a) => isActive(a.status)) ? 4000 : 15000),
   });
 }
 
@@ -27,7 +30,10 @@ export function useAudit(id: string | undefined) {
     queryKey: auditKeys.detail(id ?? ''),
     queryFn: () => auditsApi.get(id!),
     enabled: !!id,
-    refetchInterval: (q) => (isLive(q.state.data?.status) ? 1500 : false),
+    refetchInterval: (q) => {
+      const status = q.state.data?.status;
+      return isLive(status) ? 1500 : status === 'waiting_approval' ? 3000 : false;
+    },
   });
 }
 
