@@ -445,8 +445,9 @@ class TaskRunner:
                 )
             if active is not None and not active.started and strategy != "reject":
                 active.inputs.extend(inputs)
-                if active.kind != "start":
-                    await self._announce_input(task_id, inputs)
+                # Announced even when it joins the first run: the task's description holds
+                # only the original instruction, so the drill-down shows the follow-up apart.
+                await self._announce_input(task_id, inputs)
                 run = await self.store.get_run(active.run_id)
                 logger.info(
                     "async_task_update_folded",
@@ -503,7 +504,7 @@ class TaskRunner:
     async def _announce_input(self, task_id: str, inputs: Sequence[Mapping[str, Any]]) -> None:
         """Put a follow-up's instruction in the task's own stream (TASK_INPUT), so
         its drill-down shows what the parent asked, where the new run begins.
-        The first run's input is the task's description, shown already."""
+        The first run's own input is the task's description, shown already."""
         text = "\n\n".join(t for t in (_message_text(m).strip() for m in inputs) if t)
         if text:
             await self.publisher.task_event(

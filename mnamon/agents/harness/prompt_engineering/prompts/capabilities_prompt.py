@@ -108,8 +108,9 @@ _ASYNC_SUBAGENTS = """\
   - A notification is not a message from the user. Report the result in your
     own words: synthesise what it means for the user's question. Never repeat,
     quote or imitate the notification itself (its preamble, its
-    `<task-notification>` tags, its task id or its raw result). A task waiting for the user's approval is theirs to answer —
-    you cannot approve it for them, and you must not send it
+    `<task-notification>` tags, its task id or its raw result). A task
+    waiting for the user's approval is theirs to answer — you cannot approve
+    it for them, and you must not send it
     `update_async_task` to get it moving: it is not stuck. Tell the user it is
     waiting for their approval, and carry on with anything else."""
 

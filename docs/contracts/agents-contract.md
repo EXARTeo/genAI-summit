@@ -213,7 +213,7 @@ its name and its consumer names are the backend's.
 | --- | --- | --- | --- |
 | `tasks:status` | `{"event": "TASK_STARTED" \| "TASK_STATUS" \| "TASK_SETTLED", "task": TaskOut}` | `TASK_STARTED` at creation. `TASK_STATUS` on every non-settled change, including a settled task being **reopened** (clear the mirrored settle and `notified_at`). `TASK_SETTLED` on settle, and once more when a stopped task's run reports its final usage (book only the delta). | `ASYNC_TASKS_STREAMS_MAXLEN` (10 000) |
 | `tasks:outbox` | `OutboxItem` | A depth-1 task's subtree settled and the orchestrator has not been told. | same |
-| `task:{task_id}:events` | One AG-UI event, exactly as a top-level run's SSE `data:`, plus `CUSTOM TASK_INPUT {"text"}` where a follow-up's run begins | Every event of every run of the task | `ASYNC_TASKS_EVENTS_MAXLEN` (20 000). `EXPIRE ASYNC_TASKS_EVENTS_TTL_SECONDS` (3 600) after settle, `PERSIST` on reopen. |
+| `task:{task_id}:events` | One AG-UI event, exactly as a top-level run's SSE `data:`, plus `CUSTOM TASK_INPUT {"text"}` for every follow-up (where its run begins; also when it joins a first run that had not started yet) | Every event of every run of the task | `ASYNC_TASKS_EVENTS_MAXLEN` (20 000). `EXPIRE ASYNC_TASKS_EVENTS_TTL_SECONDS` (3 600) after settle, `PERSIST` on reopen. |
 
 Delivery is at least once: handle an entry idempotently, `XACK` it once handled,
 leave it pending on a database or Redis failure, and ack and log a malformed one.

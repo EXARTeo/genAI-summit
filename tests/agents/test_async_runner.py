@@ -11,6 +11,7 @@ resume; the watchdog; startup recovery.
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -34,7 +35,12 @@ from langchain_core.messages import HumanMessage
 from core.logging import get_context
 from core.settings import settings
 from harness.async_tasks import runner as runner_mod
-from harness.async_tasks.events import OUTBOX_STREAM, STATUS_STREAM, TaskStreamPublisher
+from harness.async_tasks.events import (
+    OUTBOX_STREAM,
+    STATUS_STREAM,
+    TaskStreamPublisher,
+    task_events_key,
+)
 from harness.async_tasks.runner import (
     RUN_RESTARTED,
     RUN_TIMED_OUT,
@@ -201,6 +207,14 @@ async def test_the_pending_guard_folds_a_follow_up_into_a_run_that_has_not_start
         assert await env.store.count_runs(task["task_id"]) == 1
         result = env.store.tasks[task["task_id"]]["result"]["content"]
         assert "find apples" in result and "also pears" in result
+        # The folded follow-up still shows apart in the task's own stream (its drill-down).
+        entries = await env.redis.xrange(task_events_key(task["task_id"]))
+        inputs = [
+            json.loads(fields["data"])
+            for _id, fields in entries
+            if json.loads(fields["data"]).get("name") == "TASK_INPUT"
+        ]
+        assert [event["value"]["text"] for event in inputs] == ["also pears"]
 
 
 async def test_a_follow_up_interrupts_the_active_run_and_a_settled_task_reopens():
