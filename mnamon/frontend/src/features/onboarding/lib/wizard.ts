@@ -163,6 +163,25 @@ const list = (s: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+/**
+ * The organisation's fairness and robustness policy, written into every new card (the same as
+ * the seed systems'). The audit judges metrics against these; they are the org's thresholds,
+ * not the law's, and can be edited in `system-card.yaml`. Without them every tested
+ * obligation ends `inconclusive`.
+ */
+export const ORG_THRESHOLDS = {
+  selection_rate_ratio: '>= 0.80',
+  equal_opportunity_gap: '<= 0.05',
+  counterfactual_flip_rate: '<= 0.02',
+  accuracy_gap: '<= 0.05',
+  prediction_flip_rate: '<= 0.05',
+  crash_rate: '<= 0.0',
+  nonsense_rate: '<= 0.0',
+  silent_acceptance_rate: '<= 0.10',
+  graceful_rejection_rate: '>= 0.90',
+  valid_edge_failure_rate: '<= 0.0',
+};
+
 /** The system card the PM declares (`risk_class: unclassified` until a classification is approved). */
 export function buildCard(f: WizardForm): Record<string, unknown> {
   const opt = (s: string) => s.trim() || null;
@@ -189,6 +208,7 @@ export function buildCard(f: WizardForm): Record<string, unknown> {
     vulnerable_groups: opt(f.vulnerable_groups),
     features: [...f.features],
     annex_i_product: f.safety_component ? opt(f.annex_i_product) : null,
+    org_thresholds: { ...ORG_THRESHOLDS },
     provenance: 'declared_by_pm',
   };
 }

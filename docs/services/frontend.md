@@ -252,7 +252,7 @@ API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../f
   component of an Annex I product with its law), *Documents* (dropzone; `.md/.txt/.yaml/.json` are marked
   *Read*, others *Stored, not read*), *Review* (each section with *Edit*). *Auto fill* fills the demo's
   Candidate Shortlister (parse, score, shortlist; profiling, so high risk under Annex III 4(a)) and its `system-specification.md`. **Create** = `POST /v1/systems {id, name, status: "draft",
-  data: {card}}` → `PUT .../files/system-card.yaml` (`risk_class: unclassified`, `provenance: declared_by_pm`)
+  data: {card}}` → `PUT .../files/system-card.yaml` (`risk_class: unclassified`, `provenance: declared_by_pm`, the org's default `org_thresholds`)
   → one `PUT .../files/docs/<name>` per document, in that order (a retry after a failed upload does not
   re-create the system). The success screen links to *Open and classify* (Overview) and *Hand over to the AI
   engineer: build the pipeline* (the Plugins tab's "No pipeline yet" state). Pure helpers in
