@@ -184,7 +184,7 @@ export function provisionLabel(id: string): string {
     const [, n, point, letter] = annex;
     return `Annex ${n}${point ? ` ${point}` : ''}${letter ? `(${letter})` : ''}`;
   }
-  const art = /^(AIA|OMNIBUS)\.(\d+)((?:\.[0-9a-z]+)*)$/.exec(id);
+  const art = /^(AIA|OMNIBUS)\.(\d+[a-z]?)((?:\.[0-9a-z]+)*)$/.exec(id);
   if (art) {
     const [, act, n, rest] = art;
     const parts = rest

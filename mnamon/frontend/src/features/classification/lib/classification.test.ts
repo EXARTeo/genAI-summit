@@ -75,6 +75,7 @@ describe('labels', () => {
     expect(provisionLabel('AIA.ANNEX_III.4.a')).toBe('Annex III 4(a)');
     expect(provisionLabel('AIA.6.3')).toBe('Art. 6(3)');
     expect(provisionLabel('AIA.5.1.f')).toBe('Art. 5(1)(f)');
+    expect(provisionLabel('AIA.4a.1')).toBe('Art. 4a(1)');
     expect(provisionLabel('OMNIBUS.1.12')).toBe('Omnibus Art. 1(12)');
     expect(provisionLabel('INT.demo')).toBe('INT.demo');
   });

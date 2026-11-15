@@ -269,8 +269,9 @@ API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../f
   stale / rejected → the summary with *Re-classify* (`previousId` = the stale or rejected run) and the full
   proposal on demand; failed → *Retry*. *History* opens a sheet with every run and its append-only events.
   The header shows a *proposed* / *stale* dot next to the risk badge (`ClassificationDot`). The Obligations
-  tab, when no audit has an obligation map yet, previews `GET /v1/systems/{id}/obligations` for the approved
-  (or stale) class (`ObligationsPreview`). Rows are read in camelCase (`ClassificationOut`) or snake_case;
+  tab, when no audit has an obligation map yet, previews `GET /v1/systems/{id}/obligations`: from the approved
+  (or stale) classification, else from the card's declared class (seeded systems); an unclassified card keeps
+  the "No obligation map yet" state (`ObligationsPreview`). Rows are read in camelCase (`ClassificationOut`) or snake_case;
   the `result` is the agents' snake_case `ClassificationResult` (`lib/types.ts`). Mocks
   (`mocks/handlers/classifications.ts`, `onboarding.ts`): SYS-001 approved then stale (RC-2026.11.15-1 on
   AIA.6.3), SYS-002 a `needs_human` proposal, SYS-003 unclassified, a registered CV Parser gets the
