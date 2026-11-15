@@ -193,7 +193,7 @@ bodies, typed `ApiError` (`status`, `code`, `message`, `details`, `requestId`; `
 Mock mode (`VITE_USE_MOCKS=true`): `api.ts` calls `mockFetch` instead of `fetch`; the router is lazy-loaded
 and adds 180–500 ms latency. **Add mocks by dropping a file in `src/shared/lib/mocks/handlers/` that exports
 `routes: MockRoute[]`** (`{method, path: '/v1/x/:id/files/*path', handler}`); it is picked up automatically.
-The systems mocks serve SYS-001..004 from the real seed dossiers (`fixtures/seed-cases.json`) with versioned,
+The systems mocks serve SYS-001..003 from the real seed dossiers (`fixtures/seed-cases.json`) with versioned,
 writable files. Fixture timestamps go through `mocks/time.ts` (`mockTime`), which shifts them so the newest lands
 a few minutes before page load: mock events read "x minutes ago", never "in x minutes" (`formatRelative` also
 shows any future timestamp as "just now").
@@ -239,6 +239,45 @@ sealed findings, gaps first, link to its Findings view),
 
 API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../files/{path}?format=json[&version=]`,
 `GET .../files/{path}/versions`, `GET .../events`, `PUT .../files/{path}` (multipart, or JSON `{content, reason}` for an added rule).
+
+### Register a system and risk classification (plan 02)
+
+- **Register a system** (`/systems/new`, `features/onboarding`, page `RegisterSystemView`; button on the
+  Systems table): five steps on the shared `Stepper` for the PM, documents only (no models, no pipeline):
+  *Identity* (id proposed as the next free `SYS-NNN`, checked against `SYSTEM_ID_PATTERN` and the ids in use;
+  name, organisation; how you got it: `in_house` / `as_is` / `modified`, the Art. 25 role hint), *Purpose*
+  (what it does, intended purpose, decision it informs, human oversight, profiling yes / no / not sure),
+  *Deployment and people* (countries, users, status, affected persons, vulnerable groups, switches for
+  `interacts_with_persons`, `generates_synthetic_content`, `emotion_recognition`, `biometric`, and a safety
+  component of an Annex I product with its law), *Documents* (dropzone; `.md/.txt/.yaml/.json` are marked
+  *Read*, others *Stored, not read*), *Review* (each section with *Edit*). *Fill example* fills the demo's
+  CV Parser and its `system-specification.md`. **Create** = `POST /v1/systems {id, name, status: "draft",
+  data: {card}}` → `PUT .../files/system-card.yaml` (`risk_class: unclassified`, `provenance: declared_by_pm`)
+  → one `PUT .../files/docs/<name>` per document, in that order (a retry after a failed upload does not
+  re-create the system). The success screen links to *Open and classify* (Overview) and *Hand over to the AI
+  engineer: build the pipeline* (the Plugins tab's "No pipeline yet" state). Pure helpers in
+  `onboarding/lib/wizard.ts` (tested).
+- **Risk classification** (`features/classification`): a *Risk classification* card at the top of the
+  Overview (`ClassificationPanel`): none → *Classify risk*; running → three-step progress (pre-checks,
+  classifier, verify + Iris; estimated from the clock) with elapsed time, polling every 2 s; proposed → the
+  summary (class, route, legal basis, role, classifier confidence, Iris agrees / disagrees with p, its
+  probabilities in a tooltip), a *Needs a careful human review* banner with the reasons and verifier
+  problems, the reasoning, Art. 6(3) assessment, Annex III areas considered, Art. 5 screening, transparency
+  and GPAI, counter-arguments and what would change the answer, open questions (who to ask), next steps, key
+  dates and citations (*Non-binding guidance* / *Draft* badges), with **Approve** (shows the card keys it
+  writes; optional note) and **Reject** (reason required, ≤ 2,000 chars; the next run reads it); approved /
+  stale / rejected → the summary with *Re-classify* (`previousId` = the stale or rejected run) and the full
+  proposal on demand; failed → *Retry*. *History* opens a sheet with every run and its append-only events.
+  The header shows a *proposed* / *stale* dot next to the risk badge (`ClassificationDot`). The Obligations
+  tab, when no audit has an obligation map yet, previews `GET /v1/systems/{id}/obligations` for the approved
+  (or stale) class (`ObligationsPreview`). Rows are read in camelCase (`ClassificationOut`) or snake_case;
+  the `result` is the agents' snake_case `ClassificationResult` (`lib/types.ts`). Mocks
+  (`mocks/handlers/classifications.ts`, `onboarding.ts`): SYS-001 approved then stale (RC-2026.11.15-1 on
+  AIA.6.3), SYS-002 a `needs_human` proposal, SYS-003 unclassified, a registered CV Parser gets the
+  Art. 6(3)(a) proposal after ~9 s (high risk 4(a) after a rejection).
+
+API used: `POST /v1/systems`, `GET|POST /v1/systems/{id}/classifications`, `POST .../classifications/{cid}/decision`,
+`GET /v1/systems/{id}/obligations`.
 
 ### Plugins tab
 
