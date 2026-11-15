@@ -28,6 +28,14 @@ export const auditRoutes: MockRoute[] = [
     handler: ({ params, body }) =>
       mockDecide(params.id, body as ApprovalIn) ?? Promise.reject(mockError(404, 'Audit not found')),
   },
+  // Mock audits have no sealed rows: the Findings panel falls back to their finding artifacts.
+  { method: 'GET', path: '/v1/audits/:id/findings', handler: () => [] },
+  { method: 'GET', path: '/v1/systems/:systemId/findings', handler: () => [] },
+  {
+    method: 'POST',
+    path: '/v1/audits/:id/retry',
+    handler: ({ params }) => ({ auditId: params.id, outcome: 'started', status: 'running' }),
+  },
   {
     method: 'POST',
     path: '/v1/systems/:systemId/audits',

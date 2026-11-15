@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { auditsApi } from '../handlers/audits';
+import type { AnnotationIn } from '../lib/findings';
 import type { ApprovalIn, AuditDetail } from '../lib/types';
 
 export const auditKeys = {
   all: ['audits'] as const,
   list: (systemId?: string) => ['audits', 'list', systemId ?? 'all'] as const,
   detail: (id: string) => ['audits', 'detail', id] as const,
+  findings: (id: string) => ['audits', 'findings', id] as const,
+  systemFindings: (systemId: string) => ['audits', 'system-findings', systemId] as const,
 };
 
 const isLive = (status?: string) => status === 'running' || status === 'open';
@@ -34,6 +37,46 @@ export function useDecideGate(auditId: string) {
     mutationFn: (body: ApprovalIn) => auditsApi.decide(auditId, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: auditKeys.all });
+    },
+  });
+}
+
+/** The audit's sealed findings; polls while the run is live. */
+export function useAuditFindings(id: string | undefined, live = false) {
+  return useQuery({
+    queryKey: auditKeys.findings(id ?? ''),
+    queryFn: () => auditsApi.findings(id!),
+    enabled: !!id,
+    refetchInterval: live ? 4000 : false,
+  });
+}
+
+/** A system's current (not superseded) sealed findings. */
+export function useSystemFindings(systemId: string | undefined) {
+  return useQuery({
+    queryKey: auditKeys.systemFindings(systemId ?? ''),
+    queryFn: () => auditsApi.systemFindings(systemId!),
+    enabled: !!systemId,
+  });
+}
+
+export function useRetryAudit(auditId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => auditsApi.retry(auditId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: auditKeys.all });
+    },
+  });
+}
+
+export function useAnnotateFinding(auditId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ findingId, body }: { findingId: string; body: AnnotationIn }) =>
+      auditsApi.annotate(findingId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: auditKeys.findings(auditId) });
     },
   });
 }

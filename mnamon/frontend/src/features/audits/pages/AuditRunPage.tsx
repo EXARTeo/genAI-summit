@@ -1,4 +1,4 @@
-import { ChevronRight, Hand, Play, Square } from 'lucide-react';
+import { ChevronRight, FileText, Hand, ListChecks, Play, RotateCw, Square, Workflow } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
@@ -15,14 +15,19 @@ import {
   Sheet,
   Skeleton,
   StatusPill,
+  Tabs,
+  toast,
 } from '@/shared/ui';
 import { ArtifactPanel } from '../components/ArtifactPanel';
+import { AuditPins } from '../components/AuditPins';
+import { FindingsPanel } from '../components/FindingsPanel';
+import { ReportPanel } from '../components/ReportPanel';
 import { AuditPipeline } from '../components/AuditPipeline';
 import { PipelineFlow } from '../components/PipelineFlow';
 import { StepFacts } from '../components/StepFacts';
 import { PipelineHeader, RunStatusCard, type RunChip } from '../components/pipeline_parts/PipelineHeader';
 import { TraceLink } from '../components/artifact_parts/common';
-import { useAudit } from '../hooks/useAudits';
+import { useAudit, useRetryAudit } from '../hooks/useAudits';
 import { useElementHeight } from '../hooks/useElementHeight';
 import { useReplay } from '../hooks/useReplay';
 import { TONE_CLASSES, verdictStyle } from '../lib/styling';
@@ -35,8 +40,29 @@ import {
   statusLabel,
   stepState,
 } from '../lib/pipeline';
-import { auditCardVersion, auditKbVersion } from '../lib/adapters';
 import { auditLabel } from '@/shared/lib/labels';
+
+type AuditView = 'pipeline' | 'findings' | 'report';
+const VIEWS: { id: AuditView; label: string; icon: typeof Workflow }[] = [
+  { id: 'pipeline', label: 'Pipeline', icon: Workflow },
+  { id: 'findings', label: 'Findings', icon: ListChecks },
+  { id: 'report', label: 'Report', icon: FileText },
+];
+
+/** Pipeline | Findings | Report (`?view=`). */
+function ViewTabs({ view, onChange }: { view: AuditView; onChange: (v: AuditView) => void }) {
+  return (
+    <Tabs value={view} onValueChange={(v) => onChange(v as AuditView)}>
+      <Tabs.List aria-label="Audit view" className="pg-float h-9 rounded-xl p-1">
+        {VIEWS.map(({ id, label, icon: Icon }) => (
+          <Tabs.Trigger key={id} value={id} className="h-7 rounded-lg">
+            <Icon /> {label}
+          </Tabs.Trigger>
+        ))}
+      </Tabs.List>
+    </Tabs>
+  );
+}
 
 /** The step panel's width (42rem); the graph keeps the selected node clear of it. */
 const PANEL_PX = 672;
@@ -83,6 +109,9 @@ export function AuditRunPage() {
   // `?step=<stage id>` deep-links (and pins) a step; otherwise the page follows the live step.
   const [params, setParams] = useSearchParams();
   const pinned = params.get('step');
+  const viewParam = params.get('view');
+  const view: AuditView = viewParam === 'findings' || viewParam === 'report' ? viewParam : 'pipeline';
+  const retry = useRetryAudit(auditId ?? '');
   const [selected, setSelected] = useState<string | null>(pinned);
   const [follow, setFollow] = useState(!pinned);
   const [drawer, setDrawer] = useState(false);
@@ -100,7 +129,7 @@ export function AuditRunPage() {
   // Wide screens get the pipeline graph; phones keep the vertical step list.
   const wide = useMediaQuery('(min-width: 1024px)');
   // Wide + loaded: the page becomes a full-screen canvas (the shell drops its padding).
-  const canvasPage = wide && !!audit;
+  const canvasPage = wide && !!audit && view === 'pipeline';
   useEffect(() => {
     setFullBleed(canvasPage);
     return () => setFullBleed(false);
@@ -119,6 +148,19 @@ export function AuditRunPage() {
         { replace: true },
       );
     },
+    [setParams],
+  );
+
+  const setView = useCallback(
+    (v: AuditView) =>
+      setParams(
+        (p) => {
+          if (v === 'pipeline') p.delete('view');
+          else p.set('view', v);
+          return p;
+        },
+        { replace: true },
+      ),
     [setParams],
   );
 
@@ -170,8 +212,6 @@ export function AuditRunPage() {
   const metaLine = (
     <span className="num flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs">
       <span>{audit.systemId}</span>
-      {auditKbVersion(audit) && <span>kb {auditKbVersion(audit)}</span>}
-      {auditCardVersion(audit) != null && <span>card v{auditCardVersion(audit)}</span>}
       {audit.data.trigger && audit.data.trigger !== 'manual' && (
         <span className="font-sans">Triggered by {audit.data.trigger}</span>
       )}
@@ -198,6 +238,21 @@ export function AuditRunPage() {
             Replay run
           </Button>
         ))}
+      {data?.status === 'failed' && !replaying && (
+        <Button
+          variant="primary"
+          leftIcon={<RotateCw />}
+          loading={retry.isPending}
+          onClick={() =>
+            retry.mutate(undefined, {
+              onSuccess: () => toast.success('Retrying: the pipeline re-runs the failed step'),
+              onError: (e) => toast.error(e instanceof Error ? e.message : 'Retry failed'),
+            })
+          }
+        >
+          Retry
+        </Button>
+      )}
       {waiting && !replaying && (
         <Button variant="warning" leftIcon={<Hand />} onClick={() => setDrawer(true)}>
           Review & decide
@@ -230,6 +285,29 @@ export function AuditRunPage() {
   const approvals = (
     <ApprovalDrawer auditId={audit.id} gate={gate} open={drawer && !replaying} onOpenChange={setDrawer} />
   );
+
+  const pins = <AuditPins audit={audit} />;
+  const tabs = <ViewTabs view={view} onChange={setView} />;
+
+  if (view !== 'pipeline') {
+    return (
+      <div>
+        <PageHeader
+          breadcrumbs={[{ label: 'Audits', to: '/audits' }, { label: auditLabel(audit) }]}
+          title={titleText}
+          meta={statusPill}
+          description={metaLine}
+          actions={actions}
+        />
+        <div className="-mt-2 mb-4 space-y-3">
+          {pins}
+          {tabs}
+        </div>
+        {view === 'findings' ? <FindingsPanel audit={audit} /> : <ReportPanel audit={audit} />}
+        {approvals}
+      </div>
+    );
+  }
 
   if (wide) {
     // The page is the canvas: the graph fills the whole content area; title, actions, run
@@ -269,6 +347,8 @@ export function AuditRunPage() {
               {statusPill}
             </div>
             <div className="mt-1 text-muted">{metaLine}</div>
+            <div className="mt-2">{pins}</div>
+            <div className="mt-3">{tabs}</div>
             {showSummary && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {verdicts.map(({ v, n, st }) => (
@@ -334,6 +414,10 @@ export function AuditRunPage() {
         description={metaLine}
         actions={actions}
       />
+      <div className="-mt-2 mb-4 space-y-3">
+        {pins}
+        {tabs}
+      </div>
 
       {showSummary && (
         <Card className="mb-4 grid grid-cols-2 divide-border sm:grid-cols-5 sm:divide-x">

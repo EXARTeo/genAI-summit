@@ -36,6 +36,30 @@ export const VERDICTS: Record<Verdict, VerdictStyle> = {
     tone: 'neutral',
     description: 'Needs documentation or process review, not a test.',
   },
+  pass: {
+    label: 'Pass',
+    short: 'Pass',
+    tone: 'success',
+    description: "Tested; meets the organisation's threshold with the CI fully on the right side.",
+  },
+  partial: {
+    label: 'Partial',
+    short: 'Partial',
+    tone: 'warning',
+    description: 'Tested; the CI crosses the threshold, or some subgroups fail.',
+  },
+  gap: {
+    label: 'Gap',
+    short: 'Gap',
+    tone: 'danger',
+    description: "Tested; fails the organisation's threshold.",
+  },
+  not_applicable: {
+    label: 'Not applicable',
+    short: 'N/A',
+    tone: 'neutral',
+    description: 'The obligation does not apply to this system (see the reason).',
+  },
 };
 
 export function verdictStyle(v: string): VerdictStyle {

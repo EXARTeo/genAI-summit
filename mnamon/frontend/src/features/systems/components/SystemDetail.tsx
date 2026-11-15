@@ -1,4 +1,4 @@
-import { BookText, FolderTree, Puzzle, ScrollText } from 'lucide-react';
+import { BookText, FolderTree, ListChecks, Puzzle, ScrollText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorState, Skeleton, SkeletonText, Tabs } from '@/shared/ui';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
@@ -6,6 +6,7 @@ import { useSystem } from '../hooks/useSystems';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
 import { StartAuditButton } from './StartAuditButton';
 import { FolderTab } from './detail_parts/FolderTab';
+import { ObligationsTab } from './detail_parts/ObligationsTab';
 import { OverviewTab } from './detail_parts/OverviewTab';
 import { PluginsTab } from './detail_parts/PluginsTab';
 import { RulesTab } from './detail_parts/RulesTab';
@@ -57,6 +58,9 @@ export function SystemDetail() {
               <Tabs.Trigger value="overview" className={TAB}>
                 <BookText /> Overview
               </Tabs.Trigger>
+              <Tabs.Trigger value="obligations" className={TAB}>
+                <ListChecks /> Obligations
+              </Tabs.Trigger>
               <Tabs.Trigger value="folder" className={TAB}>
                 <FolderTree /> Folder
               </Tabs.Trigger>
@@ -71,6 +75,9 @@ export function SystemDetail() {
         />
         <Tabs.Content value="overview">
           <OverviewTab system={system} />
+        </Tabs.Content>
+        <Tabs.Content value="obligations">
+          <ObligationsTab systemId={system.id} />
         </Tabs.Content>
         <Tabs.Content value="folder">
           <FolderTab systemId={system.id} />

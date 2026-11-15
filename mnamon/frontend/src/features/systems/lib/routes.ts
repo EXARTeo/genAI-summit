@@ -1,4 +1,4 @@
-export const SYSTEM_TABS = ['overview', 'folder', 'plugins', 'rules'] as const;
+export const SYSTEM_TABS = ['overview', 'obligations', 'folder', 'plugins', 'rules'] as const;
 export type SystemTab = (typeof SYSTEM_TABS)[number];
 
 export const systemRoutes = {

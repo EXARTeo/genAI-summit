@@ -73,6 +73,17 @@ export interface AuditData {
   [k: string]: unknown;
 }
 
+/** What a run pinned (plan 01 P3); `null` until the pipeline's pin step wrote it. */
+export interface AuditPins {
+  kb_version?: string | null;
+  dossier_version?: number | string | null;
+  config_version?: number | string | null;
+  model_version?: string | number | null;
+  model_uri?: string | null;
+  seeds?: unknown;
+  [k: string]: unknown;
+}
+
 export interface Audit {
   id: string;
   systemId: string;
@@ -80,6 +91,7 @@ export interface Audit {
   stage: string;
   createdBy: string | null;
   data: AuditData;
+  pins?: AuditPins | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -240,7 +252,16 @@ export interface DatasetAnalysisData {
   limitations: string[];
 }
 
-export type Verdict = 'supports_compliance' | 'indicates_gap' | 'inconclusive' | 'not_assessable_by_testing';
+export type Verdict =
+  | 'supports_compliance'
+  | 'indicates_gap'
+  | 'inconclusive'
+  | 'not_assessable_by_testing'
+  // The sealed-finding vocabulary (plan 01 §7.1).
+  | 'pass'
+  | 'partial'
+  | 'gap'
+  | 'not_applicable';
 
 export interface Finding {
   id: string;
