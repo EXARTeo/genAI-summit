@@ -38,6 +38,14 @@ _SUBAGENT_START_NODE = "PatchToolCallsMiddleware.before_agent"
 # a waiting task ends its sentence right after the id.
 _LAUNCHED_TASK_ID_RE = re.compile(r"task_id:\s*([A-Za-z0-9_-]+)")
 
+#: The ``model_provider`` LangChain stamps on a Gemini message's ``response_metadata``.
+_GEMINI_PROVIDER = "google_genai"
+# Gemini sends its thought summary as sections, each opened by a bold title line
+# (``**Checking the inventory**``), all on the same content index, so the index
+# never tells one thought from the next: the title line does.
+_THOUGHT_TITLE_RE = re.compile(r"^\s*\*\*[^*\n]+\*\*[ \t]*(?:\n|$)")
+_THOUGHT_SPLIT_RE = re.compile(r"\n(?=[ \t]*\*\*[^*\n]+\*\*[ \t]*(?:\n|$))")
+
 # A task notification deepagents pulls into a running agent's state
 # (``add_notification_metadata``): ``lc_source`` + ``lc_data``, or the
 # deprecated ``deepagents_notification`` key.
@@ -165,6 +173,17 @@ def reasoning_parts(msg: Any) -> list[tuple[str, str]]:
     return parts
 
 
+def is_gemini(msg: Any) -> bool:
+    """True for a message (chunk) a Gemini model produced (``langchain-google-genai``)."""
+    metadata = getattr(msg, "response_metadata", None)
+    return isinstance(metadata, Mapping) and metadata.get("model_provider") == _GEMINI_PROVIDER
+
+
+def thought_sections(text: str) -> list[str]:
+    """A Gemini thought summary cut into its titled sections (one step each), stripped."""
+    return [part.strip() for part in _THOUGHT_SPLIT_RE.split(text) if part.strip()]
+
+
 def _merge_parts(parts: list[tuple[str, str]]) -> list[tuple[str, str]]:
     """Join consecutive pieces of the same part."""
     merged: list[tuple[str, str]] = []
@@ -231,6 +250,7 @@ class _Thought:
     text: str = ""
     streamed: bool = False  # this model call's parts came over "messages"
     open: bool = False  # THINKING_START sent, THINKING_END not yet
+    sectioned: bool = False  # Gemini: the held text splits into one thought per titled section
 
 
 class AGUIStreamNormalizer:
@@ -436,8 +456,9 @@ class AGUIStreamNormalizer:
         if kind == "tool":
             self._on_tool_result(out, msg, label)
         elif kind == "ai":
+            sectioned = is_gemini(msg)
             for part_key, text in reasoning_parts(msg):
-                self._buffer_thought(out, namespace, label, part_key, text)
+                self._buffer_thought(out, namespace, label, part_key, text, sectioned=sectioned)
             delta = message_text(msg)
             if delta:
                 self._flush_thought(
@@ -464,6 +485,10 @@ class AGUIStreamNormalizer:
         meta = {**(metadata or {}), "namespace": label}
 
         if "__interrupt__" in payload:  # the interrupt alone
+            # The run pauses here: the actor's thinking phase is over (a resume
+            # streams through a fresh normalizer, which opens a new one).
+            self._flush_thought(out, namespace, label)
+            self._close_thinking(out, namespace, label)
             raw = payload["__interrupt__"]
             interrupt = raw[0] if isinstance(raw, (tuple, list)) and raw else raw
             value = (
@@ -574,21 +599,36 @@ class AGUIStreamNormalizer:
         return self._thoughts.setdefault(tuple(namespace or ()), _Thought())
 
     def _buffer_thought(
-        self, out: list[Event], namespace: tuple | None, label: str | None, key: str, text: str
+        self,
+        out: list[Event],
+        namespace: tuple | None,
+        label: str | None,
+        key: str,
+        text: str,
+        *,
+        sectioned: bool = False,
     ) -> None:
-        """A streamed piece of a summary part; a new part sends the one before."""
+        """A streamed piece of a summary part; a new part sends the one before.
+
+        ``sectioned`` (Gemini): a piece opening with a title line starts the next
+        thought, so the one held so far goes out now rather than at the reply.
+        """
         thought = self._thought(namespace)
-        if thought.part is not None and thought.part != key:
+        new_section = sectioned and bool(thought.text.strip()) and _THOUGHT_TITLE_RE.match(text)
+        if thought.part is not None and (thought.part != key or new_section):
             self._flush_thought(out, namespace, label)
         thought.part, thought.streamed = key, True
+        thought.sectioned = thought.sectioned or sectioned
         thought.text += text
 
     def _flush_thought(self, out: list[Event], namespace: tuple | None, label: str | None) -> None:
         """Send the part held so far as one thought (the UI shows each thought as a step)."""
         thought = self._thought(namespace)
         text, thought.part, thought.text = thought.text.strip(), None, ""
-        if text:
-            self._send_thought(out, namespace, label, text)
+        sections = thought_sections(text) if thought.sectioned else [text] if text else []
+        thought.sectioned = False
+        for section in sections:
+            self._send_thought(out, namespace, label, section)
 
     def _send_thought(
         self, out: list[Event], namespace: tuple | None, label: str | None, text: str
@@ -616,9 +656,11 @@ class AGUIStreamNormalizer:
         if thought.streamed:
             self._flush_thought(out, namespace, label)
         else:
+            sectioned = is_gemini(msg)
             for _key, text in _merge_parts(reasoning_parts(msg)):
-                if text.strip():
-                    self._send_thought(out, namespace, label, text.strip())
+                for section in thought_sections(text) if sectioned else [text.strip()]:
+                    if section:
+                        self._send_thought(out, namespace, label, section)
         thought.streamed = False
 
     # ------------------------------------------------------------ tool calls
