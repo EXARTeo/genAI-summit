@@ -39,6 +39,7 @@ from router import (
 from router.admin import router as admin_router
 from router.agents_catalog import router as agents_router
 from router.audits import router as audits_router
+from router.classifications import router as classifications_router
 from router.findings import router as findings_router
 from router.internal import router as internal_router
 from router.internal_datasets import router as internal_datasets_router
@@ -180,6 +181,7 @@ app.include_router(search_router, prefix="/v1/search", tags=["Search"])
 app.include_router(tasks_router, prefix="/v1/tasks", tags=["Tasks"])
 app.include_router(task_conversation_router, prefix="/v1/conversations", tags=["Tasks"])
 app.include_router(plugins_router, prefix="/v1/systems", tags=["Plugins"])
+app.include_router(classifications_router, prefix="/v1/systems", tags=["Classifications"])
 app.include_router(systems_router, prefix="/v1/systems", tags=["Systems"])
 app.include_router(audits_router, prefix="/v1/audits", tags=["Audits"])
 app.include_router(findings_router, prefix="/v1", tags=["Findings"])

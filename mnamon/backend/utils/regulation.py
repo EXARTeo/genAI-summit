@@ -35,6 +35,7 @@ from core.database import RegulationChangeTable, SessionLocal, SystemTable
 from core.logging import get_logger
 from core.settings import settings
 from utils.agents import internal_headers
+from utils.classifications import mark_stale_for_change
 from utils.findings import findings_out, system_findings
 
 logger = get_logger(__name__)
@@ -439,6 +440,7 @@ async def decide_change(
     if status == "accepted":
         systems = await judge_systems(db)
         row.data = {**row.data, "judge": "running", "judgeStartedAt": row.data["decidedAt"]}
+        await _stale_classifications(db, change_id, current, actor)
     await db.flush()
     logger.info(
         "reg_change_decided", "Regulation change decided", change_id=change_id, decision=status
@@ -448,6 +450,34 @@ async def decide_change(
         # judge's own write onto the row never races ours.
         start_change_judge(change_id, systems)
     return await get_change(db, change_id)
+
+
+async def _stale_classifications(
+    db: AsyncSession, change_id: str, current: dict[str, Any], actor: str
+) -> None:
+    """Approved risk classifications the change touches become ``stale`` (best effort)."""
+    stored = await db.get(RegulationChangeTable, change_id)
+    try:
+        raw = await reg_call("GET", f"/v1/changes/{change_id}")
+    except HTTPException:
+        raw = ((stored.data or {}).get("payload") if stored is not None else None) or {}
+    change = {
+        **(raw if isinstance(raw, dict) else {}),
+        "id": change_id,
+        "items": [
+            *((raw.get("items") or []) if isinstance(raw, dict) else []),
+            *({"id": p} for p in current.get("provisions") or []),
+        ],
+    }
+    try:
+        await mark_stale_for_change(db, change, actor)
+    except Exception as exc:
+        logger.warning(
+            "classification_stale_failed",
+            "Could not mark classifications stale",
+            change_id=change_id,
+            error=type(exc).__name__,
+        )
 
 
 async def override_system(

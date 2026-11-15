@@ -800,3 +800,82 @@ class FindingRegisterTable(Base):
     data = Column(_jsonb(), nullable=False, default=dict)
     created_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+
+
+# --- System classifications (migration 0008) ----------------------------------
+#
+# The risk-classification agent's proposals (plan 02 §7.2). ``status`` moves
+# along one state machine (utils/classifications.py); ``result`` is written once.
+# ``classification_events`` is append-only (same trigger as the findings): every
+# status move, decision and ``stale`` mark is a new row.
+
+
+class SystemClassificationTable(Base):
+    """One run of the risk classifier for one system, and where its proposal stands."""
+
+    __tablename__ = "system_classifications"
+
+    id = Column(String, primary_key=True)  # CLS-<SYSTEM_ID>-<YYYYMMDD>-<HHMM>[-n]
+    system_id = Column(String, ForeignKey("systems.id"), nullable=False, index=True)
+    # running | proposed | failed | approved | rejected | stale | superseded
+    status = Column(String, nullable=False)
+    kb_version = Column(String, nullable=True)
+    # {path: version} of the dossier files sent to the agent.
+    dossier_version = Column(_jsonb(), nullable=False, default=dict)
+    # The card snapshot and the document list sent (no document text).
+    input = Column(_jsonb(), nullable=False, default=dict)
+    # The ClassificationResult; NULL while running, written once.
+    result = Column(_nullable_jsonb(), nullable=True)
+    error = Column(Text, nullable=True)
+    trace_id = Column(String, nullable=True)
+    previous_id = Column(String, nullable=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+
+
+class ClassificationEventTable(Base):
+    """One move of a classification (created, proposed, approved, stale, ...); never edited."""
+
+    __tablename__ = "classification_events"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    classification_id = Column(
+        String, ForeignKey("system_classifications.id"), nullable=False, index=True
+    )
+    system_id = Column(String, nullable=False, index=True)
+    # created | proposed | failed | approved | rejected | stale | superseded
+    action = Column(String, nullable=False)
+    actor = Column(String, nullable=False)
+    reason = Column(Text, nullable=True)
+    data = Column(_jsonb(), nullable=False, default=dict)
+    at = Column(DateTime, server_default=func.now(), default=_utcnow, nullable=False)
+
+
+event.listen(
+    ClassificationEventTable.__table__,
+    "after_create",
+    DDL(
+        "CREATE OR REPLACE FUNCTION reject_append_only_change() RETURNS trigger "
+        "LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION "
+        "'% is append-only: % is not allowed', TG_TABLE_NAME, TG_OP; END; $$"
+    ).execute_if(dialect="postgresql"),
+)
+for _op in ("UPDATE", "DELETE"):
+    event.listen(
+        ClassificationEventTable.__table__,
+        "after_create",
+        DDL(
+            f"CREATE TRIGGER trg_classification_events_no_{_op.lower()} BEFORE {_op} "
+            "ON classification_events "
+            "BEGIN SELECT RAISE(ABORT, 'classification_events is append-only'); END"
+        ).execute_if(dialect="sqlite"),
+    )
+    event.listen(
+        ClassificationEventTable.__table__,
+        "after_create",
+        DDL(
+            f"CREATE TRIGGER trg_classification_events_no_{_op.lower()} BEFORE {_op} "
+            "ON classification_events FOR EACH ROW EXECUTE FUNCTION reject_append_only_change()"
+        ).execute_if(dialect="postgresql"),
+    )

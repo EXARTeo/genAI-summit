@@ -219,7 +219,7 @@ def test_migration_0006_is_in_the_single_chain():
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "core/database/migrations"))
     script = ScriptDirectory.from_config(config)
-    assert script.get_heads() == ["0007_finding_register"]
+    assert len(script.get_heads()) == 1  # one chain; the head itself moves on
     assert script.get_revision("0007_finding_register").down_revision == "0006_sealed_findings"
     source = Path(script.get_revision("0006_sealed_findings").path).read_text(encoding="utf-8")
     for needle in ("findings", "finding_annotations", "finding_status_events", "pins"):
