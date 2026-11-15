@@ -48,6 +48,8 @@ FIXED_SPEC_KEYS = {
 #: synthkit's transforms and twin modes (synthkit/spec.py).
 TRANSFORMS = ("twins", "edge_cases", "perturbation")
 TWIN_MODES = ("attribute_only", "causal", "proxy_only")
+#: Dictionary field types a perturbation can shift by a delta.
+NUMERIC_TYPES = {"integer", "int", "float", "number"}
 #: Dictionary field types that form coverage / strata cells.
 CATEGORICAL_TYPES = {"category", "categorical", "boolean", "bool", "enum"}
 
@@ -111,7 +113,11 @@ def _dictionary_rules(dictionary_yaml: str | None) -> dict[str, str]:
 
 
 def _sanitise(
-    spec: dict[str, Any], known: set[str], notes: list[str], base_rules: dict[str, str]
+    spec: dict[str, Any],
+    known: set[str],
+    notes: list[str],
+    base_rules: dict[str, str],
+    numeric: set[str] | None = None,
 ) -> None:
     """What synthkit would reject and code can fix without changing the intent.
 
@@ -165,6 +171,11 @@ def _sanitise(
                     t["modes"] = [m for m in t["modes"] if m in TWIN_MODES] or list(TWIN_MODES)
                 if t.get("proxies"):
                     t["proxies"] = [p for p in t["proxies"] if p in known]
+            if t["kind"] == "perturbation" and t.get("fields") and numeric is not None:
+                text = [f for f in t["fields"] if f in known and f not in numeric]
+                if text:
+                    notes.append(f"perturbation: dropped non-numeric fields {text}")
+                    t["fields"] = [f for f in t["fields"] if f not in text]
             if t.get("fields"):
                 bad = [f for f in t["fields"] if f not in known]
                 t["fields"] = [f for f in t["fields"] if f in known]
@@ -202,7 +213,12 @@ def normalise_spec(
             spec[key] = value
     fields = _dictionary_fields(dictionary_yaml)
     if fields is not None:
-        _sanitise(spec, set(fields), notes, _dictionary_rules(dictionary_yaml))
+        numeric = {
+            n
+            for n, f in fields.items()
+            if isinstance(f, dict) and str(f.get("type", "")).lower() in NUMERIC_TYPES
+        }
+        _sanitise(spec, set(fields), notes, _dictionary_rules(dictionary_yaml), numeric)
     categorical = _categorical(dictionary_yaml)
     if categorical is not None:
         for block, list_key in (("coverage", "cells"), ("strata", "by")):

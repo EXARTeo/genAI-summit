@@ -190,7 +190,7 @@ def test_spec_rule_ids_transforms_and_unknown_fields_are_repaired():
             "transforms": [
                 {"kind": "twins", "attribute": "sex", "modes": ["causal", "bogus"]},
                 {"kind": "twins", "attribute": "ghost"},
-                {"kind": "perturbation", "fields": ["years", "ghost"]},
+                {"kind": "perturbation", "fields": ["years", "ghost", "sex"]},
                 {"kind": "shuffle"},
             ],
         }

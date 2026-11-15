@@ -309,7 +309,7 @@ async def test_every_obligation_in_scope_gets_exactly_one_sealed_verdict():
     assert by["OBL.AIA.11.1.technical-documentation"]["verdict"] == "not_assessable_by_testing"
     assert bias["critic"]["grounds"]
     # Hash chain: each finding seals the previous one's hash.
-    assert sealed[0]["prev_hash"] is None
+    assert sealed[0]["prev_hash"].startswith("genesis:")
     assert all(b["prev_hash"] == a["hash"] for a, b in zip(sealed, sealed[1:], strict=False))
     assert all(f["hash"] == finding_hash(f, f["prev_hash"]) for f in sealed)
     # The pins are written back to the audit with the concrete model version.
@@ -322,6 +322,10 @@ async def test_every_obligation_in_scope_gets_exactly_one_sealed_verdict():
     report = next(a for a in h.backend.artifacts if a["kind"] == "report")["data"]
     assert "## Evidence register" in report["engineer_markdown"]
     assert "## Gap list" in report["engineer_markdown"]
+    assert report["gap_list"][0]["gap_id"].startswith("G-SYS-001-")
+    assert len(report["evidence_register"]) == len(scope)
+    assert "Fairness metrics" in report["bias_fairness_markdown"]
+    assert "Annex IV" in report["annex_iv_markdown"]
     analysis = next(a for a in h.backend.artifacts if a["kind"] == "analysis")["data"]
     assert analysis["mismatches"] == []
     # Metrics replayed the SAVED predictions (no regeneration, no second model call).
@@ -352,8 +356,8 @@ async def test_a_failed_node_writes_an_incomplete_report_and_keeps_the_checkpoin
         await _answer(graph, {"decision": "approved"})
     assert (await graph.aget_state(CONFIG)).next == ("run_inference",)
     report = [a for a in h.backend.artifacts if a["kind"] == "report"][-1]["data"]
-    assert report["incomplete"] and report["failed_stage"] == "run_inference"
-    assert "generate_data" in report["ran"] and "seal" in report["not_run"]
+    assert report["incomplete"]["stage"] == "run_inference"
+    assert "generate_data" in report["incomplete"]["ran"] and "seal" in report["not_run"]
     failed = h.backend.patches[-1]
     assert failed["status"] == "failed" and failed["stage"] == "run_inference"
 

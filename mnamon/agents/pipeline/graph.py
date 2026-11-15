@@ -1745,7 +1745,18 @@ class AuditPipeline:
                     "citation_problems": v.get("citation_problems") or [],
                 }
             )
-        sealed = seal_findings(proposed, str(state.get("system_id")))
+        # The chain starts from this audit's own genesis (audit id + pins), so identical
+        # content in two audits never yields the same hash.
+        genesis = hashlib.sha256(
+            json.dumps(
+                {"audit_id": state["audit_id"], "pins": state.get("pins")},
+                sort_keys=True,
+                default=str,
+            ).encode()
+        ).hexdigest()
+        sealed = seal_findings(
+            proposed, str(state.get("system_id")), prev_hash=f"genesis:{genesis}"
+        )
         problems = coverage_problems(state.get("scope") or [], sealed)
         if problems:
             raise StepFailed(f"Coverage invariant broken: {'; '.join(problems[:5])}")
@@ -1851,6 +1862,10 @@ class AuditPipeline:
             f"{data.get('engineer_markdown') or ''}\n\n{report_appendix(state)}"
         )
         data["sealed_head_hash"] = sealed[-1]["hash"] if sealed else None
+        data["gap_list"] = gap_list(sealed)
+        data["evidence_register"] = evidence_register(sealed)
+        data["bias_fairness_markdown"] = bias_fairness_markdown(state)
+        data["annex_iv_markdown"] = annex_iv_markdown(state)
         art_id = await self._artifact(state, "report", data)
         self._finish("report")
         return {**out, "report": data, "artifacts": {"report": art_id}}
@@ -1928,7 +1943,13 @@ class AuditPipeline:
                 state,
                 "report",
                 {
-                    "incomplete": True,
+                    "incomplete": {
+                        "reason": reason,
+                        "stage": stage,
+                        "ran": done,
+                        "not_run": not_run,
+                        "markdown": "\n".join(lines),
+                    },
                     "failed_stage": stage,
                     "reason": reason,
                     "ran": done,
@@ -2144,6 +2165,135 @@ def legacy_finding(finding: dict[str, Any], n: int, tests: list[dict[str, Any]])
         "prev_hash": finding.get("prev_hash"),
         "sealed": True,
     }
+
+
+def gap_list(sealed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The report's gap list (plan 01 §8): G-ids with severity, in-force date, a remediation."""
+    return [
+        {
+            "gap_id": f["gap_id"],
+            "obligation_id": f["obligation_id"],
+            "article": f.get("article"),
+            "verdict": f["verdict"],
+            "severity": f.get("severity"),
+            "in_force_date": f.get("in_force_date"),
+            "documentation_gap": f.get("documentation_gap"),
+            "remediation": str(
+                (f.get("would_change_if") or ["Review with the AI Officer and re-run the audit."])[
+                    0
+                ]
+            )[:300],
+        }
+        for f in sealed
+        if f.get("gap_id")
+    ]
+
+
+def evidence_register(sealed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every verdict -> its evidence files (sha256), MLflow runs and citations at kb_version."""
+    return [
+        {
+            "obligation_id": f["obligation_id"],
+            "verdict": f["verdict"],
+            "hash": f.get("hash"),
+            "prev_hash": f.get("prev_hash"),
+            "evidence_refs": f.get("evidence_refs") or [],
+            "citations": f.get("citations") or [],
+        }
+        for f in sealed
+    ]
+
+
+_FAIRNESS = ("cf_flip_rate", "selection_rate_ratio", "equal_opportunity_gap", "accuracy_gap")
+
+
+def bias_fairness_markdown(state: AuditState) -> str:
+    """The bias & fairness report skeleton (plan 01 §8), filled by code from the evidence."""
+    card = state.get("card") or {}
+    tests = (state.get("test_results") or {}).get("tests") or []
+    fair = [t for t in tests if str(t.get("metric") or "").startswith(_FAIRNESS)]
+    proxies = (state.get("profile") or {}).get("proxies")
+    sealed = state.get("sealed") or []
+    lines = [
+        f"# Bias and fairness report: {card.get('name') or state.get('system_id')}",
+        "",
+        "## Data and model",
+        f"- Model: {(state.get('pins') or {}).get('model', {}).get('uri')} "
+        f"(version {(state.get('pins') or {}).get('model_version')})",
+        f"- Test data: synthetic, sha256 {(state.get('dataset') or {}).get('sha256')}, "
+        f"seed {settings.pipeline.seed}",
+        f"- Protected attributes: {', '.join(card.get('protected_attributes') or []) or 'none'}",
+        "",
+        "## Bias sources",
+        f"- Proxies detected by the model profile: {json.dumps(proxies, default=str)[:400]}",
+        f"- Proxies declared by the provider: {card.get('known_proxies') or 'none'}",
+        "",
+        "## Fairness metrics (organisational thresholds, not set by the AI Act)",
+        "| Test | Metric | Value | 95% CI | Threshold | Status |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for t in fair:
+        thr = t.get("threshold") or {}
+        lines.append(
+            f"| {t.get('test_id')} | {t.get('metric')} | {t.get('value')} | {t.get('ci95')} | "
+            f"{thr.get('op') or ''} {thr.get('value') if thr.get('op') else 'none'} | "
+            f"{t.get('status')} |"
+        )
+    if not fair:
+        lines.append("| - | no fairness metric ran | - | - | - | - |")
+    lines += ["", "## Status and gaps"]
+    for f in sealed:
+        if str(f.get("article") or "").startswith(("AIA.10", "AIA.9.9", "AIA.4a")):
+            lines.append(
+                f"- {f['obligation_id']}: **{f['verdict']}** ({f.get('severity') or 'no gap'})"
+                f"{' ' + f['gap_id'] if f.get('gap_id') else ''}"
+            )
+    lines += [
+        "",
+        "## Mitigations and monitoring",
+        "- Remove or decorrelate the detected proxies, retrain, and re-run this audit.",
+        "- Monitor the flip rates and selection-rate ratios per group after release (Art. 72).",
+    ]
+    return "\n".join(lines)
+
+
+def annex_iv_markdown(state: AuditState) -> str:
+    """A draft of Annex IV §2-3 (validation and testing) from the pinned run's evidence."""
+    pins = state.get("pins") or {}
+    tests = (state.get("test_results") or {}).get("tests") or []
+    plan = state.get("test_plan") or {}
+    inference = state.get("inference") or {}
+    lines = [
+        f"# Annex IV §2-3 draft: validation and testing ({state.get('system_id')})",
+        "",
+        f"Audit {state['audit_id']}, dated {datetime.now(UTC).date().isoformat()}, "
+        f"regulation kb {pins.get('kb_version')}, dossier {pins.get('dossier_version')}.",
+        "",
+        "## Validation and testing procedures",
+        f"- {len(plan.get('tests') or [])} tests from the approved scenarios "
+        "(synthkit templates), on a synthetic dataset generated from the data dictionary.",
+        f"- Model under test: {(pins.get('model') or {}).get('uri')} version "
+        f"{pins.get('model_version')}; raw predictions saved before analysis "
+        f"(sha256 {inference.get('predictions_sha256')}).",
+        "- Metrics recomputed from the saved predictions; 95% bootstrap confidence intervals.",
+        "",
+        "## Metrics and results",
+        "| Test | Obligation | Metric | Value | 95% CI | Status | MLflow run |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for t in tests:
+        lines.append(
+            f"| {t.get('test_id')} | {t.get('obligation_id') or '-'} | {t.get('metric')} | "
+            f"{t.get('value')} | {t.get('ci95')} | {t.get('status')} | "
+            f"{str(t.get('mlflow_run_id') or '-')[:12]} |"
+        )
+    lines += [
+        "",
+        "## Test logs",
+        f"- Inference MLflow run: {inference.get('mlflow_run_id')}",
+        f"- Seeds: {pins.get('seeds')}",
+    ]
+    return "\n".join(lines)
 
 
 def report_appendix(state: AuditState) -> str:
