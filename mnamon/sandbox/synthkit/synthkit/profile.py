@@ -262,7 +262,14 @@ def run_profile(
     sensitivity: dict[str, dict] = {}
     for f in features:
         fdef = fields[f]
-        grid = _grid(fdef)
+        if fdef.get("type") in ("string", "id"):
+            # Free text (a postcode, a name): sweep real values seen in the probes, never numbers.
+            seen = [v for v in pd.unique(probes[f].dropna()) if str(v).strip()]
+            grid = seen[:5]
+            if not grid:
+                continue
+        else:
+            grid = _grid(fdef)
         frames = []
         for value in grid:
             variant = base.copy()
