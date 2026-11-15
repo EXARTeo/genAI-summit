@@ -18,7 +18,18 @@ Ids are stable and readable::
 
 Each node carries its own verbatim text only (children are separate nodes),
 ``content_hash`` = sha256 of that text, ``path``, ``valid_from`` (from the
-application dates of Art. 113, as amended) and ``amended_by``.
+application dates of Art. 113, as amended) and ``amended_by``, plus the
+``chapter_title`` / ``section_title`` headings it sits under.
+
+Parser rules that keep the structure right (``PARSER_VERSION`` 2):
+
+* An unnumbered subparagraph after the last point of a list ("Notwithstanding the
+  first subparagraph, ...") belongs to the paragraph (or article) that holds the
+  list, not to the last point. Text between two points stays with the point.
+* ``(i)`` right after ``(h)`` is the letter (i), unless the next point is ``(ii)``:
+  then it opens sub-points of (h) (Art. 5(1)(h)(i)-(iii)); same for ``(v)`` / ``(x)``.
+* Annex points numbered ``3.1.`` are their own nodes (``AIA.ANNEX_VII.3.1``).
+* Markdown heading marks are stripped from titles (``## Union legislative acts``).
 """
 
 from __future__ import annotations
@@ -27,6 +38,10 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import Any
+
+#: Bumped whenever the parser's output changes for the same input text; a release
+#: records it, so a re-parse is always a new kb release, never an edit of an old one.
+PARSER_VERSION = 2
 
 ROMAN = {"i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii"}
 # A roman numeral that is also the next letter after the given one.
@@ -39,7 +54,9 @@ RE_ANNEX = re.compile(r"^##\s+ANNEX\s+([IVXL]+)\s*$")
 RE_PARA = re.compile(r"^(\d+[a-z]?)\.(?:\s+(\S.*))?\s*$")
 RE_POINT = re.compile(r"^\((\d{1,3}[a-z]?|[a-z]{1,3})\)(?:\s+(\S.*))?\s*$")
 RE_ROW = re.compile(r"^\|\s*\((\d{1,3}[a-z]?)\)\s*\|(.*)\|\s*$")
-RE_ANNEX_SECTION = re.compile(r"^(?:Section|Part)\s+([A-Z]|\d+)(?:\s*[.—–-].*)?$")
+RE_ANNEX_SECTION = re.compile(r"^(?:Section|Part)\s+([A-Z]|\d+)(?:\s*[.—–-]\s*(.*))?$")
+RE_SUBNUM = re.compile(r"^(\d+)\.(\d+)\.(?:\s+(\S.*))?\s*$")
+RE_HEADING_MARK = re.compile(r"^#+\s*")
 RE_MARKER = re.compile(r"^▼\s*([A-Z]\d*)(\s*[—–-]+)?\s*$")
 RE_AMENDER = re.compile(r"►([A-Z]\d+)\s*\|\s*([A-Z ()]+?)\s*\(EU\)\s*(\d{4}/\d+)")
 RE_TARGET = re.compile(
@@ -69,6 +86,8 @@ class _Node:
     markers: set[str] = field(default_factory=set)
     token: str = ""  # its own number/letter
     rank: int = 1  # points: 0 = (1), 1 = (a), 2 = (i)
+    chapter_title: str | None = None
+    section_title: str | None = None
 
     def text(self) -> str:
         return "\n".join(self.lines).strip()
@@ -85,8 +104,16 @@ class _Parser:
         self.container: _Node | None = None  # article or annex
         self.block: _Node | None = None  # annex "Section A" sub-container
         self.para: _Node | None = None
+        self.sub: _Node | None = None  # annex point "3.1" under point "3"
         self.points: list[_Node] = []  # nested (1) > (a) > (i)
         self.want_title: _Node | None = None
+        self.want_heading: str | None = None  # "chapter" | "section": its title is next
+        self.chapter_title: str | None = None
+        self.section_title: str | None = None
+        # Plain lines after a point that already has text: they stay with that point if
+        # another point of the list follows, else they belong to the list's holder.
+        self.tail: list[tuple[str, str]] = []
+        self.roman_next = False  # set by parse_act's look-ahead for "(i)" after "(h)"
         self.amenders: dict[str, str] = {}
 
     # ---- helpers --------------------------------------------------------------------
@@ -102,10 +129,25 @@ class _Parser:
         self.order.append(node.id)
         return node
 
+    def _holder(self) -> _Node | None:
+        """What holds the current list of points (sub-point, paragraph, block, article)."""
+        return self.sub or self.para or self.block or self.container
+
     def _deepest(self) -> _Node | None:
         if self.points:
             return self.points[-1]
-        return self.para or self.block or self.container
+        return self._holder()
+
+    def _flush_tail(self, *, into_point: bool = False) -> None:
+        if not self.tail:
+            return
+        target = self.points[-1] if into_point and self.points else self._holder()
+        if target is not None:
+            for line, marker in self.tail:
+                target.lines.append(line)
+                if marker != "B":
+                    target.markers.add(marker)
+        self.tail = []
 
     def _child(self, parent: _Node, token: str, kind: str, label: str) -> _Node:
         return self._add(
@@ -117,6 +159,8 @@ class _Parser:
                 chapter=self.chapter,
                 section=self.section,
                 token=token,
+                chapter_title=self.chapter_title,
+                section_title=self.section_title,
             )
         )
 
@@ -124,9 +168,19 @@ class _Parser:
         node = self._deepest()
         if node is None:
             return
+        # A point that ends a line in ":" introduces its own text ("the following paragraph
+        # is added: '3. ...'"), so what follows stays with it.
+        opens = any(x.rstrip().endswith(":") for x in node.lines)
+        if node.kind == "point" and node.lines and not opens:
+            self.tail.append((line, self.marker))
+            return
         node.lines.append(line)
         if self.marker != "B":
             node.markers.add(self.marker)
+
+    def finish(self) -> None:
+        """End of the text: trailing lines go to the list's holder."""
+        self._flush_tail()
 
     # ---- line handlers -----------------------------------------------------------------
 
@@ -140,16 +194,31 @@ class _Parser:
             self.marker = m.group(1)
             return
         if m := RE_CHAPTER.match(line):
+            self._flush_tail()
             self.chapter, self.section = m.group(1), None
-            self.container = self.block = self.para = None
+            self.chapter_title = self.section_title = None
+            self.container = self.block = self.para = self.sub = None
             self.points = []
+            self.want_heading = "chapter"
             return
         if m := RE_SECTION.match(line):
+            self._flush_tail()
             self.section = m.group(1)
-            self.container = self.block = self.para = None
+            self.section_title = None
+            self.container = self.block = self.para = self.sub = None
             self.points = []
+            self.want_heading = "section"
             return
+        if self.want_heading is not None:
+            kind, self.want_heading = self.want_heading, None
+            if not line.startswith("#"):
+                if kind == "chapter":
+                    self.chapter_title = _clean_title(line)
+                else:
+                    self.section_title = _clean_title(line)
+                return
         if m := RE_ARTICLE.match(line):
+            self._flush_tail()
             art = m.group(1)
             self.container = self._add(
                 _Node(
@@ -159,15 +228,19 @@ class _Parser:
                     chapter=self.chapter,
                     section=self.section,
                     token=art,
+                    chapter_title=self.chapter_title,
+                    section_title=self.section_title,
                 )
             )
-            self.block = self.para = None
+            self.block = self.para = self.sub = None
             self.points = []
             self.want_title = self.container
             return
         if m := RE_ANNEX.match(line):
+            self._flush_tail()
             annex = m.group(1)
             self.chapter = self.section = None
+            self.chapter_title = self.section_title = None
             self.container = self._add(
                 _Node(
                     id=f"{self.instrument}.ANNEX_{annex}",
@@ -176,30 +249,44 @@ class _Parser:
                     token=annex,
                 )
             )
-            self.block = self.para = None
+            self.block = self.para = self.sub = None
             self.points = []
             self.want_title = self.container
             return
         if self.container is None:
             return  # preamble / headers before the first article
         if self.want_title is not None:
-            self.want_title.title = line
+            self.want_title.title = _clean_title(line)
             self.want_title = None
             return
         if m := RE_ROW.match(line):
             self._point(m.group(1), _row_text(m.group(2)))
             return
         if self.container.kind == "annex" and (m := RE_ANNEX_SECTION.match(line)):
+            self._flush_tail()
             self.block = self._child(self.container, m.group(1), "annex_section", "Section")
             self.block.lines.append(line)
-            self.para = None
+            if m.group(2):
+                self.block.title = _clean_title(m.group(2))
+            self.para = self.sub = None
             self.points = []
             return
+        if self.container.kind == "annex" and (m := RE_SUBNUM.match(line)):
+            self._flush_tail()
+            top = self.para if self.para is not None and self.para.token == m.group(1) else None
+            parent = top or self.block or self.container
+            self.sub = self._child(parent, m.group(2), "annex_point", "pt")
+            self.points = []
+            if m.group(3):
+                self._append(m.group(3))
+            return
         if m := RE_PARA.match(line):
+            self._flush_tail()
             parent = self.block or self.container
             kind = "annex_point" if self.container.kind == "annex" else "paragraph"
             label = "pt" if self.container.kind == "annex" else "para"
             self.para = self._child(parent, m.group(1), kind, label)
+            self.sub = None
             self.points = []
             if m.group(2):
                 self._append(m.group(2))
@@ -210,27 +297,50 @@ class _Parser:
         self._append(line)
 
     def _rank(self, token: str) -> int:
-        """0 = (1), 1 = (a), 2 = (i); "(i)" right after "(h)" is a letter."""
+        """0 = (1), 1 = (a), 2 = (i); "(i)" right after "(h)" is a letter unless "(ii)" follows."""
         if token[0].isdigit():
             return 0
         if token in ROMAN:
             letters = [p for p in self.points if p.rank == 1]
             last = letters[-1].token if letters else None
-            if last is not None and _AMBIGUOUS.get(token) != last:
+            if last is not None and (_AMBIGUOUS.get(token) != last or self.roman_next):
                 return 2
         return 1
 
     def _point(self, token: str, text: str | None) -> None:
         rank = self._rank(token)
+        if self.tail:
+            # A list that starts again ("(a)" after "(d)" and a lead-in) is a new list of
+            # the same holder, so the lead-in is the holder's text. Otherwise the text sat
+            # between two points of one list and stays with the point before.
+            if token in {"a", "1"} and any(p.rank == rank for p in self.points):
+                self.points = []
+                self._flush_tail()
+            else:
+                self._flush_tail(into_point=True)
         while self.points and self.points[-1].rank >= rank:
             self.points.pop()
-        parent = self.points[-1] if self.points else (self.para or self.block or self.container)
+        parent = self.points[-1] if self.points else self._holder()
         assert parent is not None  # noqa: S101 - feed() checked the container
         node = self._child(parent, token, "point", "pt")
         node.rank = rank
         self.points.append(node)
         if text:
             self._append(text)
+
+
+def _clean_title(line: str) -> str:
+    return RE_HEADING_MARK.sub("", line).strip()
+
+
+def _roman_lookahead(lines: list[str]) -> set[int]:
+    """Indexes of "(i)" / "(v)" / "(x)" lines whose next point is "(ii)" / "(vi)" / "(xi)"."""
+    points = [(n, m.group(1)) for n, raw in enumerate(lines) if (m := RE_POINT.match(raw.strip()))]
+    return {
+        n
+        for (n, token), (_, after) in zip(points, points[1:], strict=False)
+        if token in _AMBIGUOUS and after == token + "i"
+    }
 
 
 def _row_text(cells: str) -> str:
@@ -276,8 +386,12 @@ def _valid_from(node: _Node, instrument: str) -> tuple[str | None, dict[str, str
 def parse_act(text: str, instrument: str, *, source_doc: str | None = None) -> list[dict[str, Any]]:
     """Parse one act's extracted markdown into provision dicts, in document order."""
     parser = _Parser(instrument)
-    for line in text.splitlines():
+    lines = text.splitlines()
+    roman = _roman_lookahead(lines)
+    for n, line in enumerate(lines):
+        parser.roman_next = n in roman
         parser.feed(line)
+    parser.finish()
     out = []
     for nid in parser.order:
         node = parser.nodes[nid]
@@ -305,6 +419,10 @@ def parse_act(text: str, instrument: str, *, source_doc: str | None = None) -> l
             item["chapter"] = node.chapter
         if node.section:
             item["section"] = node.section
+        if node.chapter_title:
+            item["chapter_title"] = node.chapter_title
+        if node.section_title:
+            item["section_title"] = node.section_title
         if source_doc:
             item["source_doc"] = source_doc
         out.append(item)

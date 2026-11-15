@@ -31,7 +31,7 @@ import yaml
 from engine.catalog.loader import Catalog
 from engine.kb.corpus import CORPUS_DIR, check_corpus, load_corpus
 from engine.kb.interpretations import INTERPRETATION_KINDS, build_interpretations
-from engine.kb.parser import link_amendments, parse_act, parse_recitals
+from engine.kb.parser import PARSER_VERSION, link_amendments, parse_act, parse_recitals
 from engine.store import Store, _atomic_write, now_iso
 
 KB_VERSION_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}-\d+$")
@@ -190,7 +190,8 @@ class KnowledgeBase:
             "requirements": _sha(_dump(snap["requirements"])),
             "test_templates": _sha(_dump(snap["test_templates"])),
         }
-        content = _sha(json.dumps(hashes, sort_keys=True).encode())
+        # The parser version is part of the release identity: a re-parse is a new release.
+        content = _sha(json.dumps({**hashes, "parser": PARSER_VERSION}, sort_keys=True).encode())
         latest = self.latest_manifest()
         if latest and latest.get("content_hash") == content:
             return latest, False
@@ -212,6 +213,7 @@ class KnowledgeBase:
             "trigger": trigger,
             "parent": latest["kb_version"] if latest else None,
             "content_hash": content,
+            "parser_version": PARSER_VERSION,
             "hashes": hashes,
             "inputs": snap["inputs"],
             "counts": {
