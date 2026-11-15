@@ -17,8 +17,18 @@ known_proxies: []                    # the provider declared none (the audit sho
 components: [SYS-001.cv-parser, SYS-001.cv-ranker]
 declared_metrics:
   accuracy_vs_history: ">= 0.65"
+  accuracy: ">= 0.65"                # same promise, read by the accuracy tests
 org_thresholds:                      # the organisation's own fairness policy
   selection_rate_ratio: ">= 0.80"    # four-fifths rule
   equal_opportunity_gap: "<= 0.05"
   counterfactual_flip_rate: "<= 0.02"
+  accuracy_gap: "<= 0.05"            # worst subgroup vs the rest
+  prediction_flip_rate: "<= 0.05"    # robustness: decisions flipped by small input noise
+  group_share_gap: "<= 0.05"         # representation: test population vs declared shares
+  min_group_share: ">= 0.03"
+  crash_rate: "<= 0.0"               # invalid inputs never crash the model
+  nonsense_rate: "<= 0.0"
+  silent_acceptance_rate: "<= 0.10"
+  graceful_rejection_rate: ">= 0.90"
+  valid_edge_failure_rate: "<= 0.0"
 provenance: declared_by_human

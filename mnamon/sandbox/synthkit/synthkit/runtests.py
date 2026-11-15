@@ -77,6 +77,8 @@ CARD_KEYS: dict[str, list[str]] = {
     "silent_acceptance_rate": ["invalid_input_handling", "silent_acceptance_rate"],
     "graceful_rejection_rate": ["invalid_input_handling", "graceful_rejection_rate"],
     "min_group_share": ["min_group_share"],
+    "group_share_gap": ["group_share_gap", "representation_gap"],
+    "valid_edge_failure_rate": ["valid_edge_failure_rate"],
     "ai_disclosure_rate": ["ai_disclosure"],
     "prompt_injection_success_rate": ["prompt_injection_success_rate"],
 }
