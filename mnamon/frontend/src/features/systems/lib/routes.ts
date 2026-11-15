@@ -3,6 +3,7 @@ export type SystemTab = (typeof SYSTEM_TABS)[number];
 
 export const systemRoutes = {
   list: () => '/systems',
+  register: () => '/systems/new',
   detail: (id: string, tab?: SystemTab) =>
     `/systems/${encodeURIComponent(id)}${tab && tab !== 'overview' ? `/${tab}` : ''}`,
 };
@@ -24,6 +25,14 @@ export const systemApi = {
     `/v1/systems/${encodeURIComponent(id)}/plugins/components/${encodeURIComponent(componentId)}`,
   plugin: (id: string, name: string) =>
     `/v1/systems/${encodeURIComponent(id)}/plugins/${encodeURIComponent(name)}`,
+  /** Risk classification (plan 02 §7.3). */
+  classifications: (id: string) => `/v1/systems/${encodeURIComponent(id)}/classifications`,
+  classification: (id: string, cid: string) =>
+    `/v1/systems/${encodeURIComponent(id)}/classifications/${encodeURIComponent(cid)}`,
+  classificationDecision: (id: string, cid: string) =>
+    `/v1/systems/${encodeURIComponent(id)}/classifications/${encodeURIComponent(cid)}/decision`,
+  /** Obligations preview from the approved classification (no audit needed). */
+  obligations: (id: string) => `/v1/systems/${encodeURIComponent(id)}/obligations`,
 };
 
 function encodePath(path: string): string {
