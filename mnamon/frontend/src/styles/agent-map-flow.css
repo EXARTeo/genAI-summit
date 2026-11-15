@@ -1,0 +1,139 @@
+/* The agent map's flow view (features/chat/components/agent_map_parts/AgentMapFlow.tsx; port of
+   magenticx styles/agent-map-flow.css). React Flow's own look comes off: a transparent canvas with
+   a faint dot grid (theme/components.css --flow-*), the edges in the theme's colours by the
+   sub-agent they lead into (lit and animated into a running one, the brand colour into a finished
+   one, a red tint into a failed one), theme-styled zoom controls. Loaded with the lazy view. */
+
+.agent-map-flow.react-flow {
+  --xy-edge-stroke: rgb(var(--primary) / 0.32);
+  --xy-edge-stroke-width: 1.5;
+  --xy-controls-box-shadow: var(--shadow-soft);
+  font-family: inherit;
+  color: rgb(var(--foreground));
+}
+
+.agent-map-flow .react-flow__node {
+  cursor: default;
+  border-radius: 1rem;
+}
+
+.agent-map-flow .react-flow__node-agentSubagent {
+  cursor: pointer;
+}
+
+/* An answer is only its label (Q1) on the edge, no card; its question shows in the hover tip. */
+.agent-map-flow .react-flow__node-agentAnswer {
+  border-radius: 0.375rem;
+  cursor: zoom-in;
+}
+
+/* The hover tip: in a portal on <body>, fixed above its node, transparent to the pointer; the
+   app tooltip's colours. */
+.agent-map-flow-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 95;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 0.375rem;
+  background: rgb(var(--foreground));
+  color: rgb(var(--background));
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  animation: agent-map-flow-tip-in 0.12s ease-out;
+}
+
+.agent-map-flow-tip .tip-muted {
+  color: rgb(var(--background) / 0.7);
+}
+
+@keyframes agent-map-flow-tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.agent-map-flow .agent-map-flow-card {
+  box-shadow: var(--shadow-sm);
+}
+
+.agent-map-flow .react-flow__node:focus {
+  outline: none;
+}
+
+.agent-map-flow .react-flow__node:focus-visible {
+  outline: 2px solid rgb(var(--ring) / 0.7);
+  outline-offset: 3px;
+}
+
+/* Read-only: the handles that anchor the edges stay out of sight. */
+.agent-map-flow .agent-map-flow-handle {
+  width: 1px;
+  min-width: 0;
+  height: 1px;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.agent-map-flow .react-flow__edge-path {
+  transition: stroke 0.3s ease;
+}
+
+.agent-map-flow .agent-map-flow-edge.is-done .react-flow__edge-path {
+  stroke: rgb(var(--primary) / 0.6);
+}
+
+.agent-map-flow .agent-map-flow-edge.is-failed .react-flow__edge-path {
+  stroke: rgb(var(--danger) / 0.6);
+}
+
+.agent-map-flow .agent-map-flow-edge.is-running .react-flow__edge-path {
+  stroke: rgb(var(--primary));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 3px rgb(var(--primary) / 0.5));
+}
+
+.agent-map-flow .react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6 5;
+  animation-duration: 0.9s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-map-flow-tip {
+    animation: none;
+  }
+  .agent-map-flow .react-flow__edge.animated .react-flow__edge-path {
+    stroke-dasharray: none;
+    animation: none;
+  }
+}
+
+.agent-map-flow .agent-map-flow-controls {
+  overflow: hidden;
+  border: 1px solid rgb(var(--border) / 0.7);
+  border-radius: 0.75rem;
+}
+
+.agent-map-flow .agent-map-flow-controls .react-flow__controls-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.agent-map-flow .agent-map-flow-controls .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.agent-map-flow .agent-map-flow-controls .react-flow__controls-button svg {
+  max-width: 11px;
+  max-height: 11px;
+}

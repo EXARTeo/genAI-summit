@@ -28,6 +28,7 @@
 @import './styles/markdown.css';
 @import './styles/highlight.css';
 @import './styles/flow.css';
+@import './styles/agent-map.css';
 
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';

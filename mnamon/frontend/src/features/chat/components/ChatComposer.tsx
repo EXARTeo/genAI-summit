@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { classifyFile } from '@/shared/lib/files';
@@ -51,6 +52,8 @@ interface ChatComposerProps {
   subject?: ComposerSubject | null;
   queued?: string | null;
   autoFocus?: boolean;
+  /** Buttons beside "+" (the agent map and the plan: their panels rise out of this composer). */
+  controls?: ReactNode;
 }
 
 const ROUND_TOOL =
@@ -70,6 +73,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
     subject,
     queued,
     autoFocus,
+    controls,
   },
   ref,
 ) {
@@ -145,7 +149,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
   const text = placeholder ?? (agentName ? `Message ${agentName}…` : 'Type a message…');
 
   return (
-    <div className="relative">
+    <div className="relative" data-composer-shell>
       {commands && commands.length > 0 && (
         <div
           role="listbox"
@@ -252,6 +256,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
               <Plus className="size-5" />
             </button>
           </Tooltip>
+          {controls}
           <div className="ml-auto">
             <Tooltip
               content={

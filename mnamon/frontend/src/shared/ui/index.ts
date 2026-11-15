@@ -51,3 +51,4 @@ export {
   type FilePreviewPanelProps,
   type PreviewFile,
 } from './file-preview';
+export { AgentMapIcon } from './agent-map-icon';

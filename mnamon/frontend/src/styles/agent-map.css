@@ -1,0 +1,143 @@
+/* The agent map's tree and the inline sub-agent nesting (port of magenticx styles/agent-map.css),
+   plus the composer panels' entrance (features/chat/components/ComposerPanel.tsx).
+
+   Markup: .agent-map-group (a list of children, indented under its parent) > .agent-map-branch
+   (one child). Each branch draws its own connector: a rail down the group's left edge (::before)
+   and a rounded elbow into the row (::after), so the lines follow the rows when a branch opens,
+   closes or a row arrives mid-run. The last branch's rail stops at its elbow. `--am-elbow` is the
+   distance from the top of a branch to the middle of its row. A branch whose sub-agent is working
+   lights its connector in the brand colour. */
+
+.agent-map-group {
+  --am-indent: 1.125rem;
+  --am-gap: 0.875rem;
+  --am-line: rgb(var(--primary) / 0.32);
+  position: relative;
+  margin-left: var(--am-indent);
+  padding-left: var(--am-gap);
+}
+
+.agent-map-branch {
+  --am-elbow: 1.75rem;
+  position: relative;
+}
+
+.agent-map-branch::before,
+.agent-map-branch::after {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--am-gap));
+  pointer-events: none;
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease;
+}
+
+/* The rail: full height, so it runs on to the next sibling. */
+.agent-map-branch::before {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--am-line);
+}
+
+.agent-map-branch:last-child::before {
+  bottom: auto;
+  height: calc(var(--am-elbow) - 0.625rem);
+}
+
+/* The elbow: a quarter round from the rail into the row. */
+.agent-map-branch::after {
+  top: calc(var(--am-elbow) - 0.625rem);
+  width: calc(var(--am-gap) - 0.125rem);
+  height: 0.625rem;
+  border-left: 1px solid var(--am-line);
+  border-bottom: 1px solid var(--am-line);
+  border-bottom-left-radius: 0.625rem;
+}
+
+.agent-map-branch[data-active='true']::after {
+  border-color: rgb(var(--primary) / 0.9);
+}
+
+.agent-map-branch[data-active='true']:last-child::before {
+  background: linear-gradient(to bottom, var(--am-line), rgb(var(--primary) / 0.9));
+}
+
+/* Keyboard focus rings the row, not the whole branch (which holds the children too). */
+.agent-map-item:focus-visible {
+  outline: none;
+}
+
+.agent-map-item:focus-visible > .agent-map-row {
+  outline: 2px solid rgb(var(--ring) / 0.7);
+  outline-offset: 1px;
+}
+
+/* ---- The plan's checklist rail (features/chat/components/plan_parts/PlanChecklist.tsx) ---- */
+
+.plan-steps {
+  position: relative;
+}
+
+.plan-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+}
+
+/* The rail between this step's marker and the next one's, filled behind a done step. */
+.plan-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: calc(0.75rem - 0.5px);
+  top: 1.85rem;
+  bottom: -0.6rem;
+  width: 1px;
+  background: rgb(var(--primary) / 0.2);
+  transition: background-color 0.4s ease;
+}
+
+.plan-step[data-state='done']:not(:last-child)::before {
+  background: rgb(var(--primary) / 0.6);
+}
+
+.plan-step-marker {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.6rem;
+  justify-self: center;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ---- Composer panels: rise out of the composer (desktop), slide up as a sheet (phone) ---- */
+
+@keyframes composer-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+@keyframes composer-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.composer-panel[data-state='open'] {
+  animation: composer-panel-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.composer-sheet[data-state='open'] {
+  animation: composer-sheet-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-panel[data-state='open'],
+  .composer-sheet[data-state='open'] {
+    animation: fade-in 150ms ease-out;
+  }
+}

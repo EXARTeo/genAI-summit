@@ -4,22 +4,24 @@
  *
  * - User: its files above a right-aligned card (`max-w-[85%] md:max-w-[75%]`, time inside under
  *   the text), edited in place (an edit is a new branch); on hover ‹ 2/3 › · Copy · Edit below.
- * - Agent: no header; the run timeline in log order at full column width (thinking, sub-agents,
+ * - Agent: no header; the run timeline in log order (nested sub-agents inside their parent's card;
+ *   the plan lives in the composer's plan panel, as in magenticx) at full column width (thinking, sub-agents,
  *   artifacts, tasks, the streamed answer), then the action bar: time · agent · usage · actions.
  */
 import { AlertTriangle, Bell, Check, CircleStop, X } from 'lucide-react';
-import { memo, useRef, useState } from 'react';
+import { memo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { AgentThinking, Button, Textarea } from '@/shared/ui';
 import type { SiblingInfo } from '../lib/branches';
 import { formatClock } from '../lib/messageFormat';
 import { isActiveRun, type LiveRun } from '../lib/runState';
-import { hasAgentSignal, timelineText } from '../lib/timeline';
+import { subagentTree } from '../lib/subagentTree';
+import { hasAgentSignal, timelineText, type SubagentBlock } from '../lib/timeline';
 import type { MessageOut } from '../lib/types';
 import { AiActionBar, UserActionBar } from './message_parts/ActionBars';
 import { ChatMarkdown } from './message_parts/ChatMarkdown';
 import { MessageAttachments } from './message_parts/MessageAttachments';
-import { ArtifactCard, PlanChecklist, TaskRefRow, TaskSettledRow } from './message_parts/RunBlocks';
+import { ArtifactCard, TaskRefRow, TaskSettledRow } from './message_parts/RunBlocks';
 import { SubagentCard } from './message_parts/SubagentCard';
 import { ThinkingBlock } from './message_parts/ThinkingBlock';
 
@@ -164,6 +166,19 @@ export const AssistantMessage = memo(function AssistantMessage({
   const uploads = message.attachments.filter((a) => a.origin !== 'generated');
   const usedFiles = new Set<string>();
   const subagentCount = timeline?.blocks.filter((b) => b.kind === 'subagent').length ?? 0;
+  // Nested sub-agents sit inside the card of the sub-agent that delegated to them.
+  const tree = subagentTree(timeline);
+  const renderSubagent = (block: SubagentBlock): ReactNode => (
+    <SubagentCard
+      block={block}
+      live={live}
+      nested={tree.childrenOf(block).map((child) => ({
+        key: child.id,
+        active: child.status === 'running',
+        node: renderSubagent(child),
+      }))}
+    />
+  );
 
   const openSubagents = () =>
     root.current
@@ -172,8 +187,6 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <div ref={root} className="group/message flex min-w-0 flex-col gap-3" aria-busy={live || undefined}>
-      {timeline?.plan?.length ? <PlanChecklist items={timeline.plan} /> : null}
-
       {live && !hasAgentSignal(timeline) && (
         <AgentThinking size="sm" label="Starting" className="text-muted" />
       )}
@@ -202,9 +215,10 @@ export const AssistantMessage = memo(function AssistantMessage({
               />
             );
           case 'subagent':
+            if (tree.isNested(block)) return null;
             return (
               <div key={block.id} data-subagent-anchor className="min-w-0">
-                <SubagentCard block={block} live={live} />
+                {renderSubagent(block)}
               </div>
             );
           case 'artifact': {

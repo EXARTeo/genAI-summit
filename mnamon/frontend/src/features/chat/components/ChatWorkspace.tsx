@@ -22,6 +22,7 @@ import { useHotkey } from '@/shared/hooks/useHotkey';
 import { cn } from '@/shared/lib/utils';
 import { ErrorState, LogoMark, Skeleton, toast } from '@/shared/ui';
 import { useChat } from '../hooks/useChat';
+import { useRunOverview } from '../hooks/useRunOverview';
 import { useComposer } from '../hooks/useComposer';
 import {
   useAgents,
@@ -35,12 +36,14 @@ import { parseCommand, type SlashCommand } from '../lib/slashCommands';
 import type { AgentManifest } from '../lib/types';
 import type { AgentPickerHandle } from './AgentPicker';
 import { AskUserTakeover } from './AskUserTakeover';
+import { AgentMapButton } from './agent_map_parts/AgentMapButton';
 import { AttachmentPreview } from './AttachmentPreview';
 import { ChatBody } from './ChatBody';
 import { ChatComposer, type ChatComposerHandle } from './ChatComposer';
 import { ChatHeader } from './ChatHeader';
 import { ChatUiContext, type PreviewTarget } from './chatContext';
 import { HitlTakeover } from './HitlTakeover';
+import { PlanButton } from './plan_parts/PlanButton';
 
 const SUGGESTIONS = [
   'Why did F-001 on the CV Screener indicate a gap?',
@@ -265,6 +268,10 @@ export function ChatWorkspace({
   const rotating = useRotatingGreeting(empty && !subjectLabel, agentName);
   const greeting = subjectLabel ? `What about ${subject.data?.systemName ?? subjectLabel}?` : rotating;
 
+  // The agent map and the plan of the branch on screen, behind the composer's two buttons.
+  const overview = useRunOverview(chat);
+  const overviewName = agent?.name ?? 'The agent';
+
   const pending = chat.pending[0] ?? null;
   const takeover = pending ? (
     pending.questions ? (
@@ -311,6 +318,12 @@ export function ChatWorkspace({
       }
       queued={chat.queued}
       autoFocus
+      controls={
+        <>
+          <AgentMapButton map={overview.map} agentName={overviewName} visible={!empty} />
+          <PlanButton plans={overview.plans} agentName={overviewName} visible={!empty} />
+        </>
+      }
     />
   );
 

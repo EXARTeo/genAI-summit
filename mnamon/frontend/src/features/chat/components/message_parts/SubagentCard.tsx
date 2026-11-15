@@ -7,59 +7,16 @@
  * `glow-border` motion; magenticx's conic ring and gradient fill are decorative, so the card is a
  * flat token surface here).
  */
-import {
-  Bot,
-  Check,
-  ChevronRight,
-  CircleAlert,
-  CircleDashed,
-  CircleSlash,
-  Clock,
-  Copy,
-  Hand,
-  Loader2,
-  MessageSquareText,
-  Wrench,
-} from 'lucide-react';
+import { Bot, Check, ChevronRight, Copy, Hand, MessageSquareText, Wrench } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { approvalHeadline, hitlActionRequests, toTitleCase } from '../../lib/hitl';
-import type { Approval, SubagentBlock, SubagentStatus, ToolStep } from '../../lib/timeline';
+import type { Approval, SubagentBlock, ToolStep } from '../../lib/timeline';
 import { formatSubagentDuration, parseToolArgs } from '../../lib/toolPresentation';
 import { ChatMarkdown } from './ChatMarkdown';
 import { Collapse } from './CoTStep';
+import { SubagentStatusChip } from './SubagentStatusChip';
 import { prettyPayload } from './ToolCallView';
-
-// How each status reads (magenticx `subagentStatus.tsx`): teal while working, amber when it
-// needs a human, green when done.
-const STATUS_META: Record<SubagentStatus, { label: string; chip: string; icon: ReactNode }> = {
-  pending: {
-    label: 'Starting',
-    chip: 'bg-surface-sunken text-muted',
-    icon: <CircleDashed className="size-3" aria-hidden />,
-  },
-  running: {
-    label: 'Running',
-    chip: 'bg-primary/10 text-primary',
-    icon: <Loader2 className="size-3 motion-safe:animate-spin" aria-hidden />,
-  },
-  awaiting_approval: {
-    label: 'Awaiting approval',
-    chip: 'bg-warning/15 text-warning',
-    icon: <Clock className="size-3" aria-hidden />,
-  },
-  done: { label: 'Done', chip: 'bg-success/15 text-success', icon: <Check className="size-3" aria-hidden /> },
-  failed: {
-    label: 'Failed',
-    chip: 'bg-danger/10 text-danger',
-    icon: <CircleAlert className="size-3" aria-hidden />,
-  },
-  cancelled: {
-    label: 'Cancelled',
-    chip: 'bg-surface-sunken text-muted',
-    icon: <CircleSlash className="size-3" aria-hidden />,
-  },
-};
 
 const normalizeName = (value: string) => value.toLowerCase().replace(/[-_\s]+/g, '');
 
@@ -229,7 +186,23 @@ function InterruptItem({ item }: { item: Approval }) {
   );
 }
 
-export function SubagentCard({ block, live }: { block: SubagentBlock; live: boolean }) {
+/** One nested sub-agent under its parent's card (rendered by the caller, recursively). */
+export interface NestedSubagent {
+  key: string;
+  active: boolean;
+  node: ReactNode;
+}
+
+export function SubagentCard({
+  block,
+  live,
+  nested,
+}: {
+  block: SubagentBlock;
+  live: boolean;
+  /** The sub-agents this one delegated to: shown under its row on the agent map's connector rail. */
+  nested?: NestedSubagent[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [clampable, setClampable] = useState(false);
@@ -244,7 +217,6 @@ export function SubagentCard({ block, live }: { block: SubagentBlock; live: bool
     .join('\n\n');
   const title = block.label ?? toTitleCase(block.type) ?? 'Sub-agent';
   const showType = Boolean(block.type && normalizeName(block.type) !== normalizeName(title));
-  const meta = STATUS_META[block.status];
   const active = block.status === 'running';
   const settled = block.status === 'done' || block.status === 'failed' || block.status === 'cancelled';
   const duration = settled ? formatSubagentDuration(block.startedAt, block.endedAt) : null;
@@ -271,7 +243,7 @@ export function SubagentCard({ block, live }: { block: SubagentBlock; live: bool
         type="button"
         onClick={() => setExpanded((o) => !o)}
         aria-expanded={expanded}
-        aria-label={`${title}, ${meta.label}`}
+        aria-label={`${title}, ${block.status.replace('_', ' ')}`}
         className="flex w-full min-w-0 items-center gap-2.5 py-2.5 pl-3.5 pr-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
@@ -298,15 +270,7 @@ export function SubagentCard({ block, live }: { block: SubagentBlock; live: bool
           </span>
         )}
         {duration && <span className="num hidden shrink-0 text-xs text-muted sm:inline">{duration}</span>}
-        <span
-          className={cn(
-            'flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-2xs font-medium',
-            meta.chip,
-          )}
-        >
-          {meta.icon}
-          {meta.label}
-        </span>
+        <SubagentStatusChip status={block.status} compact />
         <ChevronRight
           aria-hidden
           className={cn('size-4 shrink-0 text-muted transition-transform', expanded && 'rotate-90')}
@@ -368,6 +332,25 @@ export function SubagentCard({ block, live }: { block: SubagentBlock; live: bool
           )}
         </div>
       </Collapse>
+
+      {nested?.length ? (
+        <div className="border-t border-border/60 px-3 pb-3 pt-1.5 sm:px-3.5">
+          <ul
+            aria-label={`${title}'s sub-agents`}
+            className="agent-map-group [--am-gap:0.75rem] [--am-indent:0.875rem]"
+          >
+            {nested.map((child) => (
+              <li
+                key={child.key}
+                className="agent-map-branch pt-1.5 [--am-elbow:2.125rem]"
+                data-active={child.active ? 'true' : 'false'}
+              >
+                {child.node}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -220,6 +220,8 @@ export interface TaskOut {
   task_id: string;
   conversation_id: string;
   parent_task_id?: string | null;
+  /** The chat run (= its answer message id) that started the task tree. */
+  root_run_id?: string | null;
   spawned_by_message_id?: string | null;
   depth?: number;
   name: string;

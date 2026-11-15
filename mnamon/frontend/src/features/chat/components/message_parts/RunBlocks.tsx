@@ -1,9 +1,9 @@
 /**
  * Smaller run blocks (magenticx `ArtifactCard`, `TaskRefBlockView`, `TaskSettledMarker` /
- * `ConversationMarkers.TaskMarker`, `plan/PlanChecklist`): a presented artifact (opens the
+ * `ConversationMarkers.TaskMarker`): a presented artifact (opens the
  * generated attachment it maps to in the shared preview, with Preview / Download on hover; a
  * presented image shows as the image itself and opens the shared lightbox), a background task started
- * or settled, and the agent's plan as a checklist on a rail. magenticx's gradient tile and card
+ * or settled (the plan moved to the composer's plan panel, `plan_parts/`). magenticx's gradient tile and card
  * fill are flat token surfaces here (no decorative gradients).
  */
 import { motion } from 'framer-motion';
@@ -26,7 +26,7 @@ import { ImageLightbox } from '@/shared/ui';
 import { useAttachmentActions } from '../../hooks/useAttachmentActions';
 import { imageSrc } from '../../lib/attachments';
 import { toTitleCase } from '../../lib/hitl';
-import type { ArtifactBlock, PlanItem, TaskRefBlock, TaskSettledBlock } from '../../lib/timeline';
+import type { ArtifactBlock, TaskRefBlock, TaskSettledBlock } from '../../lib/timeline';
 import type { AttachmentOut } from '../../lib/types';
 import { useChatUi } from '../chatContext';
 
@@ -215,98 +215,6 @@ export function TaskSettledRow({ block }: { block: TaskSettledBlock }) {
         {text}
       </span>
       <span aria-hidden className="h-px flex-1 bg-border" />
-    </div>
-  );
-}
-
-type StepState = 'done' | 'active' | 'pending';
-const stepState = (status: string): StepState =>
-  status === 'completed' ? 'done' : status === 'in_progress' ? 'active' : 'pending';
-
-function Marker({ state }: { state: StepState }) {
-  if (state === 'done')
-    return (
-      <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
-        <Check className="size-3" strokeWidth={3.25} />
-      </span>
-    );
-  if (state === 'active')
-    return (
-      <span className="grid size-5 place-items-center rounded-full border-2 border-primary bg-surface">
-        <span className="size-2 rounded-full bg-primary" />
-      </span>
-    );
-  return <span className="block size-5 rounded-full border-[1.5px] border-muted/30 bg-surface" />;
-}
-
-/** The agent's plan: a marker per step on a rail, filled in behind the steps that are done. */
-export function PlanChecklist({ items }: { items: PlanItem[] }) {
-  const done = items.filter((i) => i.status === 'completed').length;
-  return (
-    <div className="rounded-2xl border border-border/70 bg-surface p-3 shadow-card">
-      <div className="mb-1 flex items-center gap-2 px-1 text-2xs font-semibold uppercase tracking-[0.16em] text-muted">
-        Plan
-        <span className="num ml-auto font-normal normal-case tracking-normal">
-          {done}/{items.length}
-        </span>
-      </div>
-      <ol aria-label="Plan" className="relative">
-        {items.map((item, i) => {
-          const state = stepState(item.status);
-          const last = i === items.length - 1;
-          return (
-            <motion.li
-              key={`${i}-${item.content}`}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1], delay: Math.min(i, 12) * 0.035 }}
-              aria-current={state === 'active' ? 'step' : undefined}
-              className="relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2"
-            >
-              {!last && (
-                <span
-                  aria-hidden
-                  className={cn(
-                    'absolute bottom-[-1.25rem] left-[calc(0.75rem-0.5px)] top-[1.25rem] w-px',
-                    state === 'done' ? 'bg-primary/60' : 'bg-primary/20',
-                  )}
-                />
-              )}
-              <span className="relative z-[1] mt-2.5 justify-self-center">
-                <Marker state={state} />
-              </span>
-              <div
-                className={cn(
-                  'flex items-start gap-3 rounded-xl px-3 py-2.5',
-                  state === 'active' && 'bg-primary/5',
-                )}
-              >
-                <p
-                  className={cn(
-                    'min-w-0 flex-1 text-sm leading-5',
-                    state === 'done'
-                      ? 'text-muted'
-                      : state === 'active'
-                        ? 'font-medium text-text'
-                        : 'text-muted/80',
-                  )}
-                >
-                  {item.content}
-                </p>
-                {state === 'active' && (
-                  <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium text-primary">
-                    <span className="relative flex size-1.5">
-                      <span className="absolute inline-flex size-full rounded-full bg-current opacity-70 motion-safe:animate-ping" />
-                      <span className="relative inline-flex size-1.5 rounded-full bg-current" />
-                    </span>
-                    now
-                  </span>
-                )}
-              </div>
-            </motion.li>
-          );
-        })}
-      </ol>
     </div>
   );
 }
