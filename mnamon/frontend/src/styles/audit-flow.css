@@ -355,14 +355,24 @@
 }
 .pg-box-sheen {
   border-radius: inherit;
-  background: linear-gradient(160deg, rgb(var(--primary) / 0.16), rgb(var(--primary) / 0.03) 55%, transparent);
+  background: linear-gradient(
+    160deg,
+    rgb(var(--primary) / 0.16),
+    rgb(var(--primary) / 0.03) 55%,
+    transparent
+  );
 }
 .pg-node[data-gate='true'] .pg-box {
   border-color: rgb(var(--warning) / 0.5);
   color: rgb(var(--warning));
 }
 .pg-node[data-gate='true'] .pg-box-sheen {
-  background: linear-gradient(160deg, rgb(var(--warning) / 0.18), rgb(var(--warning) / 0.04) 55%, transparent);
+  background: linear-gradient(
+    160deg,
+    rgb(var(--warning) / 0.18),
+    rgb(var(--warning) / 0.04) 55%,
+    transparent
+  );
 }
 .pg-node[data-state='done'][data-gate='false'] .pg-box {
   border-color: rgb(var(--success) / 0.45);

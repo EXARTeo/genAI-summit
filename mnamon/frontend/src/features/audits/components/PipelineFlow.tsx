@@ -42,7 +42,13 @@ type GroupData = {
   height: number;
 };
 type EdgeTone = 'done' | 'live' | 'waiting' | 'pending' | 'redo';
-type FlowEdgeData = { tone: EdgeTone; kind: 'row' | 'wrap' | 'redo'; midY?: number; label?: string; motion: boolean };
+type FlowEdgeData = {
+  tone: EdgeTone;
+  kind: 'row' | 'wrap' | 'redo';
+  midY?: number;
+  label?: string;
+  motion: boolean;
+};
 
 const STATE_WORD: Record<StepState, string> = {
   done: 'done',
