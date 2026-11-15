@@ -31,18 +31,41 @@ function Pills({ items, tone }: { items?: string[]; tone?: 'warning' | 'primary'
   );
 }
 
+/** `selection_rate_ratio` → `Selection rate ratio`. */
+function humanize(key: string) {
+  const t = key.replace(/_/g, ' ');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 function Thresholds({ entries }: { entries?: Record<string, string> }) {
   const list = Object.entries(entries ?? {});
   if (!list.length) return <EmptyState compact title="No thresholds" />;
   return (
     <ul className="divide-y divide-border">
       {list.map(([k, v]) => (
-        <li key={k} className="flex items-center justify-between gap-3 py-2 text-sm">
-          <span className="font-mono text-[13px]">{k}</span>
-          <span className="rounded-md bg-surface-muted px-2 py-0.5 font-mono text-xs">{v}</span>
+        <li key={k} className="flex items-center justify-between gap-3 py-2.5">
+          <span className="min-w-0 text-sm [overflow-wrap:anywhere]" title={k}>
+            {humanize(k)}
+          </span>
+          <span className="num shrink-0 whitespace-nowrap rounded-md border border-border bg-surface-muted px-2 py-0.5 font-mono text-xs font-medium">
+            {v}
+          </span>
         </li>
       ))}
     </ul>
+  );
+}
+
+/** `plugins/cv-ranker/data/training-data.md` → name + folder. */
+function FilePath({ path }: { path: string }) {
+  const i = path.lastIndexOf('/');
+  const name = path.slice(i + 1);
+  const dir = i > 0 ? path.slice(0, i) : '';
+  return (
+    <span className="block min-w-0" title={path}>
+      <span className="block truncate font-mono text-xs">{name}</span>
+      {dir && <span className="block truncate font-mono text-2xs font-normal text-muted">{dir}/</span>}
+    </span>
   );
 }
 
@@ -58,9 +81,9 @@ export function OverviewTab({ system }: { system: System }) {
       variants={staggerList()}
       initial="initial"
       animate="animate"
-      className="grid gap-4 lg:grid-cols-3"
+      className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
     >
-      <motion.div variants={listItem} className="lg:col-span-2">
+      <motion.div variants={listItem} className="min-w-0 md:col-span-2">
         <Card className="h-full">
           <CardHeader
             icon={<ShieldCheck />}
@@ -96,7 +119,7 @@ export function OverviewTab({ system }: { system: System }) {
         </Card>
       </motion.div>
 
-      <motion.div variants={listItem}>
+      <motion.div variants={listItem} className="min-w-0">
         <GlowCard active={audit?.status === 'running'} className="h-full">
           <CardHeader
             icon={<Activity />}
@@ -149,7 +172,7 @@ export function OverviewTab({ system }: { system: System }) {
         </GlowCard>
       </motion.div>
 
-      <motion.div variants={listItem}>
+      <motion.div variants={listItem} className="min-w-0">
         <Card className="h-full">
           <CardHeader icon={<Gauge />} title="Declared metrics" description="What the provider claims" />
           <CardContent>
@@ -158,7 +181,7 @@ export function OverviewTab({ system }: { system: System }) {
         </Card>
       </motion.div>
 
-      <motion.div variants={listItem}>
+      <motion.div variants={listItem} className="min-w-0">
         <Card className="h-full">
           <CardHeader
             icon={<Scale />}
@@ -171,7 +194,7 @@ export function OverviewTab({ system }: { system: System }) {
         </Card>
       </motion.div>
 
-      <motion.div variants={listItem}>
+      <motion.div variants={listItem} className="min-w-0">
         <Card className="h-full">
           <CardHeader icon={<Users />} title="Folder activity" description="Append-only audit ledger" />
           <CardContent className="max-h-80 overflow-y-auto">
@@ -179,7 +202,7 @@ export function OverviewTab({ system }: { system: System }) {
               <Timeline
                 items={events.data.slice(0, 8).map((e) => ({
                   id: String(e.id),
-                  title: <span className="font-mono text-xs">{e.path}</span>,
+                  title: <FilePath path={e.path} />,
                   description: `${e.action}${e.version ? ` v${e.version}` : ''}${e.reason ? ` · ${e.reason}` : ''}`,
                   actor: actorLabel(e.actor),
                   at: e.at,

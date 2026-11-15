@@ -1,15 +1,20 @@
 import { BookText, FolderTree, Puzzle, ScrollText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, ErrorState, PageHeader, Skeleton, SkeletonText, StatusPill, Tabs } from '@/shared/ui';
+import { ErrorState, Skeleton, SkeletonText, Tabs } from '@/shared/ui';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { useSystem } from '../hooks/useSystems';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
-import { riskMeta } from '../lib/styles';
 import { StartAuditButton } from './StartAuditButton';
 import { FolderTab } from './detail_parts/FolderTab';
 import { OverviewTab } from './detail_parts/OverviewTab';
 import { PluginsTab } from './detail_parts/PluginsTab';
 import { RulesTab } from './detail_parts/RulesTab';
+import { SystemHeader } from './detail_parts/SystemHeader';
+
+// Underline tabs that sit in the header's bottom band.
+const TAB_LIST = 'flex h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0 px-3 sm:px-4';
+const TAB =
+  'relative h-11 rounded-none bg-transparent px-3 after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:after:bg-primary [&_svg]:size-4';
 
 export function SystemDetail() {
   const { systemId = '', tab } = useParams();
@@ -30,49 +35,40 @@ export function SystemDetail() {
             <Skeleton className="h-6 w-64" />
           </div>
         </div>
-        <Skeleton className="h-10 w-96 rounded-lg" />
+        <Skeleton className="h-40 w-full rounded-xl" />
         <SkeletonText lines={6} />
       </div>
     );
   }
 
-  const risk = riskMeta(system.data.risk_class);
   return (
     <div>
-      <PageHeader
-        breadcrumbs={[{ label: 'Systems', to: systemRoutes.list() }, { label: system.id }]}
-        eyebrow={system.id}
-        title={system.name}
-        description={system.data.intended_purpose}
-        meta={
-          <>
-            <Badge tone={risk.tone}>{risk.label}</Badge>
-            {system.data.annex_basis && <Badge>{system.data.annex_basis}</Badge>}
-            <StatusPill status={system.status} />
-          </>
-        }
-        actions={
-          <>
-            <ChatAboutButton systemId={system.id} label="Chat about this system" />
-            <StartAuditButton systemId={system.id} systemName={system.name} />
-          </>
-        }
-      />
       <Tabs value={active} onValueChange={(v) => navigate(systemRoutes.detail(system.id, v as SystemTab))}>
-        <Tabs.List>
-          <Tabs.Trigger value="overview">
-            <BookText /> Overview
-          </Tabs.Trigger>
-          <Tabs.Trigger value="folder">
-            <FolderTree /> Folder
-          </Tabs.Trigger>
-          <Tabs.Trigger value="plugins">
-            <Puzzle /> Plugins
-          </Tabs.Trigger>
-          <Tabs.Trigger value="rules">
-            <ScrollText /> Business rules
-          </Tabs.Trigger>
-        </Tabs.List>
+        <SystemHeader
+          system={system}
+          actions={
+            <>
+              <ChatAboutButton systemId={system.id} label="Chat" />
+              <StartAuditButton systemId={system.id} systemName={system.name} />
+            </>
+          }
+          tabs={
+            <Tabs.List className={TAB_LIST}>
+              <Tabs.Trigger value="overview" className={TAB}>
+                <BookText /> Overview
+              </Tabs.Trigger>
+              <Tabs.Trigger value="folder" className={TAB}>
+                <FolderTree /> Folder
+              </Tabs.Trigger>
+              <Tabs.Trigger value="plugins" className={TAB}>
+                <Puzzle /> Plugins
+              </Tabs.Trigger>
+              <Tabs.Trigger value="rules" className={TAB}>
+                <ScrollText /> Business rules
+              </Tabs.Trigger>
+            </Tabs.List>
+          }
+        />
         <Tabs.Content value="overview">
           <OverviewTab system={system} />
         </Tabs.Content>

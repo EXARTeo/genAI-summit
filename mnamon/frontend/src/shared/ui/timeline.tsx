@@ -53,7 +53,7 @@ export function Timeline({ items, className }: { items: TimelineItem[]; classNam
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <div className="text-sm font-medium">{it.title}</div>
+              <div className="min-w-0 flex-1 text-sm font-medium">{it.title}</div>
               {it.at && (
                 <time dateTime={it.at} title={formatDateTime(it.at)} className="num text-xs text-muted">
                   {formatRelative(it.at)}
