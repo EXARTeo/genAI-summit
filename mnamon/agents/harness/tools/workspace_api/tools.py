@@ -15,10 +15,8 @@ route the UI's "Start audit" uses.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any, Literal
 
 from langchain_core.tools import BaseTool, StructuredTool
@@ -26,12 +24,18 @@ from pydantic import BaseModel, Field
 
 from core.logging import get_logger
 from harness.memory.entries import is_valid_id
+from harness.tools.workspace_api import rerun
 from harness.tools.workspace_api.client import WorkspaceAPI, WorkspaceAPIError
+from harness.tools.workspace_api.common import (
+    MAX_RESULT_CHARS,
+    NO_SYSTEM,
+    WorkspaceScope,
+    dump,
+    pick_system,
+)
+from harness.tools.workspace_api.history import HISTORY_TOOL_NAMES, history_builders
 
 logger = get_logger(__name__)
-
-#: Longest tool result handed to the model, in characters.
-MAX_RESULT_CHARS = 12_000
 
 LIST_SYSTEMS = "list_systems"
 LIST_SYSTEM_FILES = "list_system_files"
@@ -56,37 +60,17 @@ WORKSPACE_TOOL_NAMES: tuple[str, ...] = (
     SEARCH_REGULATION,
     PROPOSE_SYSTEM_NOTE,
     START_AUDIT,
+    *HISTORY_TOOL_NAMES,
 )
+
+#: The audit modes the pipeline's intake understands (plan 01 §10).
+AUDIT_MODES = ("full", "focused", "custom")
 
 _NOTE_NAME_RE = re.compile(r"[^a-z0-9]+")
 
-
-@dataclass(frozen=True)
-class WorkspaceScope:
-    """Who the run is and what its conversation is about (from the run context)."""
-
-    client_id: str
-    agent_slug: str
-    system_id: str | None = None
-    audit_id: str | None = None
-
-
-def _dump(value: Any) -> str:
-    text = value if isinstance(value, str) else json.dumps(value, default=str, ensure_ascii=False)
-    if len(text) <= MAX_RESULT_CHARS:
-        return text
-    return text[:MAX_RESULT_CHARS] + f"\n... [{len(text) - MAX_RESULT_CHARS} more characters]"
-
-
-def _system(scope: WorkspaceScope, system_id: str | None) -> str | None:
-    chosen = (system_id or "").strip() or scope.system_id
-    return chosen if is_valid_id(chosen) else None
-
-
-_NO_SYSTEM = (
-    "No system given and this conversation is not scoped to one. "
-    "Call list_systems and pass the system_id."
-)
+_dump = dump
+_system = pick_system
+_NO_SYSTEM = NO_SYSTEM
 
 
 class _SystemArgs(BaseModel):
@@ -168,6 +152,26 @@ class _NoArgs(BaseModel):
     pass
 
 
+class _StartArgs(_SystemArgs):
+    mode: Literal["full", "focused", "custom"] = Field(
+        "full",
+        description="full = every applicable obligation; focused = only `obligations`; "
+        "custom = the engineer's own scenarios / dataset.",
+    )
+    obligations: list[str] | None = Field(
+        None, description="Obligation ids to test (required for focused), from list_obligations."
+    )
+    kb_version: str | None = Field(
+        None, description="Pin this kb release (default: the active one), from list_kb_releases."
+    )
+    dataset_ref: str | None = Field(
+        None, description="A dataset in the system folder, e.g. datasets/uploaded/applicants.csv."
+    )
+    scenarios_ref: str | None = Field(
+        None, description="The engineer's own scenarios file in the system folder."
+    )
+
+
 def _audit_summary(body: dict[str, Any]) -> dict[str, Any]:
     """An audit with its artifacts listed (id, kind, name, status), not their data."""
     keep = {k: v for k, v in body.items() if k not in ("artifacts", "approvals")}
@@ -176,6 +180,7 @@ def _audit_summary(body: dict[str, Any]) -> dict[str, Any]:
         for a in body.get("artifacts") or []
     ]
     keep["approvals"] = body.get("approvals") or []
+    keep["pins"] = rerun.audit_pins(body)
     return keep
 
 
@@ -312,12 +317,42 @@ def _builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Callable[[]
         )
         return f"Saved /systems/{sid}/{path} (v{version}) as proposed; a human approves it."
 
-    async def start_audit(system_id: str | None = None) -> str:
+    async def start_audit(
+        system_id: str | None = None,
+        mode: str = "full",
+        obligations: list[str] | None = None,
+        kb_version: str | None = None,
+        dataset_ref: str | None = None,
+        scenarios_ref: str | None = None,
+    ) -> str:
         sid = _system(scope, system_id)
         if sid is None:
             return _NO_SYSTEM
+        if mode not in AUDIT_MODES:
+            return f"mode must be one of {', '.join(AUDIT_MODES)}."
+        ids = [o.strip() for o in obligations or [] if o and o.strip()]
+        if mode == "focused" and not ids:
+            return "A focused audit needs at least one obligation id (see list_obligations)."
+        kb = (kb_version or "").strip() or None
+        if kb:
+            try:
+                releases = await api.releases()
+            except WorkspaceAPIError as exc:
+                return f"Could not check kb_version {kb}: {exc.public}."
+            known = {str(r.get("kb_version")) for r in releases.get("items") or []}
+            if kb not in known:
+                return f"kb_version {kb} is not a known release; call list_kb_releases."
+        intake = {
+            "mode": mode,
+            "obligations": ids or None,
+            "kb_version": kb,
+            "dataset_ref": (dataset_ref or "").strip() or None,
+            "scenarios_ref": (scenarios_ref or "").strip() or None,
+            "requested_by": f"agent:{scope.agent_slug}",
+        }
+        data = {k: v for k, v in intake.items() if v is not None}
         try:
-            body = await api.start_audit(sid)
+            body = await api.start_audit(sid, data)
         except WorkspaceAPIError as exc:
             return f"Could not start an audit of {sid}: {exc.public}."
         logger.info(
@@ -326,8 +361,12 @@ def _builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Callable[[]
             agent_slug=scope.agent_slug,
             system_id=sid,
             audit_id=(body or {}).get("id"),
+            mode=mode,
+            obligations=len(ids),
         )
-        return _dump({k: (body or {}).get(k) for k in ("id", "systemId", "status", "stage")})
+        out = {k: (body or {}).get(k) for k in ("id", "systemId", "status", "stage")}
+        out["intake"] = data
+        return _dump(out)
 
     def tool(fn: Any, name: str, description: str, schema: type[BaseModel]) -> Callable[[], Any]:
         return lambda: StructuredTool.from_function(
@@ -403,10 +442,12 @@ def _builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Callable[[]
         START_AUDIT: tool(
             start_audit,
             START_AUDIT,
-            "Start a new audit of a system (the audit pipeline with its human gates). "
-            "The user is asked before it starts.",
-            _SystemArgs,
+            "Start a new audit of a system (the audit pipeline with its human gates): "
+            "full, or focused on obligation ids, optionally pinned to a kb_version and with "
+            "an uploaded dataset_ref / scenarios_ref. The user is asked before it starts.",
+            _StartArgs,
         ),
+        **history_builders(scope, api),
     }
 
 
@@ -422,6 +463,7 @@ def build_workspace_tool(
 
 
 __all__ = [
+    "AUDIT_MODES",
     "MAX_RESULT_CHARS",
     "PROPOSE_SYSTEM_NOTE",
     "START_AUDIT",

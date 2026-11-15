@@ -76,6 +76,18 @@ BUILTIN_TOOLS: tuple[BuiltinTool, ...] = (
     BuiltinTool("search_regulation"),
     BuiltinTool("propose_system_note", hitl_default=True),
     BuiltinTool("start_audit", hitl_default=True),
+    # The copilot's history tools (workspace_api/history.py): kb releases, diffs,
+    # regulation changes, findings, gate decisions, the re-run check. Read-only,
+    # except attaching a chat upload to a system's datasets, which asks first.
+    BuiltinTool("list_kb_releases"),
+    BuiltinTool("diff_kb"),
+    BuiltinTool("list_reg_changes"),
+    BuiltinTool("get_reg_change"),
+    BuiltinTool("audit_needs_rerun"),
+    BuiltinTool("list_findings"),
+    BuiltinTool("get_gate_decisions"),
+    BuiltinTool("list_obligations"),
+    BuiltinTool("attach_upload_to_audit_draft", hitl_default=True),
 )
 
 BUILTIN_BY_NAME: dict[str, BuiltinTool] = {t.name: t for t in BUILTIN_TOOLS}

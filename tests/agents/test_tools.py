@@ -65,6 +65,15 @@ def test_the_roster_is_the_native_tools_in_order():
         "search_regulation",
         "propose_system_note",
         "start_audit",
+        "list_kb_releases",
+        "diff_kb",
+        "list_reg_changes",
+        "get_reg_change",
+        "audit_needs_rerun",
+        "list_findings",
+        "get_gate_decisions",
+        "list_obligations",
+        "attach_upload_to_audit_draft",
     ]
     # The platform verbs attach to every agent; the product-API tools are selected in agent.yaml.
     auto = [name for name, defn in registry.NATIVE_TOOLS.items() if defn.auto_attach]

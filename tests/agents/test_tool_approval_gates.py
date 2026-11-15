@@ -51,6 +51,7 @@ def test_the_baseline_gates_the_write_tools_delegation_and_execute():
         "forget": True,
         "propose_system_note": True,
         "start_audit": True,
+        "attach_upload_to_audit_draft": True,
     }
 
 

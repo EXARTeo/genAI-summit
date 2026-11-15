@@ -10,6 +10,7 @@ read with its internal secret. Every client takes an optional
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from urllib.parse import quote
 
@@ -19,6 +20,12 @@ from core.settings import settings
 
 #: A test seam: tests swap in an ``httpx.MockTransport``.
 transport: httpx.AsyncBaseTransport | None = None
+
+
+#: Calls one run may make through this client (a runaway loop stops here).
+MAX_CALLS_PER_RUN = 150
+#: Calls in flight at once per run (sub-agents share the run's client).
+MAX_CONCURRENT_CALLS = 4
 
 
 class WorkspaceAPIError(RuntimeError):
@@ -48,6 +55,13 @@ async def _request(
     return response.json() if response.content else None
 
 
+def _items(body: Any) -> list[dict[str, Any]]:
+    """A list body, or the ``items`` of a page body."""
+    if isinstance(body, dict):
+        body = body.get("items")
+    return [b for b in body or [] if isinstance(b, dict)] if isinstance(body, list) else []
+
+
 class WorkspaceAPI:
     """The backend (``/v1/systems``, ``/v1/audits``) and reg-memory, for one run's client."""
 
@@ -66,21 +80,25 @@ class WorkspaceAPI:
             "X-Internal-Secret": settings.pipeline.reg_memory_secret.get_secret_value()
         }
         self._kb_version: str | None = None
+        self._calls = 0
+        self._gate = asyncio.Semaphore(MAX_CONCURRENT_CALLS)
+
+    async def _limited(self, service: str, method: str, url: str, **kwargs: Any) -> Any:
+        """One call under the run's budget and concurrency cap."""
+        if self._calls >= MAX_CALLS_PER_RUN:
+            raise WorkspaceAPIError(service, 429, "run call budget spent")
+        self._calls += 1
+        async with self._gate:
+            return await _request(self.client, service, method, url, **kwargs)
 
     async def _backend(self, method: str, path: str, **kwargs: Any) -> Any:
-        return await _request(
-            self.client,
-            "backend",
-            method,
-            f"{self.backend}/v1{path}",
-            headers=self.backend_headers,
-            **kwargs,
+        return await self._limited(
+            "backend", method, f"{self.backend}/v1{path}", headers=self.backend_headers, **kwargs
         )
 
     async def _regmem(self, path: str, **params: Any) -> Any:
         clean = {k: v for k, v in params.items() if v is not None}
-        return await _request(
-            self.client,
+        return await self._limited(
             "reg-memory",
             "GET",
             f"{self.regmem}{path}",
@@ -138,10 +156,75 @@ class WorkspaceAPI:
             f"/audits/{quote(audit_id, safe='')}/artifacts/{quote(artifact_id, safe='')}",
         )
 
-    async def start_audit(self, system_id: str) -> dict[str, Any]:
+    async def start_audit(
+        self, system_id: str, data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Start an audit; ``data`` is the intake (mode, obligations, kb_version, refs)."""
         return await self._backend(
-            "POST", f"/systems/{quote(system_id, safe='')}/audits", json={"data": {}}
+            "POST", f"/systems/{quote(system_id, safe='')}/audits", json={"data": data or {}}
         )
+
+    async def audit_findings(self, audit_id: str) -> list[dict[str, Any]]:
+        """The sealed findings of one audit (backend findings table)."""
+        body = await self._backend("GET", f"/audits/{quote(audit_id, safe='')}/findings")
+        return _items(body)
+
+    async def system_findings(self, system_id: str) -> list[dict[str, Any]]:
+        """A system's current findings (latest verdict per obligation)."""
+        body = await self._backend(
+            "GET",
+            f"/systems/{quote(system_id, safe='')}/findings",
+            params={"current": "true"},
+        )
+        return _items(body)
+
+    async def file_from_attachment(
+        self, system_id: str, attachment_id: str, path: str, reason: str
+    ) -> dict[str, Any]:
+        """Copy one of the caller's chat attachments into the system folder at ``path``."""
+        return await self._backend(
+            "POST",
+            f"/systems/{quote(system_id, safe='')}/files/from-attachment",
+            json={"attachmentId": attachment_id, "path": path, "reason": reason},
+        )
+
+    # -- regulation history -----------------------------------------------------
+    async def releases(self) -> dict[str, Any]:
+        """reg-memory's ``{active, items: [{kb_version, status, parent, ...}]}``."""
+        body = await self._regmem("/v1/releases")
+        return body if isinstance(body, dict) else {}
+
+    async def release_diff(
+        self, from_version: str, to_version: str, provisions: str | None = None
+    ) -> dict[str, Any]:
+        """reg-memory's provision-level diff of two releases."""
+        return await self._regmem(
+            f"/v1/releases/{quote(from_version, safe='')}/diff/{quote(to_version, safe='')}",
+            provisions=provisions,
+        )
+
+    async def regmem_changes(self) -> list[dict[str, Any]]:
+        """reg-memory's changes (``from_kb_version`` -> ``to_kb_version``), no provisions."""
+        return _items(await self._regmem("/v1/changes"))
+
+    async def regmem_change(self, change_id: str) -> dict[str, Any]:
+        """One reg-memory change with its per-provision change type, texts and diff."""
+        return await self._regmem(f"/v1/changes/{quote(change_id, safe='')}")
+
+    async def reg_changes(self) -> list[dict[str, Any]]:
+        """The backend's change inbox (status, affected systems and the judge's calls)."""
+        return _items(await self._backend("GET", "/regulation/changes"))
+
+    async def reg_change(self, change_id: str) -> dict[str, Any]:
+        return await self._backend("GET", f"/regulation/changes/{quote(change_id, safe='')}")
+
+    async def obligations(self, **params: Any) -> list[dict[str, Any]]:
+        """reg-memory's obligation catalogue, filtered (role, risk_class, basis, kb_version)."""
+        return _items(await self._regmem("/v1/obligations", **params))
+
+    async def requirements(self, **params: Any) -> list[dict[str, Any]]:
+        """reg-memory's applicable requirements (the older catalogue)."""
+        return _items(await self._regmem("/v1/requirements", **params))
 
     # -- regulation -------------------------------------------------------------
     async def kb_version(self) -> str | None:
@@ -163,4 +246,4 @@ class WorkspaceAPI:
         return list(body.get("items") or []) if isinstance(body, dict) else []
 
 
-__all__ = ["WorkspaceAPI", "WorkspaceAPIError"]
+__all__ = ["MAX_CALLS_PER_RUN", "MAX_CONCURRENT_CALLS", "WorkspaceAPI", "WorkspaceAPIError"]
