@@ -1,9 +1,10 @@
-import { BookText, FolderTree, ListChecks, Puzzle, ScrollText } from 'lucide-react';
+import { BookText, ClipboardList, FolderTree, ListChecks, Puzzle, ScrollText } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorState, Skeleton, SkeletonText, Tabs } from '@/shared/ui';
 import { ChatAboutButton } from '@/features/chat/components/ChatAboutButton';
 import { useAudits } from '@/features/audits/hooks/useAudits';
+import { RegisterTab } from '@/features/register/components/RegisterTab';
 import { useSystem } from '../hooks/useSystems';
 import { withLastAudits } from '../lib/adapters';
 import { SYSTEM_TABS, systemRoutes, type SystemTab } from '../lib/routes';
@@ -65,6 +66,9 @@ export function SystemDetail() {
               <Tabs.Trigger value="overview" className={TAB}>
                 <BookText /> Overview
               </Tabs.Trigger>
+              <Tabs.Trigger value="status" className={TAB}>
+                <ClipboardList /> Status
+              </Tabs.Trigger>
               <Tabs.Trigger value="obligations" className={TAB}>
                 <ListChecks /> Obligations
               </Tabs.Trigger>
@@ -82,6 +86,9 @@ export function SystemDetail() {
         />
         <Tabs.Content value="overview">
           <OverviewTab system={system} />
+        </Tabs.Content>
+        <Tabs.Content value="status">
+          <RegisterTab systemId={system.id} />
         </Tabs.Content>
         <Tabs.Content value="obligations">
           <ObligationsTab systemId={system.id} />

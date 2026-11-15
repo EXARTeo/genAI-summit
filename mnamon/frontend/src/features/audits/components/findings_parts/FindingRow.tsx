@@ -1,5 +1,6 @@
 import { ChevronRight, History, MessageSquare } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { RegisterStatusMark } from '@/features/register/components/register_parts/RegisterStatusMark';
 import { articleLabel, severityMeta, titleOf, type SealedFinding } from '../../lib/findings';
 import { TONE_CLASSES, verdictStyle } from '../../lib/styling';
 
@@ -33,10 +34,13 @@ export function FindingRow({
   f,
   selected,
   onSelect,
+  registerStatus,
 }: {
   f: SealedFinding;
   selected: boolean;
   onSelect: () => void;
+  /** What this audit meant for the system's findings register (New, Still open, Fixed, ...). */
+  registerStatus?: string | null;
 }) {
   const v = verdictStyle(f.verdict);
   const article = articleLabel(f);
@@ -71,6 +75,7 @@ export function FindingRow({
           {title ?? f.obligation_id}
         </span>
       </span>
+      <RegisterStatusMark status={registerStatus} className="hidden sm:inline-flex" />
       {f.stale && <History className="size-3.5 shrink-0 text-warning" aria-label="Stale" />}
       {f.annotations.length > 0 && (
         <span className="inline-flex shrink-0 items-center gap-0.5 text-2xs text-muted">

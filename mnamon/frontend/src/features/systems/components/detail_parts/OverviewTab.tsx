@@ -14,7 +14,9 @@ import {
   StatusPill,
   Timeline,
 } from '@/shared/ui';
+import { RegisterStateCard } from '@/features/register/components/RegisterStateCard';
 import { useFileEvents } from '../../hooks/useSystems';
+import { systemRoutes } from '../../lib/routes';
 import type { System } from '../../lib/types';
 import { actorLabel } from '@/shared/lib/labels';
 
@@ -189,6 +191,10 @@ export function OverviewTab({ system }: { system: System }) {
             )}
           </CardContent>
         </GlowCard>
+      </motion.div>
+
+      <motion.div variants={listItem} className="min-w-0">
+        <RegisterStateCard systemId={system.id} href={systemRoutes.detail(system.id, 'status')} />
       </motion.div>
 
       <motion.div variants={listItem} className="min-w-0">

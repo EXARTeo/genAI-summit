@@ -2,6 +2,8 @@ import { SearchX } from 'lucide-react';
 import { Fragment, useMemo, useState, type KeyboardEvent } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { Card, EmptyState, Skeleton } from '@/shared/ui';
+import { useRegister } from '@/features/register/hooks/useRegister';
+import { REGISTER_STATUSES, byObligation, findingRegisterStatus } from '@/features/register/lib/register';
 import { useAuditFindings } from '../hooks/useAudits';
 import {
   AI_ACT_CHAPTERS,
@@ -59,13 +61,28 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
   );
   const [verdicts, setVerdicts] = useState<string[]>([]);
   const [severity, setSeverity] = useState<string | null>(null);
+  const [regStatus, setRegStatus] = useState<string | null>(null);
+  const { data: register } = useRegister(audit.systemId);
+  const statusOf = useMemo(() => {
+    const items = byObligation(register?.items);
+    const m = new Map<string, string | null>();
+    for (const f of rows) m.set(f.id, findingRegisterStatus(f, items));
+    return m;
+  }, [register, rows]);
+  const regStatuses = useMemo(() => {
+    const present = new Set(statusOf.values());
+    return REGISTER_STATUSES.filter((s) => present.has(s));
+  }, [statusOf]);
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<FindingsGroup>('none');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const visible = useMemo(
-    () => filterFindings(rows, { verdicts, severity, query }),
-    [rows, verdicts, severity, query],
+    () =>
+      filterFindings(rows, { verdicts, severity, query }).filter(
+        (f) => !regStatus || statusOf.get(f.id) === regStatus,
+      ),
+    [rows, verdicts, severity, query, regStatus, statusOf],
   );
   const groups = useMemo(() => groupRows(visible, group), [visible, group]);
   const ordered = groups.flatMap((g) => g.rows);
@@ -106,10 +123,11 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
     );
   }
 
-  const filtered = verdicts.length > 0 || severity != null || query.trim() !== '';
+  const filtered = verdicts.length > 0 || severity != null || regStatus != null || query.trim() !== '';
   const clear = () => {
     setVerdicts([]);
     setSeverity(null);
+    setRegStatus(null);
     setQuery('');
   };
   const toggleVerdict = (v: string) =>
@@ -144,6 +162,9 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
         total={rows.length}
         filtered={filtered}
         onClear={clear}
+        registerStatus={regStatus}
+        registerStatuses={regStatuses}
+        onRegisterStatus={setRegStatus}
       />
 
       {visible.length === 0 ? (
@@ -175,7 +196,12 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
                     const on = selected?.id === f.id;
                     return (
                       <li key={f.id}>
-                        <FindingRow f={f} selected={on} onSelect={() => select(f.id)} />
+                        <FindingRow
+                          f={f}
+                          selected={on}
+                          onSelect={() => select(f.id)}
+                          registerStatus={statusOf.get(f.id)}
+                        />
                         {on && (
                           <div className="border-t border-border bg-surface-sunken/30 px-4 py-4 xl:hidden">
                             <FindingDetail f={f} />

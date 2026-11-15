@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { Button, Input, Select } from '@/shared/ui';
+import { STATUS_META } from '@/features/register/lib/register';
 import { SEVERITY } from '../../lib/findings';
 
 export type FindingsGroup = 'none' | 'chapter' | 'verdict';
@@ -23,6 +24,9 @@ export function FindingsToolbar({
   total,
   filtered,
   onClear,
+  registerStatus = null,
+  registerStatuses = [],
+  onRegisterStatus,
 }: {
   query: string;
   onQuery: (q: string) => void;
@@ -35,6 +39,10 @@ export function FindingsToolbar({
   total: number;
   filtered: boolean;
   onClear: () => void;
+  /** The register-status filter (New, Still open, Fixed, ...); hidden when no finding has one. */
+  registerStatus?: string | null;
+  registerStatuses?: string[];
+  onRegisterStatus?: (s: string | null) => void;
 }) {
   const sevOptions = [
     { value: 'all', label: 'All severities' },
@@ -62,6 +70,21 @@ export function FindingsToolbar({
         options={sevOptions}
         className="w-[9.5rem]"
       />
+      {registerStatuses.length > 0 && onRegisterStatus && (
+        <Select
+          aria-label="Register status"
+          value={registerStatus ?? 'all'}
+          onValueChange={(v) => onRegisterStatus(v === 'all' ? null : v)}
+          options={[
+            { value: 'all', label: 'Any status' },
+            ...registerStatuses.map((s) => ({
+              value: s,
+              label: STATUS_META[s as keyof typeof STATUS_META]?.label ?? s,
+            })),
+          ]}
+          className="w-[9.5rem]"
+        />
+      )}
       <Select
         aria-label="Group"
         value={group}

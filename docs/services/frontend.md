@@ -51,7 +51,7 @@ the UI shows files (system folders, business rules) and audit artifacts only.
 | Route | What |
 | --- | --- |
 | `/` | Home: what needs me now (decisions waiting, agents at work, recent findings, systems at risk, latest regulation change) |
-| `/systems`, `/systems/:id[/obligations\|folder\|plugins\|rules]` | Systems table and system detail |
+| `/systems`, `/systems/:id[/status\|obligations\|folder\|plugins\|rules]` | Systems table and system detail; **Status** = the findings register (`features/register`): the system's state per obligation across audits (summary tiles, `FilterBar` facets State / Verdict / Severity / Chapter, history timeline with each audit linked, close with a reason / reopen). The Overview has a Status card and the audit Findings view marks each finding New / Still open / Fixed / Regressed / Accepted risk (with a filter) |
 | `/audits`, `/audits/:id[?step=<stage>][&view=findings\|report]` | Audit runs table and the audit run console (`?step=` deep-links and pins a step; `?view=` opens the Findings or Report view) |
 | `/regulation[?tab=changes\|sources]` | Regulation-change inbox and sources |
 | `/chat`, `/chat/:id`, `/chat?system=&audit=` | Chat with the agents (streaming over AG-UI, tools, sub-agents, approvals, files; the agent map and plan panels beside the composer): see [frontend-chat.md](frontend-chat.md) |
