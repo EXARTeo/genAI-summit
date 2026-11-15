@@ -34,6 +34,12 @@ in the background and reports through the backend's internal API):
 | `POST` | `/changes/{change_id}/judge` | `{"system_ids"?, "rerun"?, "change"?, "systems"?: [{system_id, name, card, findings}]}` | `{change_id, kb_version, impacted_requirements, judgements: [{..., affected_obligations, stale_findings, rerun_audit_id}]}`; also writes `PUT /internal/regulation/changes/{id}/judgement` on the backend |
 | `POST` | `/changes/delta/{audit_id}` | | (Re)writes the `delta_report` artifact of a finished regulation-change re-run and returns it |
 
+The risk-classification agent (plan 02; `mnamon/agents/classification/`, separate from the audit pipeline) adds one synchronous internal route; the backend awaits it in a background task like the change judge:
+
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| `POST` | `/systems/{system_id}/classify` | `{"classification_id", "kb_version"?, "card", "documents": [{path, version, text}], "feedback"?: {source: human, reason}, "trace"?: {name, trace_id?}}` | `200 ClassificationResult` (plan 02 §8.2, snake_case); `502` when reg-memory or the model fails or after 110 s. Details: [agents classification](../services/agents-classification.md) |
+
 ### Findings register (hydration)
 
 `load_context` reads `GET /internal/audits/{id}/register` (backend, same secret; best effort: missing or

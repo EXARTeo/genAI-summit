@@ -23,6 +23,7 @@ docs/
 | `services/` | [Frontend: audit workflow](services/frontend-audit-workflow.md) | Audit run page (live pipeline stepper, artifacts, Langfuse links), approvals inbox + drawer, memory ledger, regulation changes |
 | `services/` | [Backend: systems, files, memory, audits](services/backend-systems.md) | Systems, versioned workspace files, memory, audits, approvals, seed import and the agents' internal API |
 | `services/` | [Backend: async sub-agents](services/backend.md) | The backend's task mirror, task routes and sockets, channel frames, the wake-up flow and its settings |
+| `services/` | [Agents classification](services/agents-classification.md) | The risk-classification agent (plan 02): pre-checks, one Gemini step, verifier, Iris check, `POST /systems/{id}/classify` |
 | `services/` | [Agents pipeline](services/agents-pipeline.md) | The audit pipeline (gates, deep-agent steps, verifiers, prompt design), Gemini access, the impact index and change judge |
 | `services/` | [Agents service](services/agents-service.md) | How the agents service is built: run path, filesystem and uploads, tools and approvals, MCP, sandbox, tracing, env vars |
 | `services/` | [reg-memory](services/reg-memory.md) | The regulation store: source catalog, Cellar/HTTP fetching, versioned file store (raw, text, diffs, manifests, runs), incremental stages, API, env vars, how to add a source |

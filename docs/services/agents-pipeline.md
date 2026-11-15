@@ -5,6 +5,8 @@
 (deterministic impact index + a change judge). Model access is **Google Gemini** (`harness/models/gemini.py`)
 plus Oumi's **Iris decision model** for narrow verdicts ([Decision model](#decision-model-oumi-iris)). Design background: [architecture](../architecture/README.md),
 [agent context](../architecture/agent-context.md), [synthetic data](../architecture/synthetic-data.md).
+The risk-classification agent is a separate agent with its own package (`mnamon/agents/classification/`):
+[agents classification](agents-classification.md).
 
 ## Model access (Gemini)
 

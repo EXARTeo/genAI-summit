@@ -118,10 +118,10 @@ flowchart LR
 flowchart TB
   UI[Frontend\nClassify risk] -->|POST /v1/systems/{id}/classifications| BE[backend\nrow status running\nbackground task]
   BE -->|POST /systems/{id}/classify\nrequest: card, docs text, pins, feedback| AG
-  subgraph AG["agents: pipeline/classify.py (not a graph)"]
+  subgraph AG["agents: classification/agent.py (own agent, not a graph)"]
     P0[pin kb_version\nactive release] --> P1[pre-checks (code)\nAnnex III candidates, Art. 5 flags,\nArt. 50 features, profiling, role,\nAnnex I flag]
     P1 --> P2[fetch provision texts (code)\nAIA.5.1.*, AIA.6.1-4,\ncandidate Annex III points,\nAIA.50.*, AIA.3.3/3.4, AIA.25.1\n+ related interpretation ids]
-    P2 --> P3[classify_risk step\nGemini reasoning, StepRunner\ntools: lookup_provision,\nsearch_regulation, read_guidance]
+    P2 --> P3[classify_risk step\nGemini reasoning, own deep agent\ntools: lookup_provision,\nsearch_regulation, read_guidance]
     P3 --> P4[verify (code)\ncitations exist at kb,\nconsistency rules]
     P4 -- problems, 1 redo --> P3
     P4 --> P5[Iris check\nmultiple choice on the class\n+ profiling yes/no]
@@ -136,7 +136,9 @@ flowchart TB
   LF[(Langfuse trace\nclassify:CLS-...)] --- AG
 ```
 
-### 6.1 Deterministic pre-checks (`agents/pipeline/classify.py`, data in `agents/pipeline/classification/hints.yaml`)
+**Where it lives (decided 2026-11-15):** the classifier is a **separate agent** from the audit pipeline. Everything classification-specific is in `mnamon/agents/classification/` (`agent.py` flow + own step runner, `prechecks.py`, `hints.yaml`, `tools.py`, `verify.py`, `schemas.py`, `fakes.py`, `prompts/`); the audit pipeline (`mnamon/agents/pipeline/`) and its step tables are untouched. Shared infrastructure is only imported: the Gemini model factory and scripted fake (`harness/models`), deepagents + `ToolStrategy`, `RegMemory` (gained `interpretation(id)` and the ranked `search(q)`), `IrisClient`, the Langfuse helpers.
+
+### 6.1 Deterministic pre-checks (`agents/classification/prechecks.py`, data in `agents/classification/hints.yaml`)
 
 | Check | Input | Output | Rule |
 |---|---|---|---|
@@ -152,12 +154,12 @@ Pre-checks are **hints, never answers**: the agent must confirm or reject each c
 
 ### 6.2 The classifier step (`classify_risk`)
 
-- Runs through the existing `StepRunner` (add `classify_risk` to `STEP_ROLES` = `reasoning`, `STEP_TOOLS` = `("regulation",)`, `STEP_PROMPTS`, `STEP_RESULTS`, a fake in `fakes.py`). `StepScope(audit_id=<classification id>, system_id, kb_version, step="classify_risk", regmem=RegMemory())`. Recursion limit for this step: 24 (constant next to `STEP_RECURSION_LIMIT`).
+- Runs through the classifier's own `ClassifierStep` (`classification/agent.py`): one deepagents agent on the Gemini `reasoning` role, tools `lookup_provision`, `search_regulation` (ranked), `read_guidance` (`classification/tools.py`), result `RiskProposal` via `ToolStrategy`, 2 attempts, recursion limit 24; the scripted fake (`classification/fakes.py`) under `AGENTS_FAKE_LLM`. Not part of the audit's `StepRunner` tables.
 - **The dossier comes in the brief, not through file tools** (file tools are audit-scoped, `BackendInternal` → `/internal/audits/{id}`): the backend sends the card and the readable documents (path, version, text truncated to 6,000 chars each, 30,000 total). Documents are framed as untrusted data.
 - The brief also carries the pre-check output and the fetched provision texts, so most runs need 0-4 tool calls.
 - A rejection's reason (from the previous run) is passed as `feedback={source: "human", reason}`.
 
-### 6.3 Verifier (code, `classify.py: classification_problems(result, kb_ids, prechecks)`)
+### 6.3 Verifier (code, `classification/verify.py: classification_problems(result, kb_ids, prechecks)`)
 
 1. Every `citations[].provision_id` exists at `kb_version` (lookup cache from the run; interpretation ids `INT.*` checked against `GET /v1/interpretations/{id}`).
 2. `risk_class == high_risk` ⇒ `route in {art6_1_annex_i, art6_2_annex_iii}` and `annex_basis` set; Annex III basis ⇒ it cites the `AIA.ANNEX_III.<point>` node.
@@ -168,7 +170,7 @@ Pre-checks are **hints, never answers**: the agent must confirm or reject each c
 
 Problems → one automatic redo with the problem list as `feedback={source: "verifier"}`; still failing → result kept, `verifier_problems` listed, `needs_human: true`.
 
-### 6.4 Iris check (`prompts/decisions/risk_classification.yaml`, task via `DecisionTask`)
+### 6.4 Iris check (`classification/prompts/risk_classification.yaml`, `IrisClient.ask` directly: no `DecisionModel`, since that falls back to Gemini)
 
 ```yaml
 risk_class:
@@ -253,7 +255,7 @@ classification: {id: CLS-..., kb_version: 2026.11.15-1, approved_by: client:...,
 provenance: classified_by_agent_approved_by_human
 ```
 
-### 7.4 Agents route (`router/classifications.py`, internal secret; `schema/classifications.py`; logic `utils/classify_runs.py`)
+### 7.4 Agents route (`router/classifications.py`, internal secret; `schema/classifications.py`; logic `utils/classify_runs.py` → `classification/agent.py`; own Langfuse trace, kind `classification`)
 
 `POST /systems/{system_id}/classify` (synchronous, ≤ 120 s; the backend awaits it inside its background task, exactly like the change judge):
 
@@ -284,7 +286,7 @@ Called inside `utils/regulation.py` `decide_change` right after a change is **ac
 
 ## 8. Prompts and the output schema
 
-### 8.1 `agents/pipeline/prompts/classify_risk.md` (≤ 200 words; layered by `compose_step_prompt`: rules → this → method → memory → date)
+### 8.1 `agents/classification/prompts/classify_risk.md` (≤ 200 words; layered by `classification/agent.py: compose_prompt`: `prompts/rules.md` → this → `prompts/method.md` → date; the classifier's own rules and defaults, no memory block)
 
 ```markdown
 # Classify an AI system under the AI Act
@@ -308,9 +310,9 @@ conclusion. Give the strongest counter-argument and what would change the answer
 Say what you could not establish from the dossier; do not guess facts. Dates are added by code.
 ```
 
-`prompts/rules.md` and `prompts/method.md` are reused unchanged (precedence, result contract, verification). The brief (`render_brief`) carries: `system` (card), `prechecks`, `provisions` (texts), `documents` (untrusted), `kb_version`, `feedback`.
+The classifier has its own short `rules.md` (precedence, propose-only, cite-or-say-uncertain) and `method.md` (verify, feedback, result tool). The brief carries: `system` (card), `prechecks`, `provisions` (texts), `documents` (untrusted), `kb_version`, `feedback`.
 
-### 8.2 `ClassificationResult` (pydantic `_Strict` in `agents/pipeline/schemas.py`; copied to `backend/schema/classifications.py` and `frontend/src/features/classification/lib/types.ts`)
+### 8.2 `ClassificationResult` (pydantic in `agents/classification/schemas.py`; copied to `backend/schema/classifications.py` and `frontend/src/features/classification/lib/types.ts`)
 
 ```text
 risk_class           prohibited | high_risk | limited_risk | minimal_risk | out_of_scope
@@ -358,7 +360,7 @@ Commands: `uv run python -m pytest tests/agents -k classif`, `mnamon\backend\.ve
 
 | Agent | Owns (create/edit) | Shared files (small additive edits, commit last) | Effort |
 |---|---|---|---|
-| **A · agents** | `mnamon/agents/pipeline/classify.py`, `pipeline/classification/hints.yaml`, `pipeline/prompts/classify_risk.md`, `pipeline/prompts/decisions/risk_classification.yaml`, `router/classifications.py`, `schema/classifications.py`, `utils/classify_runs.py`, `tests/agents/test_classify.py` | `pipeline/steps.py` (`STEP_*`, `read_guidance`, ranked search), `pipeline/prompting.py` (`STEP_PROMPTS`), `pipeline/schemas.py` (`ClassificationResult`, `STEP_RESULTS`), `pipeline/fakes.py`, `pipeline/clients.py` (`RegMemory.interpretation(id)`), `main.py` (router), `docs/contracts/agents-contract.md`, `docs/services/agents-pipeline.md` | ~2.5 h |
+| **A · agents** | `mnamon/agents/classification/**` (`agent.py`, `prechecks.py`, `hints.yaml`, `tools.py`, `verify.py`, `schemas.py`, `fakes.py`, `prompts/`), `router/classifications.py`, `schema/classifications.py`, `utils/classify_runs.py`, `tests/agents/test_classify.py` | `pipeline/clients.py` (`RegMemory.interpretation(id)`, ranked `search`), `harness/observability/langfuse.py` (`start_span(parent_id=)`), `core/settings.py` (`CLASSIFY_IRIS_MIN_CONFIDENCE`), `main.py` (router), `docs/contracts/agents-contract.md`, `docs/services/agents-classification.md`. The audit pipeline's files are not touched | ~2.5 h |
 | **B · backend** | `mnamon/backend/router/classifications.py`, `utils/classifications.py`, `schema/classifications.py`, `core/database/migrations/versions/0008_system_classifications.py`, `tests/backend/test_classifications.py` | `core/database/models.py`, `main.py` (router), `utils/regulation.py` (one call in `decide_change`), `docs/services/backend-systems.md` | ~2.5 h |
 | **C · frontend** | `mnamon/frontend/src/features/onboarding/**` (wizard), `features/classification/**` (panel, result card, decision dialog, history, hooks, types), `pages/RegisterSystemView.tsx`, `shared/lib/mocks/handlers/classifications.ts` (+ fixture: a CV Parser proposal with 6(3)(a), one `needs_human` case, one stale) | `features/systems/components/SystemsGallery.tsx` (button), `detail_parts/OverviewTab.tsx` (panel), `detail_parts/SystemHeader.tsx` (dot), `detail_parts/ObligationsTab.tsx` (preview fallback), `lib/routes.ts` (`classifications`, `obligations` api paths), app router (`/systems/new`), `docs/services/frontend.md` | ~3 h (mock mode first, live at the end) |
 
