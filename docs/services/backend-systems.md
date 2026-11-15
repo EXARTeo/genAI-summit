@@ -28,6 +28,7 @@ It is not user-visible and the backend has no memory routes.
 | `utils/register.py`, `router/register.py`, migration `0007_finding_register` | findings register: per-(system, obligation) state across audits, close / reopen, rebuild |
 | `router/internal.py`, `core/security/internal.py` | the agents service's internal API and its shared-secret guard |
 | `router/plugins.py`, `utils/plugins.py`, `schema/plugins.py` | plugins: the system graph, form defaults from MLflow, validated `plugin.yaml` writes (tests `tests/backend/test_plugins.py`) |
+| `router/classifications.py`, `utils/classifications.py`, `schema/classifications.py`, migration `0008_system_classifications` | risk classification: runs of the agents' classifier, approve / reject, stale on a regulation change, the obligations preview (tests `tests/backend/test_classifications.py`) |
 
 ## Tables
 
@@ -48,6 +49,8 @@ Few typed columns (what is filtered or joined on); everything else in JSONB `dat
 | `regulation_changes` | `id` (reg-memory's RC id), `status` | `data`: reg-memory's payload, the decision (`decidedBy`, `reason`), per-system `affected` |
 | `finding_register` | `system_id`, `obligation_id` (unique together), `state` (`open`, `closed`, `resolved`, `monitoring`), `verdict`, `severity`, `article`, `title`, `gap_id`, `first_seen_audit_id`, `last_seen_audit_id`, `last_finding_id`, `opened_at`, `closed_by`, `close_reason`, `closed_at` | `history` (append-only list of events), `data` (`last_status`, `last_reasoning`, `last_evidence`, `closed_verdict`). Mutable state, unlike the sealed findings ([Findings register](#findings-register)) |
 | `telegram_prompts` | `id` (callback token), `kind`, `key`, `status`, `decision`, `decided_by` | `data` (what it decides, reject state), `messages` (sent chat / message ids) |
+| `system_classifications` | `id` (`CLS-<SYS>-<YYYYMMDD>-<HHMM>[-n]`), `system_id`, `status`, `kb_version`, `trace_id`, `previous_id`, `created_by` | `dossier_version` (`{path: version}` sent), `input` (card snapshot, documents sent, `not_read`, `feedback`), `result` (the `ClassificationResult`, written once), `error` ([Risk classification](#risk-classification)) |
+| `classification_events` | `classification_id`, `system_id`, `action` (`created`, `proposed`, `failed`, `approved`, `rejected`, `stale`, `superseded`), `actor`, `reason`, `at` | `data` (e.g. `{change_id, provisions}`); append-only (trigger) |
 
 **Namespaces:** `system:<id>` (the system folder; plugins under `plugins/<name>/`).
 
@@ -237,6 +240,34 @@ judge (or a human override) writes `regulation_changes.data.affected`.
 compose default `http://backend:8000`); the payload is stored in `regulation_changes` (idempotent per id)
 and announced on Telegram. `GET /v1/agents` proxies the agents service's `GET /agents` (502 when it is down).
 
+## Risk classification
+
+Plan 02: the PM registers a system (`POST /v1/systems` with `status: draft` + `PUT .../files/...`, no new
+route), then a run of the agents' risk classifier proposes its AI Act class; a human approves or rejects.
+Not scoped by client id (like systems); the actor is `client:<X-Client-Id>`.
+
+| Route | Does |
+| --- | --- |
+| `POST /v1/systems/{id}/classifications` `{previousId?}` | 202 + the `running` row. Sends `{classification_id, kb_version: null, card, documents, feedback, trace: {name: "classify:<id>"}}` to the agents' `POST /systems/{id}/classify` in a background task (awaited up to `CLASSIFY_TIMEOUT_S`): `card` = current `system-card.yaml` (else `data.card`); `documents` = `{path, version, text}` for `docs/**` `.md/.txt/.yaml/.yml/.json` and root `.md` files (6,000 chars each, 30,000 in all; others are listed in `input.not_read`); `feedback` = `{source: "human", reason}` from `previousId`'s rejection. The answer is stored once: `proposed`, or `failed` with `error` (agents down, non-2xx, not a `ClassificationResult`). 409 while another run of the system is `running`; 404 for an unknown system or `previousId` |
+| `GET /v1/systems/{id}/classifications` | every run, newest first, each with its `events` |
+| `GET /v1/systems/{id}/classifications/{cid}` | one run with its events (404 if not this system's) |
+| `POST /v1/systems/{id}/classifications/{cid}/decision` `{decision: approve\|reject, reason?}` | 409 unless `proposed`. **Reject** needs a non-blank `reason` (≤ 2,000 chars, else 422). **Approve**: earlier `approved` / `stale` runs → `superseded`; new versions of `system-card.yaml` (keys `risk_class`, `annex_basis`, `role`, `features`, `art_6_3_claim {claimed, condition, assessed_in}`, `classification {id, kb_version, approved_by, approved_at}`, `provenance: classified_by_agent_approved_by_human`; the other card keys kept) and `classification.yaml` (the run + result); `data.card` merged; system `status: active` |
+| `GET /v1/systems/{id}/obligations[?date=]` | the preview before any audit: `data.card` → reg-memory `GET /v1/obligations` (`role`, `risk_class` with `_risk` dropped (`high_risk` → `high`), `basis` / `annex_point` from `annex_basis`, `features`, `exempt_6_3` from `art_6_3_claim.claimed`, `kb_version` of the approved (or stale) run, `include_not_applicable=true`). Answer: `{systemId, classificationId, classificationStatus, kb_version, classified, prohibited, query, total, items}` (`items` = reg-memory's rows). Unclassified card → `classified: false`, no items; `out_of_scope` → no items; `prohibited` → only the `OBL.AIA.5.*` rows |
+
+`ClassificationOut`: `{id, systemId, status, kbVersion, dossierVersion, input, result, error, traceId,
+previousId, createdBy, createdAt, updatedAt, events: [{id, classificationId, systemId, action, actor, reason,
+data, at}]}`; `result` is the agents' `ClassificationResult` as returned (snake_case).
+
+**Statuses** move only through `utils/classifications.py: move()`, each move an event: `running → proposed |
+failed`, `proposed → approved | rejected`, `approved → stale | superseded`, `stale → superseded`.
+
+**Stale.** Accepting a regulation change (`decide_change`, so the UI and Telegram) calls
+`mark_stale_for_change`: the change's provision and interpretation ids and their `relates_to` are matched
+(prefix, both ways) against each approved run's citation ids, `annex_basis_id` and the core set `AIA.5`,
+`AIA.6`, `AIA.50`, `AIA.25`, `AIA.3.3`, `AIA.3.4`. A touch adds a `stale` event (`{change_id, provisions}`);
+the card is not changed (the stale class stays in force until a new approval). Best effort: a failure is
+logged and the accept goes on.
+
 ## Telegram approvals
 
 Every HITL gate is also sent to Telegram with **Approve / Reject / Open in app**; a button records the decision
@@ -279,6 +310,7 @@ long-polling worker), `router/telegram.py` (optional webhook), table `telegram_p
 | `APP_PUBLIC_URL` | `http://localhost:8080` | base of the "Open in app" links |
 | `MLFLOW_TRACKING_URI` | `http://mlflow:5000` | the registry the plugin defaults read |
 | `MLFLOW_TIMEOUT_SECONDS` | `5` | each MLflow call of the plugin defaults (not passed by compose; the default applies) |
+| `CLASSIFY_TIMEOUT_S` | `120` | how long the background task awaits the agents' risk classifier |
 
 ## Not included yet
 
