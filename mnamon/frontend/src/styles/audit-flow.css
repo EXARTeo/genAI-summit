@@ -504,6 +504,14 @@
   }
 }
 
+/* Legend, floating on the canvas. */
+.pg-legend {
+  border: 1px solid rgb(var(--border) / 0.8);
+  background: rgb(var(--surface) / 0.88);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 20px -14px rgb(var(--foreground) / 0.35);
+}
+
 /* Legend swatch for "working now". */
 .pg-legend-live {
   background: conic-gradient(from 0deg, rgb(var(--primary)), rgb(var(--accent)), rgb(var(--primary)));

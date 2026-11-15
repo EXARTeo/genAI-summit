@@ -4,6 +4,7 @@ import {
   BackgroundVariant,
   BaseEdge,
   Controls,
+  Panel,
   EdgeLabelRenderer,
   ReactFlow,
   type Edge,
@@ -21,7 +22,7 @@ import { stepSummary } from '../lib/stepMeta';
 import type { AuditDetail } from '../lib/types';
 import { GraphNode } from './pipeline_parts/GraphNode';
 
-// The audit run as an agent graph: one band per phase, a row of nodes flowing left to right,
+// The audit run as an agent graph on a canvas that fills its parent: one band per phase, a row of nodes flowing left to right,
 // the run wrapping from the end of a phase into the next. The step that runs now wears
 // mAgenticX's sub-agent running light, and particles flow along the edge into it; a gate that
 // waits for a person does the same in amber. Redo loops arc back over the row. Drawn at
@@ -154,11 +155,17 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Ed
 }
 
 const nodeTypes = { step: StepNode, phase: GroupNode };
+
+/** Canvas margin round the graph, room kept for the legend, and the widest the graph lays out (px). */
+const CANVAS_PAD = 28;
+const LEGEND_H = 52;
+const REST_MIN_ZOOM = 0.85;
+const MAX_GRAPH_W = 1240;
 const edgeTypes = { flow: FlowEdge };
 
 function Legend() {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 px-1 text-[11.5px] text-muted">
+    <div className="pg-legend flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl px-3 py-2 text-[11.5px] text-muted">
       <span className="flex items-center gap-1.5">
         <span className="size-3 rounded-[4px] border border-primary/50 bg-primary/10" /> Agent step
       </span>
@@ -173,6 +180,9 @@ function Legend() {
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-0 w-5 border-t-[1.5px] border-dashed border-muted/60" /> Next
+      </span>
+      <span className="hidden border-l border-border pl-4 xl:inline">
+        Drag to move · Ctrl + scroll to zoom
       </span>
     </div>
   );
@@ -191,19 +201,46 @@ export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight
   const reduced = !!useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
   const flow = useRef<ReactFlowInstance | null>(null);
-  const [width, setWidth] = useState(0);
+  // Set once React Flow is up; the viewport effect below re-runs then (onInit only sees the
+  // first render's numbers, measured before the canvas had its final size).
+  const [ready, setReady] = useState(false);
+  const placed = useRef(false);
+  const [size, setSize] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    setWidth(el.clientWidth);
+    const measure = () => setSize({ width: el.clientWidth, height: el.clientHeight });
+    measure();
     if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const { width, height } = size;
 
   const { states, edges: pe, redos } = graphModel(audit);
-  const layout = graphLayout(width || 1000, (id) => states[id] === 'needs-approval');
+  // The graph keeps a margin inside the canvas and stops growing on very wide screens.
+  const layout = graphLayout(
+    Math.min(Math.max(width - CANVAS_PAD * 2, 0), MAX_GRAPH_W) || 1000,
+    (id) => states[id] === 'needs-approval',
+  );
+  // Resting view: centred and scaled to fit, but never below REST_MIN_ZOOM (text stays readable);
+  // when the graph is still taller than the canvas, scroll it so the current step's row shows.
+  const live = STAGES.find((s) => states[s.id] === 'active' || states[s.id] === 'needs-approval')?.id;
+  const focus = layout.positions[live ?? selected];
+  const focusBottom = focus ? focus.y + focus.height : 0;
+  const rest = useMemo(() => {
+    const avail = height - LEGEND_H;
+    const fit = Math.min(1, (avail - CANVAS_PAD) / layout.height, (width - CANVAS_PAD * 2) / layout.width);
+    const zoom = Math.max(fit, REST_MIN_ZOOM);
+    const x = (width - layout.width * zoom) / 2;
+    if (layout.height * zoom <= avail - CANVAS_PAD) {
+      return { x, y: (avail - layout.height * zoom) / 2, zoom };
+    }
+    const top = CANVAS_PAD * 0.75;
+    const overflow = top + focusBottom * zoom - (avail - CANVAS_PAD);
+    return { x, y: top - Math.max(0, overflow), zoom };
+  }, [width, height, layout.width, layout.height, focusBottom]);
   const stateKey = Object.values(states).join();
   const summaries = useMemo(
     () => Object.fromEntries(STAGES.map((s) => [s.id, stepSummary(s.id, audit)])),
@@ -295,7 +332,7 @@ export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight
     }
     return { nodes, edges };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [width, stateKey, selected, summaries, redos.map((r) => r.count).join(), reduced, onReview]);
+  }, [layout.width, stateKey, selected, summaries, redos.map((r) => r.count).join(), reduced, onReview]);
 
   // With a side panel open, centre the selected node in the part of the canvas still visible;
   // slide back to the resting view when it closes.
@@ -306,18 +343,20 @@ export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight
     const rf = flow.current;
     const el = wrap.current;
     if (!rf || !el) return;
-    const duration = reduced ? 0 : 450;
+    // The first placement snaps; later moves (panel open/close, the live step advancing) glide.
+    const duration = reduced || !placed.current ? 0 : 450;
+    placed.current = true;
     if (!coveredRight || !hasSel) {
-      void rf.setViewport({ x: 0, y: 0, zoom: 1 }, { duration });
+      void rf.setViewport(rest, { duration });
       return;
     }
     const rect = el.getBoundingClientRect();
     const visibleRight = Math.min(rect.right, window.innerWidth - coveredRight);
     // Step back a little so more of the graph fits beside the panel.
-    const zoom = 0.85;
+    const zoom = Math.min(0.85, rest.zoom);
     const centre = (Math.max(visibleRight, rect.left + 160) - rect.left) / 2;
-    void rf.setViewport({ x: centre - selX * zoom, y: 0, zoom }, { duration });
-  }, [coveredRight, selected, selX, reduced, hasSel]);
+    void rf.setViewport({ x: centre - selX * zoom, y: rest.y, zoom }, { duration });
+  }, [ready, coveredRight, selected, selX, reduced, hasSel, rest]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -330,60 +369,57 @@ export function PipelineFlow({ audit, selected, onSelect, onReview, coveredRight
   };
 
   return (
-    <div>
-      <div
-        ref={wrap}
-        className="w-full"
-        style={{ height: layout.height + 2 }}
-        role="group"
-        aria-label="Audit pipeline: three phases, each ending at a human gate"
-        onKeyDown={onKeyDown}
-      >
-        {width > 0 && (
-          <ReactFlow
-            className="audit-flow"
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onInit={(rf) => (flow.current = rf)}
-            onNodeClick={(_, n) => n.type === 'step' && onSelect(n.id)}
-            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-            minZoom={0.5}
-            maxZoom={1.6}
-            translateExtent={[
-              [-240 - layout.width, -160],
-              [layout.width + 240, layout.height + 160],
-            ]}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            nodesFocusable
-            edgesFocusable={false}
-            panOnDrag
-            panOnScroll={false}
-            zoomOnScroll={false}
-            zoomOnPinch
-            zoomOnDoubleClick={false}
-            preventScrolling={false}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} />
-            <Controls
-              position="bottom-right"
-              showInteractive={false}
-              fitViewOptions={{ padding: 0.04, duration: 300 }}
-              className="pg-controls"
-            />
-          </ReactFlow>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Legend />
-        <span className="mt-3 px-1 text-[11.5px] text-muted">
-          Drag to move · Ctrl + scroll or pinch to zoom
-        </span>
-      </div>
+    <div
+      ref={wrap}
+      className="size-full"
+      role="group"
+      aria-label="Audit pipeline: three phases, each ending at a human gate"
+      onKeyDown={onKeyDown}
+    >
+      {width > 0 && height > 0 && (
+        <ReactFlow
+          className="audit-flow"
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onInit={(rf) => {
+            flow.current = rf;
+            setReady(true);
+          }}
+          onNodeClick={(_, n) => n.type === 'step' && onSelect(n.id)}
+          defaultViewport={rest}
+          minZoom={0.45}
+          maxZoom={1.6}
+          translateExtent={[
+            [-width, -height],
+            [layout.width + width, layout.height + height],
+          ]}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          nodesFocusable
+          edgesFocusable={false}
+          panOnDrag
+          panOnScroll={false}
+          zoomOnScroll={false}
+          zoomOnPinch
+          zoomOnDoubleClick={false}
+          preventScrolling={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} />
+          <Panel position="bottom-left">
+            <Legend />
+          </Panel>
+          <Controls
+            position="bottom-right"
+            showInteractive={false}
+            fitViewOptions={{ padding: 0.08, maxZoom: 1, duration: 300 }}
+            className="pg-controls"
+          />
+        </ReactFlow>
+      )}
     </div>
   );
 }

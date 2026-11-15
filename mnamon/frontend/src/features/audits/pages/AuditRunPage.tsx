@@ -22,6 +22,7 @@ import { StepFacts } from '../components/StepFacts';
 import { PipelineHeader, type RunChip } from '../components/pipeline_parts/PipelineHeader';
 import { TraceLink } from '../components/artifact_parts/common';
 import { useAudit } from '../hooks/useAudits';
+import { useFillHeight } from '../hooks/useFillHeight';
 import { useReplay } from '../hooks/useReplay';
 import { TONE_CLASSES, verdictStyle } from '../lib/styling';
 import {
@@ -86,6 +87,7 @@ export function AuditRunPage() {
   const [drawer, setDrawer] = useState(false);
   // Wide screens: the picked step opens in a side panel beside the graph (a deep link opens it too).
   const [panel, setPanel] = useState(!!pinned);
+  const canvas = useFillHeight<HTMLDivElement>(560, 44);
 
   // Follow the live step until the user picks one.
   const live = audit ? defaultSelectedStage(audit) : null;
@@ -232,7 +234,8 @@ export function AuditRunPage() {
 
       {wide ? (
         <div className="space-y-4">
-          <Card className="overflow-hidden">
+          {/* The run as one canvas filling the rest of the screen: status strip on top, the graph below. */}
+          <Card ref={canvas.ref} className="flex flex-col overflow-hidden" style={{ height: canvas.height }}>
             <PipelineHeader
               chip={chip}
               stepText={stepText}
@@ -243,7 +246,7 @@ export function AuditRunPage() {
                 setParams({}, { replace: true });
               }}
             />
-            <div className="px-4 pb-4">
+            <div className="relative min-h-0 flex-1 border-t border-border">
               <PipelineFlow
                 audit={audit}
                 selected={stage.id}
