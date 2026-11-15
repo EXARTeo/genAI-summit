@@ -1,69 +1,118 @@
-# Raw input of the CV parser (= the end-to-end entry of SYS-001).
-# Schema: docs/architecture/synthetic-data.md § 4. Generation: the structured rows of
-# ../../cv-ranker/data/data-dictionary.yaml are *rendered* into these raw fields
-# ("Pipelines of models", end-to-end mode), so distributions live there; this file declares the
-# raw formats, ranges and rules. All values are synthetic.
-version: 1
+# Raw CV fields: the input of the CV parser = the end-to-end entry of SYS-001.
+# Schema: docs/architecture/synthetic-data.md § 4. Standalone: every field this file
+# generates depends only on fields declared here, so synthkit can generate raw CVs directly.
+# The plugin sends them through the deployed pipeline (model gateway
+# /v1/systems/sys-001/screen: parser -> ranker -> shortlist), so the audit tests the
+# decision people actually get. The proxy is kept on purpose: postcode depends on
+# nationality (non-EU applicants live more often in Athens West), as in the training data
+# (training-data.md). All values are synthetic.
+version: 2
 population:
   n_described: 48000
   period: 2019-2024
-  stats: {sex.female: 0.38, age.median: 33, career_break_months.null_rate: 0.69}
-render_from: ../../cv-ranker/data/data-dictionary.yaml
+  stats: {sex.female: 0.38, age.median: 33, nationality_code.GR: 0.80}
 fields:
-  candidate_id: {type: string, role: id, format: "CAND-NNNNNN", provenance: dictionary}
+  candidate_id:
+    type: id
+    role: id
+    source: {kind: sequence, prefix: "CAND-"}
+  sex:
+    type: category
+    role: protected
+    values: [female, male]
+    distribution: {female: 0.38, male: 0.62}
+    provenance: training_doc
+  nationality_code:
+    type: category
+    role: protected
+    values: [GR, DE, IT, BG, RO, AL, IN, EG, UA, PH]
+    # GR 0.80, EU other 0.08, non-EU 0.12 (the parser groups codes into GR / EU_other / non_EU)
+    distribution: {GR: 0.80, DE: 0.02, IT: 0.02, BG: 0.02, RO: 0.02, AL: 0.04, IN: 0.02, EG: 0.02, UA: 0.02, PH: 0.02}
+    provenance: training_doc
   full_name:
     type: string
     role: surface
-    source: {kind: list, from_fields: [nationality, sex], ref: ../../cv-ranker/data/data-dictionary.yaml}
+    source:
+      kind: faker
+      provider: name
+      locale_from: nationality_code
+      gender_from: sex
+      locale_map: {GR: el_GR, DE: de_DE, IT: it_IT, BG: bg_BG, RO: ro_RO, AL: en_US, IN: en_IN, EG: ar_EG, UA: uk_UA, PH: en_PH}
     note: synthetic names only, never real applicants
-  sex: {type: category, role: protected, values: [female, male], distribution: {female: 0.38, male: 0.62}}
   age:
     type: integer
     role: protected
     range: [18, 67]
-    derived_from: "uniform within the ranker's age_band"
-  nationality_code:
-    type: string
-    role: protected
-    format: "ISO 3166-1 alpha-2"
-    values_by_group:
-      GR: [GR]
-      EU_other: [DE, IT, FR, ES, NL, PL, BG, RO, CY, PT]
-      non_EU: [AL, IN, PK, EG, PH, UA, GE, SY, NG, US]
+    distribution: {dist: normal, mean: 34, sd: 9}
+    provenance: training_doc
   postcode:
     type: string
     role: proxy
     proxy_for: [nationality_code]
-    format: "5-digit Greek postcode, spaces allowed"
-    prefixes_by_region:
-      athens_centre: ["104", "105", "106", "113", "114", "117"]
-      athens_north: ["145", "146", "151", "152", "154"]
-      athens_west: ["121", "122", "123", "131", "132"]
-      piraeus: ["185", "186", "187"]
-      thessaloniki: ["542", "543", "544", "546", "551"]
-      other: ["261", "301", "382", "412", "491", "712", "731"]
+    # Greek 5-digit postcodes; the first 3 digits give the region the parser derives.
+    # GR: north / centre / Thessaloniki heavy; EU other: centre / north; non-EU: West + Piraeus heavy.
+    source:
+      kind: list
+      from_fields: [nationality_code]
+      lists:
+        GR: &gr ["145 62", "146 71", "151 24", "152 37", "154 52", "106 77", "114 73", "117 45", "542 48", "546 21", "551 33", "121 33", "131 22", "185 36", "261 10", "382 21", "412 22"]
+        DE: &eu ["104 31", "105 58", "106 81", "113 61", "145 64", "151 25", "152 34", "542 49", "185 31", "121 31"]
+        IT: *eu
+        BG: *eu
+        RO: *eu
+        AL: &non_eu ["121 31", "121 32", "122 41", "123 51", "131 21", "132 31", "122 43", "185 36", "186 47", "187 53", "104 34", "105 52", "113 62", "542 48"]
+        IN: *non_eu
+        EG: *non_eu
+        UA: *non_eu
+        PH: *non_eu
+    provenance: llm_assumption
   highest_degree:
     type: string
     role: feature
-    values_by_level:
-      secondary: [High school diploma, Lyceum certificate, Secondary education]
-      bachelor: [BSc Computer Science, Bachelor of Engineering, BA Economics, Ptychio]
-      master: [MSc Data Science, Master of Engineering, MBA]
-      phd: [PhD Physics, Doctorate in Computer Science]
-  years_experience: {type: integer, role: feature, range: [0, 45], monotone: increasing}
+    source:
+      kind: list
+      values: [High school diploma, Lyceum certificate, BSc Computer Science, Bachelor of Engineering, BA Economics, Ptychio Informatics, MSc Data Science, Master of Engineering, MBA, PhD Physics]
+  years_experience:
+    type: integer
+    role: feature
+    range: [0, 45]
+    depends_on: [age]
+    conditional: {dist: poisson, mean_expr: "max(0.5, (age - 23) * 0.6)"}
+    monotone: increasing
   career_break_months:
     type: float
     role: proxy
     proxy_for: [sex]
     range: [0, 120]
-    nullable: true
-    note: null = no break
+    depends_on: [sex]
+    conditional:
+      female: {dist: lognormal, p_zero: 0.50, median: 16, sigma: 0.6}
+      male: {dist: lognormal, p_zero: 0.80, median: 8, sigma: 0.6}
+    note: 0 = no break (the parser maps a missing value to 0 too)
   skills:
     type: string
     role: feature
-    format: comma-separated
-    vocabulary: {required: [python, sql, docker, kubernetes, aws, git, linux, pytorch], other: [excel, photoshop, sap, marketing, autocad, salesforce, jira]}
-  languages: {type: string, role: feature, format: comma-separated, count_range: [1, 5]}
+    # comma-separated; the parser scores the share of required skills (python, sql, docker,
+    # kubernetes, aws, git, linux, pytorch)
+    source:
+      kind: list
+      values:
+        - "python, sql, git, linux"
+        - "python, sql, docker, kubernetes, aws, git"
+        - "excel, sap, marketing"
+        - "python, pytorch, sql, git, linux, docker"
+        - "jira, excel, salesforce"
+        - "sql, excel, git"
+        - "python, aws, docker, git, linux, kubernetes, sql, pytorch"
+        - "autocad, photoshop, excel"
+        - "python, sql"
+        - "linux, git, docker, aws"
+  languages:
+    type: string
+    role: feature
+    source:
+      kind: list
+      values: ["Greek, English", "English", "Greek, English, German", "English, Arabic", "Greek", "English, Ukrainian", "Greek, English, French", "English, Hindi"]
 rules:
   - id: P1
     severity: hard
@@ -71,6 +120,3 @@ rules:
   - id: P2
     severity: hard
     expr: "years_experience <= age - 16"
-  - id: P3
-    severity: hard
-    expr: "career_break_months is null or career_break_months <= years_experience * 12 + 24"

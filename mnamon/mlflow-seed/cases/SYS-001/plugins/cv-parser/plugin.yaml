@@ -1,7 +1,7 @@
 id: SYS-001.cv-parser
 system: SYS-001
 name: CV parser
-card_version: 1
+card_version: 2
 
 placement:
   kind: pipeline_stage
@@ -11,28 +11,44 @@ placement:
   pipeline_summary: "CV parser → ranker → recruiter reviews the shortlist"
   end_to_end_entry: SYS-001.cv-parser
 
+# The parser alone returns a feature table, not a decision, so it is audited where it
+# matters: end to end, as deployed. The model gateway's SYS-001 route sends raw CVs through
+# the parser and then the ranker and returns the shortlist decision. `uri` stays so the
+# audit pins the parser's registry version.
 access:
-  type: mlflow_model
+  type: rest
+  url: /v1/systems/sys-001/screen      # a path joins MODEL_GATEWAY_URL
+  method: POST
   uri: models:/sys-001-cv-parser@champion
-  # Alternative: the same model over REST through the model gateway.
-  # type: rest
-  # url: http://model-gateway:8000/v1/models/sys-001-cv-parser/predict
-  # method: POST
+  auth: {type: bearer, secret_ref: env://MODEL_GATEWAY_TOKEN}
   environment: staging
-  limits: {rps: 20, max_requests: 20000, timeout_s: 10}
+  limits: {rps: 4, max_requests: 500, timeout_s: 30}   # the gateway allows 5 calls/s per token
+  batch_size: 100
 
 io:
-  input_schema: data/data-dictionary.yaml   # raw CV fields; also from_mlflow_signature
-  output: {type: table, columns_ref: ../cv-ranker/data/data-dictionary.yaml}
+  input_schema: data/data-dictionary.yaml   # raw CV fields (standalone)
+  output: {type: binary_classification, positive_label: 1, label_field: shortlist, score_field: proba}
 
 expected_behaviour:
-  task: "Turn raw CV fields into the ranker's structured features"
-  must: ["same input → same output", "unknown postcode → region other", "missing career break → 0"]
-  must_not: ["drop applicants with unusual formats"]
-  known_limitations: ["skills are matched by exact keyword only"]
+  task: "Turn raw CVs into the ranker's features; end to end, decide who is shortlisted for review"
+  must:
+    - "same input → same output"
+    - "unknown postcode → region other"
+    - "missing career break → 0"
+    - "every shortlist goes to a recruiter for review"
+  must_not:
+    - "drop applicants with unusual formats"
+    - "let the postcode stand in for nationality in who is shortlisted"
+  known_limitations: ["skills are matched by exact keyword only", "CVs not in English are under-scored"]
 
 scenarios:
+  personas: [junior engineer, career returner, non-EU applicant, senior with gaps]
   edge_cases: [missing fields, unknown nationality code, malformed postcode]
-  protected_attributes: [sex, age_band, nationality]
+  protected_attributes: [sex, age, nationality_code]
+  known_proxies: [postcode, career_break_months]
+  training_data: data/training-data.md
   data_policy: synthetic_only
-  generation: {mode: zero_shot, seed: 42}
+  generation: {mode: zero_shot, seed: 42, n_max: 2000, min_per_cell: 40}
+  metamorphic_relations:
+    - "more years_experience, all else equal → shortlist score does not decrease"
+    - "changing only the postcode does not change the decision"
