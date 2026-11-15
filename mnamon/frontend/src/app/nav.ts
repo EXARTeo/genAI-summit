@@ -1,12 +1,4 @@
-import {
-  BookOpenText,
-  Boxes,
-  ClipboardCheck,
-  House,
-  Inbox,
-  MessagesSquare,
-  type LucideIcon,
-} from 'lucide-react';
+import { BookOpenText, Boxes, ClipboardCheck, House, MessagesSquare, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   id: string;
@@ -41,16 +33,8 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Audits',
     to: '/audits',
     icon: ClipboardCheck,
-    description: 'Agent audit runs, findings and reports',
+    description: 'Agent audit runs, findings and reports; the badge counts gates waiting for you',
     key: 'a',
-  },
-  {
-    id: 'approvals',
-    label: 'Approvals',
-    to: '/approvals',
-    icon: Inbox,
-    description: 'Human-in-the-loop decisions waiting for you',
-    key: 'i',
   },
   {
     id: 'regulation',

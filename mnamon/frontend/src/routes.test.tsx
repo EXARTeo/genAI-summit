@@ -9,7 +9,7 @@ import { TooltipProvider } from '@/shared/ui';
 vi.mock('@/shared/lib/env', () => ({ env: { useMocks: true, apiBase: '/api' } }));
 
 const ROUTES: [string, RegExp][] = [
-  ['/', /Needs your decision/],
+  ['/', /Waiting for you/],
   ['/systems', /AI systems/],
   ['/systems/SYS-001', /CV Screener/],
   ['/systems/SYS-001/folder', /\/systems\/SYS-001/],
@@ -18,7 +18,10 @@ const ROUTES: [string, RegExp][] = [
   ['/systems/SYS-001/lessons', /Page not found|CV Screener/],
   ['/audits', /Audits/],
   ['/audits/aud-sys001-r2?step=profile_model', /Feature sensitivity/],
-  ['/approvals', /Approvals/],
+  ['/approvals', /Audits/],
+  ['/audits/aud-sys001-r2?view=findings', /Sealed|Not sealed|No findings yet/],
+  ['/audits/aud-sys001-r2?view=report', /Export PDF|No report yet/],
+  ['/systems/SYS-001/obligations', /Obligations/],
   ['/regulation', /Regulation/],
   ['/chat', /Agents can be wrong/],
   ['/chat/conv-f001', /F-001 is a gap/],

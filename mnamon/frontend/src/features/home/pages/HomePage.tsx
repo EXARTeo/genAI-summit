@@ -6,10 +6,10 @@ import { ApprovalDrawer } from '@/features/approvals/components/ApprovalDrawer';
 import { useOpenGates } from '@/features/approvals/hooks/useApprovals';
 import type { OpenGate } from '@/features/approvals/lib/approvals';
 import { VerdictPill } from '@/features/audits/components/artifact_parts/common';
-import { useAudit, useAudits } from '@/features/audits/hooks/useAudits';
+import { useAudit, useAuditFindings, useAudits } from '@/features/audits/hooks/useAudits';
 import { STAGES, progress, stageIndex } from '@/features/audits/lib/pipeline';
 import { TONE_CLASSES, verdictStyle } from '@/features/audits/lib/styling';
-import { findingsFromArtifacts } from '@/features/audits/lib/adapters';
+import { articleOf, panelFindings, sortFindings, titleOf } from '@/features/audits/lib/findings';
 import type { Audit } from '@/features/audits/lib/types';
 import { useRegChanges } from '@/features/regulation/hooks/useRegulation';
 import { useSystems } from '@/features/systems/hooks/useSystems';
@@ -58,12 +58,12 @@ export function HomePage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         {/* Needs you */}
         <Panel
-          title="Needs your decision"
+          title="Waiting for you"
           count={gates.length}
           tone="warning"
           action={
-            <Link to="/approvals" className="text-xs text-muted hover:text-text">
-              Inbox
+            <Link to="/audits" className="text-xs text-muted hover:text-text">
+              All audits
             </Link>
           }
         >
@@ -82,12 +82,15 @@ export function HomePage() {
                   <span className="grid size-7 shrink-0 place-items-center rounded-md bg-warning/10 text-warning">
                     <Hand className="size-3.5" />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/audits/${encodeURIComponent(g.auditId)}?step=${encodeURIComponent(g.stageId)}`}
+                    className="min-w-0 flex-1 rounded-sm hover:underline"
+                  >
                     <div className="truncate text-sm font-medium">{g.label}</div>
                     <div className="truncate text-xs text-muted">
                       {g.systemName} · {g.auditTitle} · waiting {formatRelative(g.waitingSince)}
                     </div>
-                  </div>
+                  </Link>
                   <Button size="sm" variant="warning" onClick={() => setGate(g)}>
                     Review
                   </Button>
@@ -244,14 +247,18 @@ export function HomePage() {
 
 function RecentFindings({ auditId }: { auditId?: string }) {
   const { data, isLoading } = useAudit(auditId);
-  const findings = findingsFromArtifacts(data?.artifacts ?? []);
+  const sealed = useAuditFindings(auditId);
+  // Sealed findings first; older audits fall back to their finding artifacts.
+  const findings = data
+    ? sortFindings(panelFindings(sealed.data, data.artifacts, data.id, data.systemId)).slice(0, 6)
+    : [];
   return (
     <Panel
       title="Recent findings"
       action={
         data && (
           <Link
-            to={`/audits/${encodeURIComponent(data.id)}?step=analyse`}
+            to={`/audits/${encodeURIComponent(data.id)}?view=findings`}
             className="inline-flex items-center gap-1 text-xs text-muted hover:text-text"
           >
             {data.data.systemName} · {data.data.title} <ArrowUpRight className="size-3" />
@@ -270,20 +277,17 @@ function RecentFindings({ auditId }: { auditId?: string }) {
             return (
               <li key={f.id} className="border-t border-border first:border-t-0">
                 <Link
-                  to={`/audits/${encodeURIComponent(data!.id)}?step=analyse`}
+                  to={`/audits/${encodeURIComponent(data!.id)}?view=findings`}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-muted/50"
                 >
                   <span className={cn('h-8 w-0.5 shrink-0 rounded-full', TONE_CLASSES[tone].bg)} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{f.title}</div>
+                    <div className="truncate text-sm font-medium">
+                      {[articleOf(f), titleOf(f)].filter(Boolean).join(' · ') || f.obligation_id}
+                    </div>
                     <div className="num flex min-w-0 items-center gap-1.5 text-2xs text-muted">
-                      <span className="truncate font-mono">{f.requirement}</span>
-                      {f.metric && f.metric.value != null && (
-                        <span className="hidden shrink-0 sm:inline">
-                          · {f.metric.name}{' '}
-                          <span className="font-medium text-text">{f.metric.value.toFixed(2)}</span>
-                        </span>
-                      )}
+                      <span className="truncate font-mono">{f.obligation_id}</span>
+                      {f.gap_id && <span className="shrink-0">· {f.gap_id}</span>}
                     </div>
                   </div>
                   <VerdictPill verdict={f.verdict} />

@@ -37,10 +37,12 @@ const SHOTS = [
   ['audit-report', '/audits/aud-sys001-r2?step=report'],
   ['audit-waiting', '/audits/aud-sys001-r3'],
   ['audit-running', '/audits/aud-sys002-r1'],
-  ['approvals', '/approvals'],
+  ['audit-findings-view', '/audits/aud-sys001-r2?view=findings'],
+  ['audit-report-view', '/audits/aud-sys001-r2?view=report'],
+  ['system-obligations', '/systems/SYS-001/obligations'],
   [
     'approval-drawer',
-    '/approvals',
+    '/',
     async (page) => {
       await page
         .getByRole('button', { name: /review/i })
