@@ -1,4 +1,4 @@
-# Iris questions for the risk classifier's independent check (pipeline/classify.py).
+# Iris questions for the risk classifier's independent check (classification/agent.py).
 # Iris scores the options; code maps the agent's (risk_class, route) to the same six
 # options and compares. No Gemini fallback here: it would grade itself.
 risk_class:
@@ -17,8 +17,5 @@ risk_class:
       preparatory task and no profiling (Art. 6(3)).
     transparency_only: Not high-risk; interacts with people or generates content (Art. 50).
     minimal: None of the above.
-profiling:
-  type: noul
-  instructions: >-
-    Does the system evaluate or predict personal aspects of natural persons (profiling, GDPR
-    Art. 4(4))?
+# Every article-level claim (and the profiling question) is added in code as a `noul`
+# under c01, c02... (classification/claims.py), in the same call.

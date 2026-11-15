@@ -13,9 +13,10 @@ one fast pass, target under 60 s.
    ``search_regulation``, ``read_guidance``) returns a :class:`RiskProposal`.
 5. **Verifier** (code, ``verify.py``). Problems -> one automatic redo; still
    failing -> kept, listed, ``needs_human``.
-6. **Iris** (Oumi, ``prompts/risk_classification.yaml``): an independent
-   multiple-choice answer on the class + a profiling score. No Gemini fallback
-   (it would grade itself): unavailable -> ``needs_human``.
+6. **Iris** (Oumi, ``prompts/risk_classification.yaml`` + ``claims.py``): in one
+   call, an independent multiple-choice answer on the class + a yes/no on every
+   article-level claim and premise of the proposal. No Gemini fallback (it would
+   grade itself): unavailable -> ``needs_human``.
 7. **Compare** and **dates** (code).
 
 Every phase is a Langfuse span under the run's own root span ``classify:<id>``.
@@ -38,6 +39,14 @@ from pipeline.clients import PipelineHTTPError, RegMemory
 from pipeline.decision import IrisClient, IrisError, choice_confidence
 
 from classification import fakes
+from classification.claims import (
+    build_claims,
+    claim_questions,
+    claim_reasons,
+    fold_answers,
+    profiling_p,
+    summarise,
+)
 from classification.prechecks import (
     KbCache,
     brief_documents,
@@ -47,7 +56,13 @@ from classification.prechecks import (
     related_guidance,
     resolve,
 )
-from classification.schemas import ClassificationResult, IrisCheck, KeyDate, RiskProposal
+from classification.schemas import (
+    ClassificationResult,
+    IrisCheck,
+    IrisClaim,
+    KeyDate,
+    RiskProposal,
+)
 from classification.tools import regulation_tools
 from classification.verify import classification_problems, normalise_citations
 from core.logging import get_logger
@@ -246,22 +261,29 @@ async def iris_check(
     iris: IrisClient | None,
     state: dict[str, Any],
     agent_choice: str,
+    claims: list[IrisClaim] | None = None,
     *,
     trace_id: str | None,
     parent_id: str | None,
-) -> tuple[IrisCheck | None, str | None]:
-    """Iris's answer, or ``(None, reason)`` when it is unavailable (never Gemini)."""
+) -> tuple[IrisCheck | None, str | None, list[IrisClaim]]:
+    """Iris's answer on the class and on every claim, in one call.
+
+    ``(None, reason, claims unchecked)`` when Iris is unavailable (never Gemini).
+    """
+    claims = list(claims or [])
     if iris is None or not iris.configured:
-        return None, "not_configured"
+        return None, "not_configured", claims
+    questions = {**iris_questions(), **claim_questions(claims)}
     span = start_span(
         "iris.decide",
         trace_id=trace_id,
         parent_id=parent_id,
-        input={"task": "risk_classification", "state": state},
-        metadata={"task": "risk_classification", "preferred": "iris"},
+        input={"task": "risk_classification", "state": state, "questions": questions},
+        metadata={"task": "risk_classification", "preferred": "iris", "claims": len(claims)},
     )
     try:
-        answers = await iris.ask(state, dict(iris_questions()))
+        answers = await iris.ask(state, questions)
+        claims = fold_answers(claims, answers)
         cls_answer = answers["risk_class"]
         probabilities = {
             str(k): float(v)
@@ -272,20 +294,33 @@ async def iris_check(
             choice=str(cls_answer["choice"]),
             probabilities=probabilities,
             confidence=choice_confidence(cls_answer),
-            profiling=float(answers["profiling"]["noul"]),
+            profiling=profiling_p(claims),
             agent_choice=agent_choice,
         )
     except Exception as exc:
         failure = str(exc) if isinstance(exc, IrisError) else type(exc).__name__
         logger.warning("classify_iris_failed", "Iris could not check", failure_reason=failure)
         end_span(span, metadata={"failure": failure}, level="WARNING")
-        return None, failure
+        return None, failure, [c.model_copy(update=_UNCHECKED) for c in claims]
+    summary = summarise(claims)
     end_span(
         span,
-        output=check.model_dump(mode="json"),
-        metadata={"task": "risk_classification", "model": "iris", "verdict": check.choice},
+        output={
+            **check.model_dump(mode="json"),
+            "claims": [c.model_dump(mode="json") for c in claims],
+        },
+        metadata={
+            "task": "risk_classification",
+            "model": "iris",
+            "verdict": check.choice,
+            "claims": len(claims),
+            **summary.model_dump(),
+        },
     )
-    return check, None
+    return check, None, claims
+
+
+_UNCHECKED = {"iris": None, "agrees": None, "strong_disagreement": False}
 
 
 def compare(
@@ -463,15 +498,17 @@ async def classify(
         proposal = await run_step(redo)
         problems = await verify(proposal, 2)
 
-    check, failure = await iris_check(
+    check, failure, claims = await iris_check(
         iris,
         iris_state(req.card, pre, provisions),
         agent_option(proposal),
+        build_claims(proposal, pre, provisions),
         trace_id=tracing.trace_id,
         parent_id=tracing.root_id,
     )
     min_conf = settings.pipeline.classify_iris_min_confidence
     agreement, reasons = compare(proposal, check, problems, failure, min_conf)
+    reasons += claim_reasons(claims)
 
     await resolve(regmem, kb, [pid for _, pid, _ in date_targets(proposal)])
     data = proposal.model_dump()
@@ -484,6 +521,8 @@ async def classify(
         prechecks=pre,
         key_dates=key_dates(proposal, kb),
         iris=check,
+        iris_claims=claims,
+        iris_summary=summarise(claims),
         agreement=agreement,
         needs_human=bool(reasons),
         needs_human_reasons=reasons,

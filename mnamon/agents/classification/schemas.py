@@ -116,6 +116,32 @@ class IrisCheck(_Strict):
     agent_choice: str = ""
 
 
+ClaimGroup = Literal[
+    "annex_iii", "art5", "art6_3", "art50", "role", "annex_i", "assumption", "counter"
+]
+
+
+class IrisClaim(_Strict):
+    """One article-level claim or premise of the agent, checked by Iris as a yes/no."""
+
+    key: str = Field(description="Stable: annex_iii:AIA.ANNEX_III.4.a, art6_3:profiling, role...")
+    group: ClaimGroup
+    provision_id: str | None = None
+    statement: str
+    agent: bool = Field(description="What the agent holds (a counter-argument: false).")
+    iris: float | None = Field(
+        None, description="Iris's P(the statement is true); null = unchecked."
+    )
+    agrees: bool | None = None
+    strong_disagreement: bool = False
+
+
+class IrisSummary(_Strict):
+    checked: int = 0
+    agree: int = 0
+    disagree: int = 0
+
+
 class ClassificationResult(RiskProposal):
     """``POST /systems/{id}/classify``: the proposal + what code adds."""
 
@@ -125,6 +151,8 @@ class ClassificationResult(RiskProposal):
     prechecks: dict[str, Any] = Field(default_factory=dict)
     key_dates: list[KeyDate] = Field(default_factory=list)
     iris: IrisCheck | None = None
+    iris_claims: list[IrisClaim] = Field(default_factory=list)
+    iris_summary: IrisSummary = Field(default_factory=IrisSummary)
     agreement: bool | None = None
     needs_human: bool = False
     needs_human_reasons: list[str] = Field(default_factory=list)
@@ -139,6 +167,8 @@ __all__ = [
     "CounterArgument",
     "GpaiFlag",
     "IrisCheck",
+    "IrisClaim",
+    "IrisSummary",
     "KeyDate",
     "ProvisionCheck",
     "RiskCitation",
