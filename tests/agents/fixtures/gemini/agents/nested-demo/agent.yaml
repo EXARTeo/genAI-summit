@@ -1,0 +1,38 @@
+# TEST FIXTURE ONLY (tests/agents/gemini_record.py): the throwaway agent the
+# nested sub-agent streams in ../../nested_*.json were recorded with. Three
+# levels of blocking `task` below the agent (researcher > checker >
+# source-verifier) plus a leaf sibling (summarizer); the write gate pauses a
+# sub-agent at depth 2. Never loaded by the service (not under AGENTS_DIR).
+id: nested-demo
+slug: nested-demo
+name: Nested demo
+version: 1.0.0
+type: deep_agent
+description: Answers by delegating through three levels of sub-agents
+icon: Sparkles
+prompt: ./AGENT.md
+model:
+  main: google_genai:${GEMINI_MODEL}
+all_mcp_tools: false
+tools: []
+subagents:
+  - name: researcher
+    description: Researches one question and has its key claim checked by its checker.
+    prompt: ./subagents/researcher.md
+    subagents:
+      - name: checker
+        description: Checks one claim and has its source verified by its source-verifier.
+        prompt: ./subagents/checker.md
+        subagents:
+          - name: source-verifier
+            description: Verifies that a source exists by listing the workspace once.
+            prompt: ./subagents/source-verifier.md
+  - name: summarizer
+    description: Writes a one-sentence summary of a topic. Uses no tools.
+    prompt: ./subagents/summarizer.md
+    tools: []
+hitl:
+  task: false
+  start_async_task: false
+  write_file: true
+  edit_file: false
