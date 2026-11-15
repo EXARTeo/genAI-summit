@@ -8,8 +8,15 @@ release in reg-memory) or rejecting it, and per-system judge overrides. Those
 live in ``regulation_changes`` (JSONB), next to the payload reg-memory POSTs
 to ``/internal/regulation/changes``.
 
-Not in reg-memory yet: the per-system change judge. ``affected`` is ``[]``
-until a judge (or a human override) writes it; ``judge`` says ``pending``.
+Accepting a change also starts the agents' change judge in the background
+(``POST {AGENTS_SERVICE_URL}/changes/{id}/judge`` with ``rerun: true`` and every
+system's card + current sealed findings): impact via each system's obligation
+map, Iris per affected system, focused re-runs, stale marks, delta reports.
+``judge`` is ``pending`` -> ``running`` -> ``done`` (the agents write
+``affected``, possibly ``[]`` when no system is affected) or ``failed``.
+
+The demo mirror (``/v1/regulation/demo/mirror``) edits reg-memory's mirrored
+guideline page so "Simulate change" -> "Check now" produces a live RegChange.
 """
 
 from __future__ import annotations
@@ -24,9 +31,11 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import RegulationChangeTable
+from core.database import RegulationChangeTable, SessionLocal, SystemTable
 from core.logging import get_logger
 from core.settings import settings
+from utils.agents import internal_headers
+from utils.findings import findings_out, system_findings
 
 logger = get_logger(__name__)
 
@@ -43,8 +52,16 @@ _CHANGE_TYPE = {
 _SEVERITY = ["editorial", "clarification", "scope_change", "new_obligation", "repeal"]
 JUDGE_DECISIONS = ("no_impact", "reinterpret_existing_evidence", "rerun_tests", "new_tests_needed")
 
-#: A test seam: tests swap in an ``httpx.MockTransport``.
+#: Test seams: tests swap in an ``httpx.MockTransport`` (reg-memory / agents service).
 transport: httpx.AsyncBaseTransport | None = None
+agents_transport: httpx.AsyncBaseTransport | None = None
+
+#: The change judge can call Iris once per system and start re-runs: give it time.
+JUDGE_TIMEOUT_SECONDS = 600.0
+#: The demo mirror's source in reg-memory's catalog.
+DEMO_MIRROR_SOURCE = "demo-art6-guideline-mirror"
+#: Change judges running in the background (kept referenced until they finish).
+_judge_tasks: set[asyncio.Task[Any]] = set()
 
 
 class RegMemoryUnavailable(HTTPException):
@@ -260,7 +277,9 @@ def map_change(
         "traceId": data.get("traceId"),
         # Extras (not in the UI type yet): what reg-memory's impact index found.
         "impactedRequirements": impacted if isinstance(impacted, list) else [],
-        "judge": "done" if data.get("affected") else "pending",
+        "impactedObligations": change.get("impacted_obligations") or [],
+        # The judge's own flag: "done" with no affected system is a real answer.
+        "judge": data.get("judge") or ("done" if data.get("affected") else "pending"),
         "decidedBy": data.get("decidedBy"),
     }
 
@@ -384,10 +403,18 @@ async def decide_change(
         "decidedAt": datetime.now(UTC).isoformat(),
         "reason": reason,
     }
+    systems: list[dict[str, Any]] = []
+    if status == "accepted":
+        systems = await judge_systems(db)
+        row.data = {**row.data, "judge": "running", "judgeStartedAt": row.data["decidedAt"]}
     await db.flush()
     logger.info(
         "reg_change_decided", "Regulation change decided", change_id=change_id, decision=status
     )
+    if status == "accepted":
+        # The task waits until this accept is committed (router or Telegram), so the
+        # judge's own write onto the row never races ours.
+        start_change_judge(change_id, systems)
     return await get_change(db, change_id)
 
 
@@ -416,3 +443,148 @@ async def override_system(
     row.data = {**(row.data or {}), "affected": affected}
     await db.flush()
     return await get_change(db, change_id)
+
+
+# ---- the change judge (agents service), started on accept ------------------------------------
+
+
+def _finding_brief(finding: Any) -> dict[str, Any]:
+    out = finding.model_dump(mode="json") if hasattr(finding, "model_dump") else dict(finding)
+    keep = (
+        "id",
+        "audit_id",
+        "obligation_id",
+        "verdict",
+        "severity",
+        "gap_id",
+        "kb_version",
+        "metrics_ref",
+        "citations",
+        "hash",
+        "data",
+    )
+    return {k: out.get(k) for k in keep if k in out}
+
+
+async def judge_systems(db: AsyncSession) -> list[dict[str, Any]]:
+    """Every system's card and current sealed findings: what the judge maps and compares."""
+    systems = list((await db.scalars(select(SystemTable).order_by(SystemTable.id))).all())
+    out = []
+    for system in systems:
+        try:
+            findings = await findings_out(db, await system_findings(db, system.id, current=True))
+        except Exception as exc:  # the judge still works from the impact index's artifacts
+            logger.warning(
+                "judge_findings_unavailable",
+                "Sealed findings could not be read for the judge",
+                system_id=system.id,
+                error=type(exc).__name__,
+            )
+            findings = []
+        out.append(
+            {
+                "system_id": system.id,
+                "name": system.name,
+                "card": (system.data or {}).get("card") or {},
+                "findings": [_finding_brief(f) for f in findings],
+            }
+        )
+    return out
+
+
+#: The judge task's own sessions (tests point it at their database).
+session_factory: Any = SessionLocal
+COMMIT_WAIT_SECONDS = 10.0
+
+
+async def _wait_accepted(change_id: str) -> None:
+    """Until the accept is visible in a fresh session (bounded; best effort)."""
+    waited = 0.0
+    while waited < COMMIT_WAIT_SECONDS:
+        try:
+            async with session_factory() as db:
+                row = await db.get(RegulationChangeTable, change_id)
+                if row is not None and row.status == "accepted":
+                    return
+        except Exception:
+            return
+        await asyncio.sleep(0.25)
+        waited += 0.25
+
+
+async def mark_judge(change_id: str, state: str, **extra: Any) -> None:
+    """Set ``data.judge`` on the change row in its own session (best effort)."""
+    try:
+        async with session_factory() as db:
+            row = await _row(db, change_id)
+            if (row.data or {}).get("judge") == "done" and state != "done":
+                return  # the agents already wrote their result
+            row.data = {**(row.data or {}), "judge": state, **extra}
+            await db.commit()
+    except Exception as exc:
+        logger.warning(
+            "reg_change_judge_flag_failed",
+            "Could not record the judge state",
+            change_id=change_id,
+            error=type(exc).__name__,
+        )
+
+
+async def run_change_judge(change_id: str, systems: list[dict[str, Any]]) -> str:
+    """``POST /changes/{id}/judge`` (rerun) on the agents service; ``done`` / ``failed``."""
+    await _wait_accepted(change_id)
+    url = f"{settings.upstream.agents_service_url.rstrip('/')}/changes/{change_id}/judge"
+    body = {"rerun": True, "systems": systems}
+    try:
+        async with httpx.AsyncClient(
+            timeout=JUDGE_TIMEOUT_SECONDS, transport=agents_transport
+        ) as client:
+            response = await client.post(url, json=body, headers=internal_headers())
+        ok = response.status_code < 300
+        code = response.status_code
+    except httpx.HTTPError as exc:
+        ok, code = False, type(exc).__name__
+    logger.info(
+        "reg_change_judged",
+        "Change judge finished" if ok else "Change judge failed",
+        change_id=change_id,
+        outcome=code,
+    )
+    if not ok:
+        await mark_judge(change_id, "failed", judgeError=str(code))
+        return "failed"
+    return "done"
+
+
+def start_change_judge(change_id: str, systems: list[dict[str, Any]]) -> asyncio.Task[str]:
+    """Run the judge in the background (it starts once the accept is committed)."""
+    task = asyncio.create_task(run_change_judge(change_id, systems))
+    _judge_tasks.add(task)
+    task.add_done_callback(_judge_tasks.discard)
+    return task
+
+
+# ---- the demo mirror ("Simulate change") ------------------------------------------------------
+
+
+async def edit_demo_mirror(edit: dict[str, Any], *, check: bool) -> dict[str, Any]:
+    """Edit reg-memory's mirrored guideline page; with ``check`` run "Check now" on the
+    mirror alone (no EU download, no Firecrawl credit) and return the check record."""
+    mirror = await reg_call("PUT", "/v1/demo/mirror", json=edit)
+    out: dict[str, Any] = {
+        "url": mirror.get("url"),
+        "bytes": mirror.get("bytes"),
+        "html": mirror.get("html"),
+    }
+    if check:
+        out["check"] = await reg_call(
+            "POST",
+            "/v1/watch/check-now",
+            json={"source_ids": [DEMO_MIRROR_SOURCE], "wait": True, "discovery": False},
+            timeout=settings.reg_memory.check_timeout_seconds,
+        )
+    return out
+
+
+async def demo_mirror() -> dict[str, Any]:
+    return await reg_call("GET", "/v1/demo/mirror")

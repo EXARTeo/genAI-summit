@@ -55,6 +55,12 @@ class AffectedSystemOut(BaseModel):
     reasoning: str = ""
     humanDecision: JudgeDecision | None = None
     rerunAuditId: str | None = None
+    #: The system's obligations the change touched (the focused re-run's scope).
+    obligations: list[str] = Field(default_factory=list)
+    #: Old findings the judge marked ``stale``.
+    staleFindings: list[str] = Field(default_factory=list)
+    counterArgument: str | None = None
+    auditId: str | None = None
 
 
 class RegChangeOut(BaseModel):
@@ -73,8 +79,11 @@ class RegChangeOut(BaseModel):
     traceId: str | None = None
     #: Not in the UI type yet: reg-memory's impact index (requirement ids + via).
     impactedRequirements: list[dict[str, Any]] = Field(default_factory=list)
-    #: ``pending`` until a per-system judge (or a human override) fills ``affected``.
-    judge: Literal["pending", "done"] = "pending"
+    #: reg-memory's obligation impact (catalogue rows whose provisions changed + via).
+    impactedObligations: list[dict[str, Any]] = Field(default_factory=list)
+    #: ``pending`` -> ``running`` (started on accept) -> ``done`` (``affected`` may be
+    #: empty: no system affected) or ``failed``.
+    judge: Literal["pending", "running", "done", "failed"] = "pending"
     decidedBy: str | None = None
 
 
@@ -95,6 +104,20 @@ class CheckNowIn(BaseModel):
     source_ids: list[str] | None = Field(None, alias="sourceIds", max_length=50)
     wait: bool = False
     discovery: bool | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class DemoMirrorEditIn(BaseModel):
+    """ "Simulate change": one of html (replace all), find + replace, appendHtml, reset;
+    ``check`` then runs "Check now" on the mirror alone and returns the check record."""
+
+    html: str | None = Field(None, max_length=200_000)
+    find: str | None = Field(None, max_length=20_000)
+    replace: str | None = Field(None, max_length=20_000)
+    append_html: str | None = Field(None, alias="appendHtml", max_length=20_000)
+    reset: bool = False
+    check: bool = False
 
     model_config = {"populate_by_name": True}
 

@@ -14,12 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import SystemTable, get_db
 from core.logging import get_logger
 from core.security.client import Caller, get_caller
-from core.security.rate_limit import workspace_rate_limit
+from core.security.rate_limit import _limit, workspace_rate_limit
 from core.settings import settings
 from schema.regulation import (
     ActivateIn,
     ChangeDecisionIn,
     CheckNowIn,
+    DemoMirrorEditIn,
     DocDiffOut,
     DocTextOut,
     JudgeOverrideIn,
@@ -28,8 +29,10 @@ from schema.regulation import (
 )
 from utils.regulation import (
     decide_change,
+    demo_mirror,
     document_diff,
     document_text,
+    edit_demo_mirror,
     get_change,
     list_changes,
     list_sources,
@@ -46,6 +49,8 @@ logger = get_logger(__name__)
 CallerDep = Annotated[Caller, Depends(get_caller)]
 Limited = Annotated[None, Depends(workspace_rate_limit)]
 Db = Annotated[AsyncSession, Depends(get_db)]
+#: "Simulate change" edits a page every viewer's Regulation view reads: a tight bucket.
+DemoLimited = Annotated[None, Depends(_limit(10, 60, "regulation-demo"))]
 
 
 @router.get("/sources", response_model=list[RegSourceOut], summary="Sources with their versions")
@@ -104,7 +109,7 @@ async def decision(
     actor = actor_for(caller.id)
     out = await decide_change(db, change_id, payload.status, actor, payload.reason)
     await safe(close_prompts(db, f"regchange:{change_id}", payload.status, actor))
-    await db.commit()
+    await db.commit()  # an accept starts the change judge in the background (judge: running)
     return out
 
 
@@ -174,3 +179,33 @@ async def provision(
 @router.get("/requirements", summary="Applicable requirements (reg-memory shape)")
 async def requirements(request: Request, _caller: CallerDep, _limited: Limited) -> Any:
     return await reg_call("GET", "/v1/requirements", params=dict(request.query_params))
+
+
+# ---- demo: "Simulate change" on the mirrored guideline page ------------------------------------
+
+
+@router.get("/demo/mirror", summary="The demo mirror page (reg-memory shape)")
+async def get_demo_mirror(_caller: CallerDep, _limited: Limited) -> Any:
+    return await demo_mirror()
+
+
+@router.put("/demo/mirror", summary="Simulate a change: edit the mirror (+ check it now)")
+async def put_demo_mirror(
+    payload: DemoMirrorEditIn, caller: CallerDep, _limited: DemoLimited
+) -> Any:
+    """Edit reg-memory's mirrored guideline page (find/replace, append, replace, reset).
+    With ``check: true`` the mirror alone is re-checked at once (a RegChange appears in
+    the inbox when the page changed). Admin demo control; every edit is logged."""
+    edit = payload.model_dump(exclude={"check"}, exclude_none=True)
+    if not edit.get("reset"):
+        edit.pop("reset", None)
+    out = await edit_demo_mirror(edit, check=payload.check)
+    release = (out.get("check") or {}).get("release") or {}
+    logger.info(
+        "regulation_demo_mirror_edited",
+        "Demo mirror edited",
+        actor=actor_for(caller.id),
+        checked=payload.check,
+        change_id=release.get("change_id"),
+    )
+    return out
