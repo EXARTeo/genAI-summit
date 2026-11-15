@@ -77,7 +77,6 @@ export function RegisterWizard() {
       setFiles((fs) => mergeFiles(fs, [spec]));
     }
     setTried(new Set());
-    toast.success('Example filled: CV Parser');
   };
 
   const create = () => {
