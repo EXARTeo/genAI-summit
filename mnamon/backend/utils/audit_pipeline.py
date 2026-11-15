@@ -10,12 +10,15 @@ The pipeline (agents service, ``pipeline/graph.py``) pauses at each gate on a
 LangGraph ``interrupt()``; ``POST {AGENTS_SERVICE_URL}/audits/{id}/resume``
 answers it. Every approval of a pipeline gate (``public_data``, ``scenarios``,
 ``datasets``), from the UI or from Telegram, is forwarded here after it is
-recorded. Best effort: a pipeline that is not waiting (409) or not reachable
+recorded. A 409 right after the gate opens (the backend shows ``waiting_approval``
+a moment before the pipeline's interrupt is checkpointed) is retried for ~10 s.
+Best effort after that: a pipeline that is not waiting (409) or not reachable
 is logged, the approval stays recorded.
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -29,6 +32,9 @@ from utils.agents import internal_headers
 logger = get_logger(__name__)
 
 PIPELINE_GATES = frozenset({"public_data", "scenarios", "datasets"})
+
+#: Waits (s) before each retry of a resume the pipeline answered with 409 (~10 s in all).
+RESUME_RETRY_DELAYS: tuple[float, ...] = (0.5, 1.0, 1.5, 2.0, 2.0, 3.0)
 
 #: A test seam: tests swap in an ``httpx.MockTransport``.
 transport: httpx.AsyncBaseTransport | None = None
@@ -119,6 +125,14 @@ async def forward_gate_decision(audit: AuditTable, approval: ApprovalTable) -> s
             response = await client.post(
                 url, json=resume_body(audit, approval), headers=internal_headers()
             )
+            # The gate may still be opening: retry a 409 a few times before giving up.
+            for delay in RESUME_RETRY_DELAYS:
+                if response.status_code != 409:
+                    break
+                await asyncio.sleep(delay)
+                response = await client.post(
+                    url, json=resume_body(audit, approval), headers=internal_headers()
+                )
     except httpx.HTTPError as exc:
         logger.warning(
             "audit_resume_failed",

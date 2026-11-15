@@ -137,3 +137,37 @@ async def test_the_change_judge_writes_back_and_keeps_human_overrides(
     assert (
         await client.put("/internal/regulation/changes/RC-1/judgement", json=body)
     ).status_code == 401
+
+
+async def test_a_gate_decision_retries_while_the_gate_is_still_opening(client, monkeypatch, agents):
+    await _system(client)
+    audit = (await client.post("/v1/systems/SYS-001/audits", json={})).json()
+    monkeypatch.setattr(audit_pipeline, "RESUME_RETRY_DELAYS", (0, 0, 0))
+    answers = iter([409, 409, 200])
+    resumes: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        resumes.append(request.url.path)
+        return httpx.Response(next(answers), json={})
+
+    monkeypatch.setattr(audit_pipeline, "transport", httpx.MockTransport(handle))
+    body = {"gate": "scenarios", "decision": "approved"}
+    assert (await client.post(f"/v1/audits/{audit['id']}/approvals", json=body)).status_code == 201
+    assert resumes == [f"/audits/{audit['id']}/resume"] * 3
+
+
+async def test_a_gate_decision_gives_up_after_the_retries(client, monkeypatch, agents):
+    await _system(client)
+    audit = (await client.post("/v1/systems/SYS-001/audits", json={})).json()
+    monkeypatch.setattr(audit_pipeline, "RESUME_RETRY_DELAYS", (0, 0))
+    calls: list[int] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(409, json={})
+
+    monkeypatch.setattr(audit_pipeline, "transport", httpx.MockTransport(handle))
+    body = {"gate": "datasets", "decision": "approved"}
+    # The approval stays recorded even though the pipeline never took it.
+    assert (await client.post(f"/v1/audits/{audit['id']}/approvals", json=body)).status_code == 201
+    assert len(calls) == 3
