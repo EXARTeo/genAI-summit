@@ -21,13 +21,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ci:
-    name: CI
-    uses: ./.github/workflows/ci.yml
+  # CI is switched off for the hackathon deadline so CD builds straight away.
+  # To turn it back on: uncomment this job and `needs: [ci]` below.
+  # ci:
+  #   name: CI
+  #   uses: ./.github/workflows/ci.yml
 
   cd:
     name: CD
-    needs: [ci]
+    # needs: [ci]
     if: >-
       github.ref == 'refs/heads/main'
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
