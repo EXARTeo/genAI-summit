@@ -14,14 +14,14 @@ There is no login. The roles describe who does what; the app does not enforce th
 
 | Role | What they do | Status in this build |
 | --- | --- | --- |
-| **AI Engineer** | Takes a registered system, adds docs to its folder, configures one **plugin** per model (how the agent calls the model on the local MLflow server), then runs audits with human gates | **Built** (the MVP) |
+| **AI Engineer** | Takes a registered system, adds docs to its folder, **builds its pipeline in the Plugins tab** (models, upstream systems, human review steps and how they connect), configures one **plugin** per model (how the agent calls the model on the local MLflow server), then runs audits with human gates | **Built** (the MVP) |
 | **AI Officer** | Oversees everything: all systems, audits, the findings register, regulation changes and their impact | Built as the shared read view (systems list, Status tab, audits list, regulation inbox). No separate officer UI or permissions |
-| **PM (product manager)** | Registers new systems: system card, risk class, documentation | **Not built.** Systems are seeded (SYS-001 to SYS-003, `POST /v1/admin/import-seed`); the API has `POST /v1/systems` but there is no registration screen. A small risk-classification agent is **planned**: from a system description it proposes the AI Act risk class and Annex III basis with citations, and a human approves it |
+| **PM (product manager)** | Registers new systems with documents only: system card, risk class, documentation. Does **not** define the pipeline or the models; that is the engineer's job | **Not built.** Systems are seeded (SYS-001 to SYS-003, `POST /v1/admin/import-seed`); the API has `POST /v1/systems` but there is no registration screen. A small risk-classification agent is **planned**: from a system description it proposes the AI Act risk class and Annex III basis with citations, and a human approves it |
 
 ### The engineer flow
 
 1. **System**: open a registered system (system card, architecture graph, docs, data dictionary).
-2. **Plugin**: in the Plugins tab, click a model in the system graph and confirm the plugin form. Defaults come from the graph and the MLflow registry; override only what differs.
+2. **Pipeline and plugins**: in the Plugins tab, build the system graph (*Add a model*, *Add a step* for an upstream system or a human review, connect with *Comes after* / *Goes to*), then click a model and confirm the plugin form. Defaults come from the graph and the MLflow registry; override only what differs.
 3. **Audit**: start an audit on one plugin. The pipeline grounds the applicable obligations, plans scenarios, generates and checks synthetic data, runs the model and judges each obligation. You approve scenarios, public data and datasets at three gates.
 4. **Findings and reports**: findings are sealed (hash chain, critic review, citations at a pinned `kb_version`), with an engineer report and a management report.
 5. **Regulation change**: a watched source changes → impact on each system → focused re-run → delta report.

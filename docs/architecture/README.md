@@ -30,8 +30,8 @@ Three roles (pillars). There is no login; the roles say who does what, and the a
 | Role | Does | In this build |
 | --- | --- | --- |
 | **AI Officer** | Oversees all systems, audits, the findings register, regulation changes and their impact | The shared read view: systems list, Status tab (findings register), audits list, regulation inbox. No separate UI or permissions |
-| **PM** (product manager) | Registers a system: system card, risk class, documentation | Not built. Systems are seeded (`mnamon/mlflow-seed/cases/`, `POST /v1/admin/import-seed`); `POST /v1/systems` exists but no screen uses it. **Planned:** a small, fast risk-classification agent that proposes the risk class and Annex III basis from a system description, with citations, for a human to approve |
-| **AI Engineer** | Adds docs to the system folder, configures one plugin per model, runs audits with human gates | **Built** (the MVP): the pipeline below |
+| **PM** (product manager) | Registers a system with documents only: system card, risk class, documentation. Does not define the pipeline or the models | Not built. Systems are seeded (`mnamon/mlflow-seed/cases/`, `POST /v1/admin/import-seed`); `POST /v1/systems` exists but no screen uses it. **Planned:** a small, fast risk-classification agent that proposes the risk class and Annex III basis from a system description, with citations, for a human to approve |
+| **AI Engineer** | Adds docs to the system folder, builds the pipeline (system graph) and one plugin per model in the Plugins tab, runs audits with human gates | **Built** (the MVP): the pipeline below |
 
 A **plugin** is the wrapper around one model of a system: how the agent reaches it, where it sits in the
 system graph, its I/O and expected behaviour ([agent-context.md § 3](agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do)).

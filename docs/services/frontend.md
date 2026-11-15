@@ -243,10 +243,19 @@ API used: `GET /v1/systems`, `GET /v1/systems/{id}`, `GET .../files`, `GET .../f
 ### Plugins tab
 
 A plugin is the wrapper around one model of the system ([agent context § 3](../architecture/agent-context.md#3-plugins-how-to-reach-a-model-what-it-is-what-it-should-do)).
-The backend API is new ([backend § Plugins](backend-systems.md#plugins)); this tab is being rebuilt on it.
+Backend API: [backend § Plugins](backend-systems.md#plugins). Mock mode mirrors every route, including adding
+and removing graph steps.
 
+- **The engineer builds the graph here.** The PM registers a system with its documents only, so a new system
+  has no pipeline: the *System graph* section shows a "No pipeline yet" empty state. **Add a model** opens the
+  plugin form for a model that is not in the graph yet; **Add a step** adds a box that is not a model (an
+  upstream system or a human review, `POST .../plugins/components`). Both connect the box with **Comes after** /
+  **Goes to** pickers over the existing boxes (`upstream` / `downstream`; saving a plugin sends them on
+  `PUT .../plugins/{name}`, and its placement is recomputed). A box is removed from its panel (**Remove**,
+  `DELETE .../plugins/components/{id}`); its edges go with it, its plugin files stay.
 - **Graph:** the system graph from `architecture.yaml` (`GET /v1/systems/{id}/plugins`): components and edges,
-  e.g. SYS-001 CV parser → CV ranker → recruiter review. The API marks each node `configured` and `testable`.
+  e.g. SYS-001 CV parser → CV ranker → recruiter review. The API marks each node `configured` and `testable`;
+  clicking a model opens its plugin form, clicking another step opens the step dialog.
 - **Form:** clicking a model node opens the plugin form (`GET .../plugins/defaults?component=`). Every field shows
   its **default in grey**, from the graph and the local MLflow registry (model version, task from the
   description, input fields and output type / label / score fields from the signature, the gateway REST path,

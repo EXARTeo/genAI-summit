@@ -110,7 +110,14 @@ Design: [agent context § 3](../architecture/agent-context.md#3-plugins-how-to-r
 | --- | --- |
 | `GET /v1/systems/{id}/plugins` | the graph from `architecture.yaml`: `components` (each with `plugin`, `configured`, `testable`: a model or endpoint the agent can call), `edges` (`source`, `target`, `data`), `entry` (the end-to-end entry), and `plugins` (every `plugin.yaml`, parsed, by folder name). A plugin no component names shows as a standalone box |
 | `GET /v1/systems/{id}/plugins/defaults?component=\|model=\|name=` | `{name, component, defaults, existing, mlflow}`: `defaults` is a complete card (the form's grey placeholders), `existing` the saved `plugin.yaml`, `mlflow` = `{status: ok \| not_found \| unreachable \| not_mlflow, version, run_id, description, tags, inputs, outputs}`. 404 for an unknown component, 422 when none of the three is given |
-| `PUT /v1/systems/{id}/plugins/{name}` | body `{card, component?, reason?}`: validates, writes a new version of `plugins/<name>/plugin.yaml` and links the component in `architecture.yaml` (adds it when missing). Returns `{name, path, version, changed, card, architecture_updated}`. Invalid → 422 `Invalid plugin: ...` |
+| `PUT /v1/systems/{id}/plugins/{name}` | body `{card, component?, reason?, upstream?, downstream?}`: validates, links the component in `architecture.yaml` (adds it when missing) and adds the edges `upstream → it` and `it → downstream` (known components only), then writes a new version of `plugins/<name>/plugin.yaml`. The card's `placement` is recomputed from the graph when the card has none, or when the link changed and edges were given or the old placement was `standalone`. Returns `{name, path, version, changed, card, architecture_updated}`. Invalid → 422 `Invalid plugin: ...` |
+| `POST /v1/systems/{id}/plugins/components` | body `{name, kind: ml_model \| upstream_system \| human_review, model?, note?, upstream: [ids], downstream: [ids]}`: adds a box to the graph. Id = `<SYS>.<slug(name)>`; 409 if it exists, 422 for an empty name or a `model` that is not a `models:/` URI. Edges only to known components; sets `end_to_end_entry` (the first component with no incoming edge) when it is missing. 201 + the full graph |
+| `DELETE /v1/systems/{id}/plugins/components/{component_id}` | removes the box and its edges (and `end_to_end_entry` if it pointed there); its plugin files stay in the folder. Returns the graph; 404 for an unknown component |
+
+**Who builds the graph.** The PM registers a system with its documents only: no pipeline, no models. The AI
+engineer builds the graph in the Plugins tab with these routes (a model, an upstream system or a human review
+step per box, plus edges) and registers one plugin per model. Every change is a new version of `architecture.yaml`
+(reason `<id> added to the graph`, `<id> removed from the graph` or `plugin <name> linked`).
 
 **Defaults.** The registry is read over MLflow's REST API: `registered-models/alias` (or `model-versions/get` for
 a numbered version), then `model-versions/get-download-uri` and the `MLmodel` artifact through the proxied artifact
