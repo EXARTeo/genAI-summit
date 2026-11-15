@@ -34,7 +34,8 @@ Dennis' `mcp_gateway`). Our own `sandbox_runner` runs inside the stack.
 | frontend | 128 MB |
 | backend, reg-memory | 768 MB each |
 | agents | 2 GB |
-| mlflow, model-gateway, postgres | 1 GB each |
+| mlflow | 2 GB |
+| model-gateway, postgres | 1 GB each |
 | sandbox_runner | 4 GB |
 | redis | 320 MB |
 | mlflow-seed | one-shot |

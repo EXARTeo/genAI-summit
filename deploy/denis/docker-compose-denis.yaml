@@ -204,7 +204,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in Portainer}
       MLFLOW_DB_HOST: postgres
       MLFLOW_DB_NAME: mlflow
-      MLFLOW_WORKERS: ${MLFLOW_WORKERS:-2}
+      MLFLOW_WORKERS: ${MLFLOW_WORKERS:-1}
       MLFLOW_ALLOWED_HOSTS: mlflow,mlflow:*,localhost,localhost:*,127.0.0.1,127.0.0.1:*
     volumes:
       - mlflow_artifacts:/mlartifacts
@@ -218,7 +218,7 @@ services:
     deploy:
       <<: *restart
       resources:
-        limits: {memory: 1G}
+        limits: {memory: 2G}  # ~1.5 GB in use at idle; 1G was OOM-killed on start
     networks:
       - backend
       - sandbox_models
