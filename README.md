@@ -2,7 +2,7 @@
 
 Project for the GenAI Summit.
 
-> **Status:** scaffolding only. The repository has its tooling and CI in place; the product (its name, branding and services) is still to be created.
+> **Status:** the product is **Mnamon**, an agentic EU AI Act compliance copilot ([mnamon/](mnamon/)): it audits high-risk ML systems end to end (obligations, synthetic data, tests, sealed findings, reports) with human gates.
 
 ## Quick start
 
