@@ -87,6 +87,17 @@ mnamon/agents/
    titled section (`**Title**`); tool calls come whole and open their cards
    from the settled message, parallel ones in call order; a HITL pause closes
    the open thinking phase (`THINKING_END`) before `HITL_INTERRUPT`.
+   Nested sub-agents keep that contract at every depth (replayed from recorded
+   runs in `tests/agents/test_agui_gemini_nested.py`, re-recorded with
+   `tests/agents/gemini_record.py`): each sub-agent's events are wrapped once,
+   keyed by its own `task` call (bound exactly from the `tasks` stream, so
+   parallel siblings never mix); its `TASK_SUBAGENT` and `SUBAGENT_COMPLETED`
+   arrive inside its caller's envelope; a pause deep inside sends one
+   `HITL_INTERRUPT` per level, innermost first, all with the same interrupt id;
+   the resume re-opens the gated card (the HITL re-emission, args possibly
+   edited) and closes it, and re-sends each re-entered sub-agent's
+   `BEFORE_AGENT_EVENT`. Async sub-agents are one stream per task run, each
+   with `TASK_LAUNCHED` for its own children.
 6. At the end: `CUSTOM CHECKPOINT_COMMITTED {thread_id, checkpoint_id}`. A
    failure is one `RUN_ERROR` (public message only) and nothing after it.
 
