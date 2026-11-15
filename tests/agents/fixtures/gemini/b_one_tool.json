@@ -1,0 +1,788 @@
+{
+ "prompt": "Which AI systems are in our inventory? Call list_systems once, then answer in one short line.",
+ "thread_id": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+ "chunks": [
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "PatchToolCallsMiddleware.before_agent": null
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "AsyncTaskMiddleware.before_agent": {
+      "async_tasks": {}
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "additional_kwargs": {
+          "function_call": {
+           "name": "list_systems",
+           "arguments": "{}"
+          },
+          "__gemini_function_call_thought_signatures__": {
+           "call_49894597606364014": "<thought-signature>"
+          }
+         },
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3dc7-71da-98da-de80d795c9ab",
+         "tool_calls": [
+          {
+           "name": "list_systems",
+           "args": {},
+           "id": "call_49894597606364014",
+           "type": "tool_call"
+          }
+         ],
+         "usage_metadata": {
+          "input_tokens": 11266,
+          "output_tokens": 81,
+          "total_tokens": 11347,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 71
+          }
+         },
+         "tool_call_chunks": [
+          {
+           "name": "list_systems",
+           "args": "{}",
+           "id": "call_49894597606364014",
+           "index": 0,
+           "type": "tool_call_chunk"
+          }
+         ],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:da2b334a-b692-fbcf-b7a8-c8f95f2f53b6",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "response_metadata": {
+          "finish_reason": "STOP",
+          "model_name": "gemini-3.6-flash",
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3dc7-71da-98da-de80d795c9ab",
+         "usage_metadata": {
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "total_tokens": 0,
+          "input_tokens": 0,
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "output_tokens": 0
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:da2b334a-b692-fbcf-b7a8-c8f95f2f53b6",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3dc7-71da-98da-de80d795c9ab",
+         "chunk_position": "last",
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:da2b334a-b692-fbcf-b7a8-c8f95f2f53b6",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "model": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "AIMessage"
+         ],
+         "kwargs": {
+          "content": [],
+          "additional_kwargs": {
+           "function_call": {
+            "name": "list_systems",
+            "arguments": "{}"
+           },
+           "__gemini_function_call_thought_signatures__": {
+            "call_49894597606364014": "<thought-signature>"
+           }
+          },
+          "response_metadata": {
+           "safety_ratings": [],
+           "finish_reason": "STOP",
+           "model_name": "gemini-3.6-flash",
+           "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": "mnamon",
+          "id": "lc_run--01a1dc7a-3dc7-71da-98da-de80d795c9ab",
+          "tool_calls": [
+           {
+            "name": "list_systems",
+            "args": {},
+            "id": "call_49894597606364014",
+            "type": "tool_call"
+           }
+          ],
+          "usage_metadata": {
+           "input_tokens": 11266,
+           "output_tokens": 81,
+           "total_tokens": 11347,
+           "input_token_details": {
+            "cache_read": 0
+           },
+           "output_token_details": {
+            "reasoning": 71
+           }
+          },
+          "invalid_tool_calls": []
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "tasks",
+    {
+     "id": "45d7ff13-addf-fe0e-8f1b-ae41c4417753",
+     "name": "tools",
+     "input": [
+      {
+       "name": "list_systems",
+       "args": {},
+       "id": "call_49894597606364014",
+       "type": "tool_call"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "ToolMessage"
+        ],
+        "kwargs": {
+         "content": "[{\"id\": \"SYS-001\", \"name\": \"CV Screener\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 4(a)\"}, {\"id\": \"SYS-002\", \"name\": \"Consumer Credit Scorer\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(b)\"}, {\"id\": \"SYS-003\", \"name\": \"Benefits Eligibility Triage\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(a)\"}, {\"id\": \"SYS-004\", \"name\": \"Helios Bank Support Chatbot\", \"status\": \"active\", \"risk_class\": \"limited_risk\", \"annex_basis\": \"Art. 50(1)\"}]",
+         "type": "tool",
+         "name": "list_systems",
+         "id": "ccbd5238-3fd1-4bbf-a019-9f9d71061323",
+         "tool_call_id": "call_49894597606364014",
+         "status": "success"
+        }
+       }
+      },
+      {
+       "langgraph_node": "tools"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "tools": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "ToolMessage"
+         ],
+         "kwargs": {
+          "content": "[{\"id\": \"SYS-001\", \"name\": \"CV Screener\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 4(a)\"}, {\"id\": \"SYS-002\", \"name\": \"Consumer Credit Scorer\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(b)\"}, {\"id\": \"SYS-003\", \"name\": \"Benefits Eligibility Triage\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(a)\"}, {\"id\": \"SYS-004\", \"name\": \"Helios Bank Support Chatbot\", \"status\": \"active\", \"risk_class\": \"limited_risk\", \"annex_basis\": \"Art. 50(1)\"}]",
+          "type": "tool",
+          "name": "list_systems",
+          "id": "ccbd5238-3fd1-4bbf-a019-9f9d71061323",
+          "tool_call_id": "call_49894597606364014",
+          "status": "success"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "Our inventory contains four active AI",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66",
+         "usage_metadata": {
+          "input_tokens": 11489,
+          "output_tokens": 168,
+          "total_tokens": 11657,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 162
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:7656d578-3198-1816-a795-c6aa7d246c7d",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": " systems: CV Screener (SYS-001), Consumer Credit Scorer (SYS-002), Benefits",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66",
+         "usage_metadata": {
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "total_tokens": 24,
+          "input_tokens": 0,
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "output_tokens": 24
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:7656d578-3198-1816-a795-c6aa7d246c7d",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": " Eligibility Triage (SYS-003), and Helios Bank Support Chatbot (SYS-004).",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66",
+         "usage_metadata": {
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "total_tokens": 23,
+          "input_tokens": 0,
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "output_tokens": 23
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:7656d578-3198-1816-a795-c6aa7d246c7d",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "",
+           "extras": {
+            "signature": "<thought-signature>"
+           },
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "finish_reason": "STOP",
+          "model_name": "gemini-3.6-flash",
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66",
+         "usage_metadata": {
+          "input_token_details": {
+           "cache_read": 9232
+          },
+          "total_tokens": 71,
+          "input_tokens": 71,
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "output_tokens": 0
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:7656d578-3198-1816-a795-c6aa7d246c7d",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66",
+         "chunk_position": "last",
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:7656d578-3198-1816-a795-c6aa7d246c7d",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "model": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "AIMessage"
+         ],
+         "kwargs": {
+          "content": [
+           {
+            "type": "text",
+            "text": "Our inventory contains four active AI systems: CV Screener (SYS-001), Consumer Credit Scorer (SYS-002), Benefits Eligibility Triage (SYS-003), and Helios Bank Support Chatbot (SYS-004).",
+            "index": 0,
+            "extras": {
+             "signature": "<thought-signature>"
+            }
+           }
+          ],
+          "response_metadata": {
+           "safety_ratings": [],
+           "finish_reason": "STOP",
+           "model_name": "gemini-3.6-flash",
+           "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": "mnamon",
+          "id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66",
+          "usage_metadata": {
+           "input_tokens": 11560,
+           "output_tokens": 215,
+           "total_tokens": 11775,
+           "input_token_details": {
+            "cache_read": 9232
+           },
+           "output_token_details": {
+            "reasoning": 162
+           }
+          },
+          "tool_calls": [],
+          "invalid_tool_calls": []
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "before_fix_frames": [
+  {
+   "type": "CUSTOM",
+   "name": "TOKEN_USAGE",
+   "value": {
+    "input_tokens": 11266,
+    "output_tokens": 81,
+    "total_tokens": 11347,
+    "input_token_details": {
+     "cache_read": 0
+    },
+    "output_token_details": {
+     "reasoning": 71
+    },
+    "message_id": "lc_run--01a1dc7a-3dc7-71da-98da-de80d795c9ab"
+   },
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_START",
+   "toolCallId": "call_49894597606364014",
+   "toolCallName": "list_systems",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_ARGS",
+   "toolCallId": "call_49894597606364014",
+   "delta": "{\"name\": \"list_systems\", \"args\": {}}",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_RESULT",
+   "messageId": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+   "toolCallId": "call_49894597606364014",
+   "content": "[{\"id\": \"SYS-001\", \"name\": \"CV Screener\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 4(a)\"}, {\"id\": \"SYS-002\", \"name\": \"Consumer Credit Scorer\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(b)\"}, {\"id\": \"SYS-003\", \"name\": \"Benefits Eligibility Triage\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(a)\"}, {\"id\": \"SYS-004\", \"name\": \"Helios Bank Support Chatbot\", \"status\": \"active\", \"risk_class\": \"limited_risk\", \"annex_basis\": \"Art. 50(1)\"}]",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_END",
+   "toolCallId": "call_49894597606364014",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_START",
+   "messageId": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+   "role": "assistant",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+   "delta": "Our inventory contains four active AI",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+   "delta": " systems: CV Screener (SYS-001), Consumer Credit Scorer (SYS-002), Benefits",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+   "delta": " Eligibility Triage (SYS-003), and Helios Bank Support Chatbot (SYS-004).",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_END",
+   "messageId": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "TOKEN_USAGE",
+   "value": {
+    "input_tokens": 11560,
+    "output_tokens": 215,
+    "total_tokens": 11775,
+    "input_token_details": {
+     "cache_read": 9232
+    },
+    "output_token_details": {
+     "reasoning": 162
+    },
+    "message_id": "lc_run--01a1dc7a-4587-7794-8c2a-b356d3be0f66"
+   },
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "CHECKPOINT_COMMITTED",
+   "value": {
+    "thread_id": "4fdd16b7-4251-4588-8a1c-a8db42ed3bf0",
+    "checkpoint_id": "1f1e0867-cbce-65ef-800e-18b149b40872"
+   },
+   "namespace": null
+  }
+ ]
+}

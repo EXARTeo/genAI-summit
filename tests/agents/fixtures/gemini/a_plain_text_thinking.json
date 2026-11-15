@@ -1,0 +1,506 @@
+{
+ "prompt": "In one sentence: what is the EU AI Act? Do not use any tools.",
+ "thread_id": "679f36e8-6893-498c-8146-d79ff73bb95b",
+ "chunks": [
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "PatchToolCallsMiddleware.before_agent": null
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "AsyncTaskMiddleware.before_agent": {
+      "async_tasks": {}
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "thinking",
+           "thinking": "**Defining the EU AI Act**\n\nI'm focusing on concisely defining the EU AI Act without any external tools, as requested. The central idea is shaping up: a single-sentence explanation is forming, focusing on its core function. I'm prioritizing accuracy and clarity, aiming for a direct and easily understandable definition.\n\n\n",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+         "usage_metadata": {
+          "input_tokens": 11262,
+          "output_tokens": 150,
+          "total_tokens": 11412,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 150
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:3eba190f-5ac4-2d63-6c93-b36a02749964",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "The EU Artificial Intelligence Act is",
+           "index": 1
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+         "usage_metadata": {
+          "output_tokens": 275,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 269
+          },
+          "total_tokens": 275
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:3eba190f-5ac4-2d63-6c93-b36a02749964",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": " a risk-based European Union regulation that establishes uniform rules for the development, market entry, and use of AI systems based on the level of",
+           "index": 1
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+         "usage_metadata": {
+          "output_tokens": 28,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "total_tokens": 28
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:3eba190f-5ac4-2d63-6c93-b36a02749964",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": " risk they pose to health, safety, and fundamental rights.",
+           "index": 1
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+         "usage_metadata": {
+          "output_tokens": 12,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "total_tokens": 12
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:3eba190f-5ac4-2d63-6c93-b36a02749964",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "",
+           "extras": {
+            "signature": "<thought-signature>"
+           },
+           "index": 1
+          }
+         ],
+         "response_metadata": {
+          "finish_reason": "STOP",
+          "model_name": "gemini-3.6-flash",
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+         "usage_metadata": {
+          "output_tokens": 0,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 0
+          },
+          "total_tokens": 0
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:3eba190f-5ac4-2d63-6c93-b36a02749964",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+         "chunk_position": "last",
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:3eba190f-5ac4-2d63-6c93-b36a02749964",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "model": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "AIMessage"
+         ],
+         "kwargs": {
+          "content": [
+           {
+            "type": "thinking",
+            "thinking": "**Defining the EU AI Act**\n\nI'm focusing on concisely defining the EU AI Act without any external tools, as requested. The central idea is shaping up: a single-sentence explanation is forming, focusing on its core function. I'm prioritizing accuracy and clarity, aiming for a direct and easily understandable definition.\n\n\n",
+            "index": 0
+           },
+           {
+            "type": "text",
+            "text": "The EU Artificial Intelligence Act is a risk-based European Union regulation that establishes uniform rules for the development, market entry, and use of AI systems based on the level of risk they pose to health, safety, and fundamental rights.",
+            "index": 1,
+            "extras": {
+             "signature": "<thought-signature>"
+            }
+           }
+          ],
+          "response_metadata": {
+           "safety_ratings": [],
+           "finish_reason": "STOP",
+           "model_name": "gemini-3.6-flash",
+           "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": "mnamon",
+          "id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657",
+          "usage_metadata": {
+           "input_tokens": 11262,
+           "output_tokens": 465,
+           "total_tokens": 11727,
+           "input_token_details": {
+            "cache_read": 0
+           },
+           "output_token_details": {
+            "reasoning": 419
+           }
+          },
+          "tool_calls": [],
+          "invalid_tool_calls": []
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "before_fix_frames": [
+  {
+   "type": "THINKING_START",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_TEXT_MESSAGE_START",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_TEXT_MESSAGE_CONTENT",
+   "delta": "**Defining the EU AI Act**\n\nI'm focusing on concisely defining the EU AI Act without any external tools, as requested. The central idea is shaping up: a single-sentence explanation is forming, focusing on its core function. I'm prioritizing accuracy and clarity, aiming for a direct and easily understandable definition.",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_TEXT_MESSAGE_END",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_END",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_START",
+   "messageId": "679f36e8-6893-498c-8146-d79ff73bb95b",
+   "role": "assistant",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "679f36e8-6893-498c-8146-d79ff73bb95b",
+   "delta": "The EU Artificial Intelligence Act is",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "679f36e8-6893-498c-8146-d79ff73bb95b",
+   "delta": " a risk-based European Union regulation that establishes uniform rules for the development, market entry, and use of AI systems based on the level of",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "679f36e8-6893-498c-8146-d79ff73bb95b",
+   "delta": " risk they pose to health, safety, and fundamental rights.",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_END",
+   "messageId": "679f36e8-6893-498c-8146-d79ff73bb95b",
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "TOKEN_USAGE",
+   "value": {
+    "input_tokens": 11262,
+    "output_tokens": 465,
+    "total_tokens": 11727,
+    "input_token_details": {
+     "cache_read": 0
+    },
+    "output_token_details": {
+     "reasoning": 419
+    },
+    "message_id": "lc_run--01a1dc7a-3d76-7111-9601-64d1ce547657"
+   },
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "CHECKPOINT_COMMITTED",
+   "value": {
+    "thread_id": "679f36e8-6893-498c-8146-d79ff73bb95b",
+    "checkpoint_id": "1f1e0867-ceec-612f-8008-a07a8b5fec74"
+   },
+   "namespace": null
+  }
+ ]
+}

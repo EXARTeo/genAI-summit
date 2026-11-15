@@ -1,0 +1,1066 @@
+{
+ "prompt": "In ONE turn, call list_systems and list_audits in parallel (both tool calls in the same response), then summarise both in two short lines.",
+ "thread_id": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+ "chunks": [
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "PatchToolCallsMiddleware.before_agent": null
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "AsyncTaskMiddleware.before_agent": {
+      "async_tasks": {}
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "thinking",
+           "thinking": "**Considering Parallel Execution**\n\nOkay, I'm noting the need to use `list_systems` and `list_audits` concurrently. The instructions clearly want both tools called in the same turn, and then condensed into two short lines. I'm checking the available tool options to ensure I'm clear on how to achieve this.\n\n\n",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2",
+         "usage_metadata": {
+          "input_tokens": 11277,
+          "output_tokens": 168,
+          "total_tokens": 11445,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 168
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:ab7a7f89-0143-c970-d00b-0e336ae51208",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "additional_kwargs": {
+          "function_call": {
+           "name": "list_systems",
+           "arguments": "{}"
+          },
+          "__gemini_function_call_thought_signatures__": {
+           "call_15835389008887193681": "<thought-signature>"
+          }
+         },
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2",
+         "tool_calls": [
+          {
+           "name": "list_systems",
+           "args": {},
+           "id": "call_15835389008887193681",
+           "type": "tool_call"
+          }
+         ],
+         "usage_metadata": {
+          "total_tokens": 150,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_tokens": 150,
+          "output_token_details": {
+           "reasoning": 140
+          }
+         },
+         "tool_call_chunks": [
+          {
+           "name": "list_systems",
+           "args": "{}",
+           "id": "call_15835389008887193681",
+           "index": 1,
+           "type": "tool_call_chunk"
+          }
+         ],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:ab7a7f89-0143-c970-d00b-0e336ae51208",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "additional_kwargs": {
+          "function_call": {
+           "name": "list_audits",
+           "arguments": "{}"
+          }
+         },
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2",
+         "tool_calls": [
+          {
+           "name": "list_audits",
+           "args": {},
+           "id": "call_15835389008887195290",
+           "type": "tool_call"
+          }
+         ],
+         "usage_metadata": {
+          "total_tokens": 11,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_tokens": 11,
+          "output_token_details": {
+           "reasoning": 0
+          }
+         },
+         "tool_call_chunks": [
+          {
+           "name": "list_audits",
+           "args": "{}",
+           "id": "call_15835389008887195290",
+           "index": 2,
+           "type": "tool_call_chunk"
+          }
+         ],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:ab7a7f89-0143-c970-d00b-0e336ae51208",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "response_metadata": {
+          "finish_reason": "STOP",
+          "model_name": "gemini-3.6-flash",
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2",
+         "usage_metadata": {
+          "total_tokens": 0,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_tokens": 0,
+          "output_token_details": {
+           "reasoning": 0
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:ab7a7f89-0143-c970-d00b-0e336ae51208",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2",
+         "chunk_position": "last",
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:ab7a7f89-0143-c970-d00b-0e336ae51208",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "model": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "AIMessage"
+         ],
+         "kwargs": {
+          "content": [
+           {
+            "type": "thinking",
+            "thinking": "**Considering Parallel Execution**\n\nOkay, I'm noting the need to use `list_systems` and `list_audits` concurrently. The instructions clearly want both tools called in the same turn, and then condensed into two short lines. I'm checking the available tool options to ensure I'm clear on how to achieve this.\n\n\n",
+            "index": 0
+           }
+          ],
+          "additional_kwargs": {
+           "function_call": {
+            "name": "list_systemslist_audits",
+            "arguments": "{}{}"
+           },
+           "__gemini_function_call_thought_signatures__": {
+            "call_15835389008887193681": "<thought-signature>"
+           }
+          },
+          "response_metadata": {
+           "safety_ratings": [],
+           "finish_reason": "STOP",
+           "model_name": "gemini-3.6-flash",
+           "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": "mnamon",
+          "id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2",
+          "tool_calls": [
+           {
+            "name": "list_systems",
+            "args": {},
+            "id": "call_15835389008887193681",
+            "type": "tool_call"
+           },
+           {
+            "name": "list_audits",
+            "args": {},
+            "id": "call_15835389008887195290",
+            "type": "tool_call"
+           }
+          ],
+          "usage_metadata": {
+           "input_tokens": 11277,
+           "output_tokens": 329,
+           "total_tokens": 11606,
+           "input_token_details": {
+            "cache_read": 0
+           },
+           "output_token_details": {
+            "reasoning": 308
+           }
+          },
+          "invalid_tool_calls": []
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "tasks",
+    {
+     "id": "f98bf72e-7961-ff76-2c07-ee2eac05b955",
+     "name": "tools",
+     "input": [
+      {
+       "name": "list_systems",
+       "args": {},
+       "id": "call_15835389008887193681",
+       "type": "tool_call"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "tasks",
+    {
+     "id": "87c66b87-4b5c-c00c-56d4-57fc03975741",
+     "name": "tools",
+     "input": [
+      {
+       "name": "list_audits",
+       "args": {},
+       "id": "call_15835389008887195290",
+       "type": "tool_call"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "ToolMessage"
+        ],
+        "kwargs": {
+         "content": "[{\"id\": \"SYS-001\", \"name\": \"CV Screener\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 4(a)\"}, {\"id\": \"SYS-002\", \"name\": \"Consumer Credit Scorer\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(b)\"}, {\"id\": \"SYS-003\", \"name\": \"Benefits Eligibility Triage\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(a)\"}, {\"id\": \"SYS-004\", \"name\": \"Helios Bank Support Chatbot\", \"status\": \"active\", \"risk_class\": \"limited_risk\", \"annex_basis\": \"Art. 50(1)\"}]",
+         "type": "tool",
+         "name": "list_systems",
+         "id": "9f068dbd-84f3-4de8-b351-b108a13ac0ae",
+         "tool_call_id": "call_15835389008887193681",
+         "status": "success"
+        }
+       }
+      },
+      {
+       "langgraph_node": "tools"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "ToolMessage"
+        ],
+        "kwargs": {
+         "content": "[{\"id\": \"SYS-002-20261114-2248\", \"systemId\": \"SYS-002\", \"status\": \"waiting_approval\", \"stage\": \"approve_scenarios\", \"createdAt\": \"2026-11-14T22:48:15.865195Z\", \"updatedAt\": \"2026-11-14T22:48:26.624069Z\"}, {\"id\": \"e6404da7-9ec9-4206-8059-1daaa0ef6c66\", \"systemId\": \"SYS-002\", \"status\": \"waiting_approval\", \"stage\": \"find_public_data\", \"createdAt\": \"2026-11-14T22:29:04.524784Z\", \"updatedAt\": \"2026-11-14T22:29:19.844837Z\"}, {\"id\": \"36782b10-243b-4257-b62b-b592b8c68473\", \"systemId\": \"SYS-001\", \"status\": \"waiting_approval\", \"stage\": \"approve_datasets\", \"createdAt\": \"2026-11-14T21:22:18.992218Z\", \"updatedAt\": \"2026-11-14T22:04:45.005292Z\"}]",
+         "type": "tool",
+         "name": "list_audits",
+         "id": "7c96fd9a-8925-496c-af06-12c69b8aa1fb",
+         "tool_call_id": "call_15835389008887195290",
+         "status": "success"
+        }
+       }
+      },
+      {
+       "langgraph_node": "tools"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "tools": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "ToolMessage"
+         ],
+         "kwargs": {
+          "content": "[{\"id\": \"SYS-001\", \"name\": \"CV Screener\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 4(a)\"}, {\"id\": \"SYS-002\", \"name\": \"Consumer Credit Scorer\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(b)\"}, {\"id\": \"SYS-003\", \"name\": \"Benefits Eligibility Triage\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(a)\"}, {\"id\": \"SYS-004\", \"name\": \"Helios Bank Support Chatbot\", \"status\": \"active\", \"risk_class\": \"limited_risk\", \"annex_basis\": \"Art. 50(1)\"}]",
+          "type": "tool",
+          "name": "list_systems",
+          "id": "9f068dbd-84f3-4de8-b351-b108a13ac0ae",
+          "tool_call_id": "call_15835389008887193681",
+          "status": "success"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "tools": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "ToolMessage"
+         ],
+         "kwargs": {
+          "content": "[{\"id\": \"SYS-002-20261114-2248\", \"systemId\": \"SYS-002\", \"status\": \"waiting_approval\", \"stage\": \"approve_scenarios\", \"createdAt\": \"2026-11-14T22:48:15.865195Z\", \"updatedAt\": \"2026-11-14T22:48:26.624069Z\"}, {\"id\": \"e6404da7-9ec9-4206-8059-1daaa0ef6c66\", \"systemId\": \"SYS-002\", \"status\": \"waiting_approval\", \"stage\": \"find_public_data\", \"createdAt\": \"2026-11-14T22:29:04.524784Z\", \"updatedAt\": \"2026-11-14T22:29:19.844837Z\"}, {\"id\": \"36782b10-243b-4257-b62b-b592b8c68473\", \"systemId\": \"SYS-001\", \"status\": \"waiting_approval\", \"stage\": \"approve_datasets\", \"createdAt\": \"2026-11-14T21:22:18.992218Z\", \"updatedAt\": \"2026-11-14T22:04:45.005292Z\"}]",
+          "type": "tool",
+          "name": "list_audits",
+          "id": "7c96fd9a-8925-496c-af06-12c69b8aa1fb",
+          "tool_call_id": "call_15835389008887195290",
+          "status": "success"
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "**Systems:** 4 active AI systems registered (3 high-risk: CV Screener",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10",
+         "usage_metadata": {
+          "input_tokens": 11972,
+          "output_tokens": 45,
+          "total_tokens": 12017,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_token_details": {
+           "reasoning": 27
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:f000e040-f9ff-4dc5-70f5-0d9465be45c7",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": ", Consumer Credit Scorer, Benefits Eligibility Triage; 1 limited-risk: Helios Bank Support Chatbot).\n",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10",
+         "usage_metadata": {
+          "total_tokens": 24,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_tokens": 24,
+          "output_token_details": {
+           "reasoning": 0
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:f000e040-f9ff-4dc5-70f5-0d9465be45c7",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "**Audits:** 3 total audits listed, all currently awaiting human approval across SYS-001 and SYS-002.",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10",
+         "usage_metadata": {
+          "total_tokens": 28,
+          "input_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "output_tokens": 28,
+          "output_token_details": {
+           "reasoning": 0
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:f000e040-f9ff-4dc5-70f5-0d9465be45c7",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "",
+           "extras": {
+            "signature": "<thought-signature>"
+           },
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "finish_reason": "STOP",
+          "model_name": "gemini-3.6-flash",
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10",
+         "usage_metadata": {
+          "total_tokens": 308,
+          "input_tokens": 308,
+          "input_token_details": {
+           "cache_read": 9593
+          },
+          "output_tokens": 0,
+          "output_token_details": {
+           "reasoning": 0
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:f000e040-f9ff-4dc5-70f5-0d9465be45c7",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10",
+         "chunk_position": "last",
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:f000e040-f9ff-4dc5-70f5-0d9465be45c7",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "model": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "AIMessage"
+         ],
+         "kwargs": {
+          "content": [
+           {
+            "type": "text",
+            "text": "**Systems:** 4 active AI systems registered (3 high-risk: CV Screener, Consumer Credit Scorer, Benefits Eligibility Triage; 1 limited-risk: Helios Bank Support Chatbot).\n**Audits:** 3 total audits listed, all currently awaiting human approval across SYS-001 and SYS-002.",
+            "index": 0,
+            "extras": {
+             "signature": "<thought-signature>"
+            }
+           }
+          ],
+          "response_metadata": {
+           "safety_ratings": [],
+           "finish_reason": "STOP",
+           "model_name": "gemini-3.6-flash",
+           "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": "mnamon",
+          "id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10",
+          "usage_metadata": {
+           "input_tokens": 12280,
+           "output_tokens": 97,
+           "total_tokens": 12377,
+           "input_token_details": {
+            "cache_read": 9593
+           },
+           "output_token_details": {
+            "reasoning": 27
+           }
+          },
+          "tool_calls": [],
+          "invalid_tool_calls": []
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "before_fix_frames": [
+  {
+   "type": "THINKING_START",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_TEXT_MESSAGE_START",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_TEXT_MESSAGE_CONTENT",
+   "delta": "**Considering Parallel Execution**\n\nOkay, I'm noting the need to use `list_systems` and `list_audits` concurrently. The instructions clearly want both tools called in the same turn, and then condensed into two short lines. I'm checking the available tool options to ensure I'm clear on how to achieve this.",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_TEXT_MESSAGE_END",
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "TOKEN_USAGE",
+   "value": {
+    "input_tokens": 11277,
+    "output_tokens": 329,
+    "total_tokens": 11606,
+    "input_token_details": {
+     "cache_read": 0
+    },
+    "output_token_details": {
+     "reasoning": 308
+    },
+    "message_id": "lc_run--01a1dc7a-3d6c-7598-a42d-a54f2c7b2ba2"
+   },
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_START",
+   "toolCallId": "call_15835389008887193681",
+   "toolCallName": "list_systems",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_ARGS",
+   "toolCallId": "call_15835389008887193681",
+   "delta": "{\"name\": \"list_systems\", \"args\": {}}",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_START",
+   "toolCallId": "call_15835389008887195290",
+   "toolCallName": "list_audits",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_ARGS",
+   "toolCallId": "call_15835389008887195290",
+   "delta": "{\"name\": \"list_audits\", \"args\": {}}",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_RESULT",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "toolCallId": "call_15835389008887193681",
+   "content": "[{\"id\": \"SYS-001\", \"name\": \"CV Screener\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 4(a)\"}, {\"id\": \"SYS-002\", \"name\": \"Consumer Credit Scorer\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(b)\"}, {\"id\": \"SYS-003\", \"name\": \"Benefits Eligibility Triage\", \"status\": \"active\", \"risk_class\": \"high_risk\", \"annex_basis\": \"Annex III 5(a)\"}, {\"id\": \"SYS-004\", \"name\": \"Helios Bank Support Chatbot\", \"status\": \"active\", \"risk_class\": \"limited_risk\", \"annex_basis\": \"Art. 50(1)\"}]",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_END",
+   "toolCallId": "call_15835389008887193681",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_RESULT",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "toolCallId": "call_15835389008887195290",
+   "content": "[{\"id\": \"SYS-002-20261114-2248\", \"systemId\": \"SYS-002\", \"status\": \"waiting_approval\", \"stage\": \"approve_scenarios\", \"createdAt\": \"2026-11-14T22:48:15.865195Z\", \"updatedAt\": \"2026-11-14T22:48:26.624069Z\"}, {\"id\": \"e6404da7-9ec9-4206-8059-1daaa0ef6c66\", \"systemId\": \"SYS-002\", \"status\": \"waiting_approval\", \"stage\": \"find_public_data\", \"createdAt\": \"2026-11-14T22:29:04.524784Z\", \"updatedAt\": \"2026-11-14T22:29:19.844837Z\"}, {\"id\": \"36782b10-243b-4257-b62b-b592b8c68473\", \"systemId\": \"SYS-001\", \"status\": \"waiting_approval\", \"stage\": \"approve_datasets\", \"createdAt\": \"2026-11-14T21:22:18.992218Z\", \"updatedAt\": \"2026-11-14T22:04:45.005292Z\"}]",
+   "namespace": null
+  },
+  {
+   "type": "TOOL_CALL_END",
+   "toolCallId": "call_15835389008887195290",
+   "namespace": null
+  },
+  {
+   "type": "THINKING_END",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_START",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "role": "assistant",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "delta": "**Systems:** 4 active AI systems registered (3 high-risk: CV Screener",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "delta": ", Consumer Credit Scorer, Benefits Eligibility Triage; 1 limited-risk: Helios Bank Support Chatbot).\n",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "delta": "**Audits:** 3 total audits listed, all currently awaiting human approval across SYS-001 and SYS-002.",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_END",
+   "messageId": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "TOKEN_USAGE",
+   "value": {
+    "input_tokens": 12280,
+    "output_tokens": 97,
+    "total_tokens": 12377,
+    "input_token_details": {
+     "cache_read": 9593
+    },
+    "output_token_details": {
+     "reasoning": 27
+    },
+    "message_id": "lc_run--01a1dc7a-4a2d-7644-9d0f-2b5a13958e10"
+   },
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "CHECKPOINT_COMMITTED",
+   "value": {
+    "thread_id": "e8dc85bf-a828-4f93-8c20-ab1f28cb8636",
+    "checkpoint_id": "1f1e0867-d461-6143-800e-4a3eae82fa95"
+   },
+   "namespace": null
+  }
+ ]
+}

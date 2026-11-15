@@ -1,0 +1,404 @@
+{
+ "prompt": "In one sentence: what is the EU AI Act? Do not use any tools.",
+ "thread_id": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+ "chunks": [
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "PatchToolCallsMiddleware.before_agent": null
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "AsyncTaskMiddleware.before_agent": {
+      "async_tasks": {}
+     }
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "The EU",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970",
+         "usage_metadata": {
+          "input_tokens": 11262,
+          "output_tokens": 2,
+          "total_tokens": 11264,
+          "input_token_details": {
+           "cache_read": 0
+          }
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:20ae1336-66b5-680a-7316-537e5b60a91a",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash-lite"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": " AI Act is a comprehensive legal framework adopted by the European Union that regulates artificial intelligence according to a risk",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970",
+         "usage_metadata": {
+          "total_tokens": 20,
+          "output_tokens": 20,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "input_tokens": 0
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:20ae1336-66b5-680a-7316-537e5b60a91a",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash-lite"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "-based approach, establishing strict obligations for high-risk AI systems while banning certain unacceptable uses.",
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970",
+         "usage_metadata": {
+          "total_tokens": 19,
+          "output_tokens": 19,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "input_tokens": 0
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:20ae1336-66b5-680a-7316-537e5b60a91a",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash-lite"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [
+          {
+           "type": "text",
+           "text": "",
+           "extras": {
+            "signature": "<thought-signature>"
+           },
+           "index": 0
+          }
+         ],
+         "response_metadata": {
+          "finish_reason": "STOP",
+          "model_name": "gemini-3.5-flash-lite",
+          "safety_ratings": [],
+          "model_provider": "google_genai"
+         },
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970",
+         "usage_metadata": {
+          "total_tokens": 0,
+          "output_tokens": 0,
+          "input_token_details": {
+           "cache_read": 0
+          },
+          "input_tokens": 0
+         },
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:20ae1336-66b5-680a-7316-537e5b60a91a",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash-lite"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "messages",
+    {
+     "__tuple__": [
+      {
+       "__lc__": {
+        "lc": 1,
+        "type": "constructor",
+        "id": [
+         "langchain",
+         "schema",
+         "messages",
+         "AIMessageChunk"
+        ],
+        "kwargs": {
+         "content": [],
+         "type": "AIMessageChunk",
+         "id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970",
+         "chunk_position": "last",
+         "tool_calls": [],
+         "invalid_tool_calls": []
+        }
+       }
+      },
+      {
+       "langgraph_node": "model",
+       "checkpoint_ns": "model:20ae1336-66b5-680a-7316-537e5b60a91a",
+       "ls_provider": "google_genai",
+       "ls_model_name": "gemini-3.5-flash-lite"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "__tuple__": [
+    {
+     "__tuple__": []
+    },
+    "updates",
+    {
+     "model": {
+      "messages": [
+       {
+        "__lc__": {
+         "lc": 1,
+         "type": "constructor",
+         "id": [
+          "langchain",
+          "schema",
+          "messages",
+          "AIMessage"
+         ],
+         "kwargs": {
+          "content": [
+           {
+            "type": "text",
+            "text": "The EU AI Act is a comprehensive legal framework adopted by the European Union that regulates artificial intelligence according to a risk-based approach, establishing strict obligations for high-risk AI systems while banning certain unacceptable uses.",
+            "index": 0,
+            "extras": {
+             "signature": "<thought-signature>"
+            }
+           }
+          ],
+          "response_metadata": {
+           "safety_ratings": [],
+           "finish_reason": "STOP",
+           "model_name": "gemini-3.5-flash-lite",
+           "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": "mnamon",
+          "id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970",
+          "usage_metadata": {
+           "input_tokens": 11262,
+           "output_tokens": 41,
+           "total_tokens": 11303,
+           "input_token_details": {
+            "cache_read": 0
+           }
+          },
+          "tool_calls": [],
+          "invalid_tool_calls": []
+         }
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "before_fix_frames": [
+  {
+   "type": "TEXT_MESSAGE_START",
+   "messageId": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+   "role": "assistant",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+   "delta": "The EU",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+   "delta": " AI Act is a comprehensive legal framework adopted by the European Union that regulates artificial intelligence according to a risk",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_CHUNK",
+   "messageId": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+   "delta": "-based approach, establishing strict obligations for high-risk AI systems while banning certain unacceptable uses.",
+   "namespace": null
+  },
+  {
+   "type": "TEXT_MESSAGE_END",
+   "messageId": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "TOKEN_USAGE",
+   "value": {
+    "input_tokens": 11262,
+    "output_tokens": 41,
+    "total_tokens": 11303,
+    "input_token_details": {
+     "cache_read": 0
+    },
+    "message_id": "lc_run--01a1dc79-19a2-7572-bcb3-f60b71798970"
+   },
+   "namespace": null
+  },
+  {
+   "type": "CUSTOM",
+   "name": "CHECKPOINT_COMMITTED",
+   "value": {
+    "thread_id": "4fe450fe-ba92-4285-ad40-7887542c2b5a",
+    "checkpoint_id": "1f1e0864-e90f-677b-8008-913943ed741e"
+   },
+   "namespace": null
+  }
+ ]
+}
