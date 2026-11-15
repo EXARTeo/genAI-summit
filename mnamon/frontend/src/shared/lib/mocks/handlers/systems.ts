@@ -250,32 +250,80 @@ function validateCard(card: Obj): string[] {
   return errors;
 }
 
-/** Point the component at `plugins/<name>` in architecture.yaml (add it when missing). */
-function linkComponent(systemId: string, name: string, card: Obj, componentId: string | null): boolean {
+type Arch = Obj & { components: Obj[]; edges: Obj[] };
+
+function loadArch(systemId: string): Arch {
   const arch = readYaml(systemId, 'architecture.yaml');
-  if (!Array.isArray(arch.components)) arch.components = [];
   arch.system ??= systemId;
-  const components = arch.components as Obj[];
-  const ref = `plugins/${name}`;
-  const uri = isObj(card.access) ? (card.access.uri as string | undefined) : undefined;
-  const target = componentId ?? String(card.id);
-  const comp = components.find((c) => isObj(c) && c.id === target);
-  if (comp) {
-    if (comp.plugin === ref && (!uri || comp.model === uri)) return false;
-    comp.plugin = ref;
-    if (uri) comp.model = uri;
-  } else {
-    if (components.some((c) => isObj(c) && pluginFolder(c.plugin) === name)) return false;
-    components.push({ id: target, plugin: ref, kind: 'ml_model', ...(uri ? { model: uri } : {}) });
-  }
+  if (!Array.isArray(arch.components)) arch.components = [];
+  if (!Array.isArray(arch.edges)) arch.edges = [];
+  return arch as Arch;
+}
+
+function writeArch(systemId: string, arch: Obj, reason: string) {
   writeFile(
     systemId,
     'architecture.yaml',
     `# System graph: components, their plugins and the data between them.\n${stringify(arch)}`,
     'user:demo',
-    `plugin ${name} linked`,
+    reason,
   );
-  return true;
+}
+
+/** Add `upstream → cid` and `cid → downstream` edges (known components only). */
+function connect(arch: Arch, cid: string, upstream: string[] = [], downstream: string[] = []): boolean {
+  const known = new Set(arch.components.filter(isObj).map((c) => c.id));
+  const key = (a: unknown, b: unknown) => `${String(a)} -> ${String(b)}`;
+  const have = new Set(arch.edges.filter(isObj).map((e) => key(e.from, e.to)));
+  let added = false;
+  const pairs = [...upstream.map((u) => [u, cid]), ...downstream.map((d) => [cid, d])];
+  for (const [a, b] of pairs) {
+    if (a === b || !known.has(a) || !known.has(b) || have.has(key(a, b))) continue;
+    arch.edges.push({ from: a, to: b });
+    have.add(key(a, b));
+    added = true;
+  }
+  if (added && !arch.end_to_end_entry) {
+    const targets = new Set(arch.edges.filter(isObj).map((e) => e.to));
+    const source = arch.components.find((c) => isObj(c) && !targets.has(c.id));
+    if (source) arch.end_to_end_entry = source.id;
+  }
+  return added;
+}
+
+/** Point the component at `plugins/<name>` in architecture.yaml (add it when missing) and add its edges. */
+function linkComponent(
+  systemId: string,
+  name: string,
+  card: Obj,
+  componentId: string | null,
+  upstream: string[] = [],
+  downstream: string[] = [],
+): boolean {
+  const arch = loadArch(systemId);
+  const components = arch.components;
+  const ref = `plugins/${name}`;
+  const uri = isObj(card.access) ? (card.access.uri as string | undefined) : undefined;
+  let target = componentId ?? String(card.id);
+  let changed = false;
+  const comp = components.find((c) => isObj(c) && c.id === target);
+  if (comp) {
+    if (comp.plugin !== ref || (uri && comp.model !== uri)) {
+      comp.plugin = ref;
+      if (uri) comp.model = uri;
+      changed = true;
+    }
+  } else {
+    const existing = components.find((c) => isObj(c) && pluginFolder(c.plugin) === name);
+    if (existing) target = String(existing.id);
+    else {
+      components.push({ id: target, plugin: ref, kind: 'ml_model', ...(uri ? { model: uri } : {}) });
+      changed = true;
+    }
+  }
+  changed = connect(arch, target, upstream, downstream) || changed;
+  if (changed) writeArch(systemId, arch, `plugin ${name} linked`);
+  return changed;
 }
 
 function savePlugin(systemId: string, name: string, body: unknown): PluginWriteResult | MockResponse {
@@ -284,6 +332,8 @@ function savePlugin(systemId: string, name: string, body: unknown): PluginWriteR
     card?: unknown;
     component?: string | null;
     reason?: string | null;
+    upstream?: string[];
+    downstream?: string[];
   };
   if (!isObj(b.card)) return mockError(422, 'card: required');
   const card: Obj = Object.fromEntries(
@@ -293,6 +343,19 @@ function savePlugin(systemId: string, name: string, body: unknown): PluginWriteR
   card.id ??= b.component || `${systemId}.${name}`;
   const errors = validateCard(card);
   if (errors.length) return mockError(422, `Invalid plugin: ${errors.join('; ')}`);
+  const upstream = b.upstream ?? [];
+  const downstream = b.downstream ?? [];
+  // Link first, so a new model's placement reflects the edges it was just given.
+  const linked = linkComponent(systemId, name, card, b.component ?? null, upstream, downstream);
+  const current = isObj(card.placement) ? card.placement : {};
+  if (
+    !Object.keys(current).length ||
+    (linked && (upstream.length > 0 || downstream.length > 0 || current.kind === 'standalone'))
+  ) {
+    const graph = systemGraph(systemId);
+    for (const c of graph.components) if (c.id === card.id) c.name = String(card.name || c.name);
+    card.placement = placement(graph, String(card.id));
+  }
   const text =
     '# Plugin: how the audit agent reaches this model (written by the Plugins tab).\n' +
     '# Secrets are only named (auth.secret_ref: env://NAME), never stored here.\n' +
@@ -304,7 +367,6 @@ function savePlugin(systemId: string, name: string, body: unknown): PluginWriteR
     'user:demo',
     b.reason || 'plugin configured in the Plugins tab',
   );
-  const linked = linkComponent(systemId, name, card, b.component ?? null);
   return {
     name,
     path: file.path,
@@ -313,6 +375,51 @@ function savePlugin(systemId: string, name: string, body: unknown): PluginWriteR
     card: card as PluginCard,
     architecture_updated: linked,
   };
+}
+
+const COMPONENT_KINDS = ['ml_model', 'upstream_system', 'human_review'];
+
+/** Add a box to the graph (a model without a plugin yet, an upstream system or a human step). */
+function addComponent(systemId: string, body: unknown): MockResponse {
+  const b = (isObj(body) ? body : {}) as {
+    name?: string;
+    kind?: string;
+    model?: string | null;
+    note?: string | null;
+    upstream?: string[];
+    downstream?: string[];
+  };
+  const s = slug(b.name ?? '');
+  if (!s) return mockError(422, 'Give the step a name.');
+  const kind = b.kind ?? 'ml_model';
+  if (!COMPONENT_KINDS.includes(kind)) return mockError(422, `kind: one of ${COMPONENT_KINDS.join(', ')}`);
+  if (b.model && !MODEL_URI.test(b.model))
+    return mockError(422, 'model: models:/<name>@<alias> or /<version>.');
+  const arch = loadArch(systemId);
+  const cid = `${systemId}.${s}`;
+  if (arch.components.some((c) => isObj(c) && c.id === cid))
+    return mockError(409, `${cid} is already in the graph.`);
+  arch.components.push({
+    id: cid,
+    kind,
+    ...(b.model ? { model: b.model } : {}),
+    ...(b.note ? { note: b.note } : {}),
+  });
+  connect(arch, cid, b.upstream ?? [], b.downstream ?? []);
+  writeArch(systemId, arch, `${cid} added to the graph`);
+  return new MockResponse(201, systemGraph(systemId));
+}
+
+/** Drop a box and its edges from the graph; its plugin files stay. */
+function removeComponent(systemId: string, componentId: string): PluginGraph | MockResponse {
+  const arch = loadArch(systemId);
+  const before = arch.components.length;
+  arch.components = arch.components.filter((c) => !(isObj(c) && c.id === componentId));
+  if (arch.components.length === before) return mockError(404, 'Component not found in architecture.yaml.');
+  arch.edges = arch.edges.filter((e) => isObj(e) && e.from !== componentId && e.to !== componentId);
+  if (arch.end_to_end_entry === componentId) delete arch.end_to_end_entry;
+  writeArch(systemId, arch, `${componentId} removed from the graph`);
+  return systemGraph(systemId);
 }
 
 const pluginRoutes: MockRoute[] = [
@@ -332,6 +439,18 @@ const pluginRoutes: MockRoute[] = [
     path: '/v1/systems/:systemId/plugins/:name',
     handler: ({ params, body }) =>
       mockSystems.get(params.systemId) ? savePlugin(params.systemId, params.name, body) : notFound(),
+  },
+  {
+    method: 'POST',
+    path: '/v1/systems/:systemId/plugins/components',
+    handler: ({ params, body }) =>
+      mockSystems.get(params.systemId) ? addComponent(params.systemId, body) : notFound(),
+  },
+  {
+    method: 'DELETE',
+    path: '/v1/systems/:systemId/plugins/components/:componentId',
+    handler: ({ params }) =>
+      mockSystems.get(params.systemId) ? removeComponent(params.systemId, params.componentId) : notFound(),
   },
 ];
 
