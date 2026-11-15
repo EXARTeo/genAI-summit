@@ -470,6 +470,62 @@ async def watch_delta(
     return None
 
 
+async def delta_for_audit(
+    audit_id: str,
+    *,
+    audit_backend: Callable[[str], BackendInternal] | None = None,
+    findings_api: FindingsApi | None = None,
+) -> dict[str, Any]:
+    """(Re)write the delta report of a focused re-run from what is stored: the audit's
+    ``change_judgement`` artifact (scope, kb versions) and the previous audit's findings.
+    For a watcher lost to a restart, or the pipeline's own end-of-audit hook."""
+    audit_backend = audit_backend or (lambda aid: BackendInternal(aid, agent="change-judge"))
+    findings_api = findings_api or FindingsApi()
+    try:
+        audit = (await audit_backend(audit_id).audit()).get("audit") or {}
+    except PipelineHTTPError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=exc.public_message) from exc
+    data = audit.get("data") or {}
+    judged = next(
+        (
+            a.get("data") or {}
+            for a in reversed(audit.get("artifacts") or [])
+            if a.get("kind") == "change_judgement"
+        ),
+        {},
+    )
+    change_id = data.get("change_id") or judged.get("change_id")
+    if not change_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Not a regulation-change re-run.")
+    previous = data.get("previous_audit_id")
+    old: list[dict[str, Any]] = []
+    if previous:
+        old = await findings_api.audit_findings(str(previous))
+        if not old:
+            try:
+                prev = (await audit_backend(str(previous)).audit()).get("audit") or {}
+                old = _artifact_findings(prev)
+            except PipelineHTTPError:
+                old = []
+    scope = list(data.get("obligations") or judged.get("affected_obligations") or [])
+    old = [
+        f for f in old if not scope or f.get("obligation_id") in scope or not f.get("obligation_id")
+    ]
+    ctx = {
+        "change_id": change_id,
+        "system_id": audit.get("systemId") or audit.get("system_id"),
+        "decision": data.get("change_decision") or judged.get("decision"),
+        "previous_audit_id": previous,
+        "from_kb_version": judged.get("from_kb_version"),
+        "to_kb_version": judged.get("to_kb_version") or data.get("kb_version"),
+        "obligations": scope,
+        "old_findings": old,
+    }
+    return await write_delta_report(
+        audit_id, ctx, audit_backend=audit_backend, findings_api=findings_api
+    )
+
+
 def _spawn(coro: Awaitable[Any]) -> None:
     task = asyncio.ensure_future(coro)
     _watchers.add(task)
@@ -663,6 +719,7 @@ async def judge_change(
 __all__ = [
     "FindingsApi",
     "build_delta_report",
+    "delta_for_audit",
     "finding_metrics",
     "judge_change",
     "mark_stale",

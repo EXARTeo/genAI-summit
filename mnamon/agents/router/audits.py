@@ -4,11 +4,12 @@
 ``POST /audits/{id}/resume``    answer the gate it waits at (a human decision): 202.
 ``GET  /audits/{id}/state``     where the pipeline stands (``?system_id=``).
 ``POST /changes/{id}/judge``    impact index + change judge for a RegChange.
+``POST /changes/delta/{audit}``  (re)write a focused re-run's delta report.
 
 Thin: the logic is ``utils/audit_runs.py`` and ``utils/change_judge.py``.
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
@@ -23,7 +24,7 @@ from schema.audits import (
     ChangeJudgeOut,
 )
 from utils.audit_runs import audit_state, resume_audit_run, start_audit_run
-from utils.change_judge import judge_change
+from utils.change_judge import delta_for_audit, judge_change
 
 router = APIRouter(dependencies=[Depends(require_internal_caller)])
 
@@ -60,3 +61,9 @@ async def judge(
 ) -> ChangeJudgeOut:
     """Impact index (no LLM) → change judge per affected system → artifacts (+ re-runs)."""
     return await judge_change(change_id, body)
+
+
+@router.post("/changes/delta/{audit_id}")
+async def delta(audit_id: AuditId) -> dict[str, Any]:
+    """The delta report of a finished regulation-change re-run (old -> new verdicts)."""
+    return await delta_for_audit(audit_id)

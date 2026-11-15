@@ -16,6 +16,7 @@ from pipeline.schemas import ChangeJudgement
 from schema.audits import ChangeJudgeIn
 from utils.change_judge import (
     build_delta_report,
+    delta_for_audit,
     finding_metrics,
     judge_change,
     merge_systems,
@@ -394,3 +395,47 @@ async def test_watch_delta_waits_for_the_audit_then_writes_the_report():
     assert art["kind"] == "delta_report" and art["name"] == CHANGE["id"]
     (row,) = art["data"]["obligations"]
     assert row["verdict_change"] == "gap -> pass" and row["reason"] == "law_changed"
+
+
+async def test_delta_for_audit_rebuilds_the_context_from_stored_artifacts():
+    rec = Recorder()
+    new_id, old_id = "SYS-001-20261115-1200", "SYS-001-20261115-0900"
+    rec.audits[new_id] = {
+        "id": new_id,
+        "systemId": "SYS-001",
+        "status": "done",
+        "data": {
+            "change_id": CHANGE["id"],
+            "previous_audit_id": old_id,
+            "obligations": ["OBL.AIA.10.2.f.bias-examination"],
+            "kb_version": "2026.11.15-2",
+        },
+    }
+    await rec(new_id).write_artifact(
+        "change_judgement",
+        {"change_id": CHANGE["id"], "from_kb_version": "2026.11.15-1", "decision": "rerun_tests"},
+        name=CHANGE["id"],
+    )
+    await rec(new_id).write_artifact(
+        "finding",
+        {"obligation_id": "OBL.AIA.10.2.f.bias-examination", "verdict": "pass"},
+        name="F-new",
+    )
+    await rec(old_id).write_artifact(
+        "finding",
+        {
+            "obligation_id": "OBL.AIA.10.2.f.bias-examination",
+            "verdict": "gap",
+            "kb_version": "2026.11.15-1",
+        },
+        name="F-old",
+    )
+    report = await delta_for_audit(
+        new_id,
+        audit_backend=rec,  # type: ignore[arg-type]
+        findings_api=Findings(),  # type: ignore[arg-type]
+    )
+    (row,) = report["obligations"]
+    assert row["verdict_change"] == "gap -> pass" and row["reason"] == "law_changed"
+    assert row["old"]["id"] == "F-old" and row["new"]["id"] == "F-new"
+    assert rec.artifacts[new_id][-1]["kind"] == "delta_report"
