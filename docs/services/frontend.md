@@ -313,3 +313,7 @@ serves `dist/` on 8080 (non-root, read-only root fs, no capabilities). `nginx.co
 `/assets/`, no-cache `index.html` and `theme-init.js`, `/healthz`, `/api/` → `http://backend:8000/` with
 WebSocket upgrade, no buffering (AG-UI/SSE) and 1 h timeouts; the backend name is resolved per request so the
 UI starts before the backend.
+
+### Scenarios gate: partial approval
+
+The approval drawer of the `scenarios` gate is a checklist (`features/approvals/components/ScenarioChecklist.tsx`). Rows the decision model flagged `not_relevant` start unchecked; unchecking a row asks for an optional reason. Approving sends `edits: {approved_scenarios: [ids], excluded: {id: reason}}` (`scenarioEdits` in `approvals/lib/approvals.ts`; `{}` when every scenario is checked). Only the checked scenarios go on; the scenarios artifact then shows the excluded ones with their reasons. Zero checked disables Approve (use Request changes).
