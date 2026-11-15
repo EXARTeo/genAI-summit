@@ -104,7 +104,9 @@ function Metrics({ value }: { value: unknown }) {
           <dt className="text-muted">{k.replace(/_/g, ' ')}</dt>
           <dd className="num font-mono [overflow-wrap:anywhere]">
             {Array.isArray(v)
-              ? v.map((x) => (typeof x === 'number' ? x.toFixed(3) : String(x))).join(' – ')
+              ? v
+                  .map((x) => (typeof x === 'number' ? x.toFixed(3) : String(x)))
+                  .join(v.length === 2 && v.every((x) => typeof x === 'number') ? ' – ' : ', ')
               : typeof v === 'number'
                 ? String(Number(v.toFixed(4)))
                 : String(v)}

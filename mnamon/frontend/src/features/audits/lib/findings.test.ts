@@ -64,6 +64,8 @@ describe('sealed findings helpers', () => {
     expect(articleOf({ obligation_id: 'OBL.AIA.10.2.f', data: {} })).toBe('Art. 10(2)(f)');
     expect(articleOf({ obligation_id: 'X', data: { article: 'Art. 15' } })).toBe('Art. 15');
     expect(articleOf({ obligation_id: 'X', data: {} })).toBeNull();
+    expect(articleOf({ obligation_id: 'OBL.AIA.10.2.f.bias-examination', data: {} })).toBe('Art. 10(2)(f)');
+    expect(articleOf({ obligation_id: 'OBL.AIA.4a.special-category-data', data: {} })).toBe('Art. 4a');
   });
 
   it('reads judge calls in both shapes and flags disagreement', () => {

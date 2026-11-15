@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { VerdictPill } from '@/features/audits/components/artifact_parts/common';
 import { useAudit, useAudits, useSystemFindings } from '@/features/audits/hooks/useAudits';
 import {
+  articleOf,
   obligationEntries,
   obligationMapArtifact,
   type ObligationEntry,
@@ -21,6 +22,11 @@ const MODE_LABEL: Record<string, string> = {
   process: 'Process review',
   declared_config: 'Declared config',
 };
+
+/** Article label: the map's own, else derived from the id (`OBL.AIA.10.2.f…` → Art. 10(2)(f)). */
+function label(e: ObligationEntry): string {
+  return e.article ?? articleOf({ obligation_id: e.obligation_id, data: {} }) ?? e.title ?? e.obligation_id;
+}
 
 function modeLabel(m: string | null | undefined): string {
   return m ? (MODE_LABEL[m] ?? m.replace(/_/g, ' ')) : '–';
@@ -137,8 +143,8 @@ export function ObligationsTab({ systemId }: { systemId: string }) {
             {entries.map((e) => (
               <tr key={e.obligation_id} className={cn('align-top', e.applicable === false && 'text-muted')}>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-text">{e.article ?? e.title ?? e.obligation_id}</div>
-                  {e.title && e.article && <div className="text-xs text-muted">{e.title}</div>}
+                  <div className="font-medium text-text">{label(e)}</div>
+                  {e.title && label(e) !== e.title && <div className="text-xs text-muted">{e.title}</div>}
                   <div className="font-mono text-2xs text-muted">{e.obligation_id}</div>
                 </td>
                 <td className="px-4 py-3">
@@ -174,8 +180,8 @@ export function ObligationsTab({ systemId }: { systemId: string }) {
             <Card className={cn('space-y-2 p-4', e.applicable === false && 'opacity-80')}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium">{e.article ?? e.title ?? e.obligation_id}</div>
-                  {e.title && e.article && <div className="text-xs text-muted">{e.title}</div>}
+                  <div className="text-sm font-medium">{label(e)}</div>
+                  {e.title && label(e) !== e.title && <div className="text-xs text-muted">{e.title}</div>}
                   <div className="font-mono text-2xs text-muted [overflow-wrap:anywhere]">
                     {e.obligation_id}
                   </div>

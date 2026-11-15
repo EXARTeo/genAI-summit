@@ -177,9 +177,14 @@ export function judgesAgree(judges: Record<string, unknown>): boolean | null {
 export function articleOf(f: Pick<SealedFinding, 'obligation_id' | 'data'>): string | null {
   const a = f.data?.article;
   if (typeof a === 'string' && a) return a;
-  const m = /AIA\.(\d+[a-z]?)((?:\.[0-9a-z]+)*)/i.exec(f.obligation_id);
+  const m = /AIA\.(\d+[a-z]?)((?:\.[^.]+)*)/i.exec(f.obligation_id);
   if (!m) return null;
-  const parts = m[2].split('.').filter(Boolean);
+  // Paragraph and point tokens only: `OBL.AIA.10.2.f.bias-examination` → 10(2)(f).
+  const parts: string[] = [];
+  for (const p of m[2].split('.').filter(Boolean)) {
+    if (!/^(\d+|[a-z]{1,2})$/i.test(p)) break;
+    parts.push(p);
+  }
   return `Art. ${m[1]}${parts.map((p) => `(${p})`).join('')}`;
 }
 

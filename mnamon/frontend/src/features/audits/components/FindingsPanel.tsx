@@ -5,6 +5,7 @@ import { useAuditFindings } from '../hooks/useAudits';
 import { panelFindings, sortFindings } from '../lib/findings';
 import { TONE_CLASSES, verdictStyle } from '../lib/styling';
 import type { AuditDetail } from '../lib/types';
+import { DeltaReportCard } from './findings_parts/DeltaReportCard';
 import { SealedFindingCard } from './findings_parts/SealedFindingCard';
 
 /** The audit's findings: one sealed verdict per obligation (falls back to finding artifacts on older audits). No edit controls. */
@@ -13,6 +14,9 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
   const { data, isLoading } = useAuditFindings(audit.id, live);
   const rows = sortFindings(panelFindings(data, audit.artifacts, audit.id, audit.systemId));
   const sealed = rows.some((r) => r.sealed);
+  // A focused re-run after a regulation change: old vs new verdict per obligation.
+  const deltas = audit.artifacts.filter((a) => a.kind === 'delta_report' && a.status !== 'superseded');
+  const deltaCards = deltas.map((a) => <DeltaReportCard key={a.id} artifact={a} />);
 
   if (isLoading) {
     return (
@@ -25,12 +29,15 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
   }
   if (rows.length === 0) {
     return (
-      <Card className="p-2">
-        <EmptyState
-          title="No findings yet"
-          description="Each applicable obligation gets exactly one sealed verdict when the audit reaches its seal step."
-        />
-      </Card>
+      <div className="space-y-4">
+        {deltaCards}
+        <Card className="p-2">
+          <EmptyState
+            title="No findings yet"
+            description="Each applicable obligation gets exactly one sealed verdict when the audit reaches its seal step."
+          />
+        </Card>
+      </div>
     );
   }
   const counts = rows.reduce<Record<string, number>>(
@@ -40,6 +47,7 @@ export function FindingsPanel({ audit }: { audit: AuditDetail }) {
 
   return (
     <div className="space-y-4">
+      {deltaCards}
       <div className="flex flex-wrap items-center gap-2">
         {Object.entries(counts).map(([v, n]) => {
           const st = verdictStyle(v);
