@@ -13,7 +13,7 @@ const ROUTES: [string, RegExp][] = [
   ['/systems', /AI systems/],
   ['/systems/SYS-001', /CV Screener/],
   ['/systems/SYS-001/folder', /\/systems\/SYS-001/],
-  ['/systems/SYS-001/plugins', /Pipeline placement/],
+  ['/systems/SYS-001/plugins', /System graph/],
   ['/systems/SYS-001/rules', /Add rule/],
   ['/systems/SYS-001/lessons', /Page not found|CV Screener/],
   ['/audits', /Audits/],
