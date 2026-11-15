@@ -45,7 +45,7 @@ those scenarios need. Diagram: [engineer-pipeline.png](../architecture/diagrams/
 | gate `scenarios` | HITL | approve → public data; reject / changes → `plan_scenarios` with the reason | |
 | `find_public_data` | code | `search_public_datasets` with the approved scenarios | `public_dataset_candidates` |
 | gate `public_data` | HITL | only when a candidate scores ≥ 0.5 | |
-| `draft_spec` | deep agent + code | `GenerationSpecDraft`; code then **overwrites the fixed keys** (`version`, `dictionary`, `plugin`, `model_profile`) and drops non-categorical fields from `coverage.cells` / `strata.by` (`verify.normalise_spec`, listed as `code_fixes`) | `generation_spec` |
+| `draft_spec` | deep agent + code | `GenerationSpecDraft`; code then **overwrites the fixed keys** (`version`, `dictionary`, `plugin`, `model_profile`) and drops non-categorical fields from `coverage.cells` / `strata.by`, repairs rule ids (never reusing the dictionary's), unknown transforms / fields and non-numeric perturbation fields (`verify.normalise_spec`, listed as `code_fixes`); a spec still invalid after the automatic redo falls back to a code-built spec (`fallback: true`) | `generation_spec` |
 | `generate_data` | sandbox + verifier | `synthkit generate` into `generated/`; the parquet is **kept** (sha256, in the checkpoint) and handed to every later call as `input/data/generated/` instead of regenerating | `dataset` (Data Card, sha256) |
 | `analyse_datasets` | sandbox + verifier | `synthkit analyze` on the saved parquet; a failed blocking gate goes back to `draft_spec` once, coverage with the cells below `min_per_cell` and their counts | `dataset_analysis` |
 | gate `datasets` | HITL | approve → inference; reject → `draft_spec` with the reason | |
@@ -53,13 +53,13 @@ those scenarios need. Diagram: [engineer-pipeline.png](../architecture/diagrams/
 | `analyse_results` | sandbox + deep agent | `synthkit metrics --predictions` (every metric from the saved predictions, no model call, one MLflow run per test), then the analyst writes and runs its own pandas code over the same files (`sandbox_execute`, every command logged); code compares its headline numbers with synthkit's | `test_result`, `analysis` (`code`, `mismatches`) |
 | `assess_obligations` | code + deep agent + Iris | per obligation in scope: **rule verdict** (org threshold; CI crossing → `partial`), Gemini assessor (`AssessmentSet`: reasoning, counter-arguments, would_change_if, citations), **Iris independent verdict** (`VerdictJudgement`, Gemini only if Iris is down, recorded as fallback); disagreement → `inconclusive` + `needs_human`; citations must exist at the pinned kb and belong to the article or `related`; documentary obligations → `not_assessable_by_testing` with dossier evidence present / missing | `verdicts` |
 | `critic` | deep agent | `ObligationCriticReport`: `upheld` + non-empty `grounds` per verdict, required `overall`; not upheld → the adjusted verdict + `needs_human` (original kept as `verdict_before_critic`) | `critic` |
-| `seal` | code | severity (plan 01 §7.3, by in-force date), gap ids `G-<SYS>-<nn>`, sha256 hash chain (`verdicts.finding_hash` = the backend's), **coverage invariant** (exactly one verdict per obligation in scope); `POST /internal/audits/{id}/findings` per finding (404 → skipped with a warning) + a `finding` artifact per obligation for the UI | `finding` × n, `seal` |
-| `report` | deep agent + code | `AuditReport` from the sealed findings; code appends Pins, **Evidence register** and **Gap list**; a writer failure still yields a report | `report` |
+| `seal` | code | severity (plan 01 §7.3, by in-force date), gap ids `G-<SYS>-<nn>`, sha256 hash chain from a per-audit genesis (`genesis:<sha256(audit id + pins)>`; `verdicts.finding_hash` = the backend's), **coverage invariant** (exactly one verdict per obligation in scope); `POST /internal/audits/{id}/findings` per finding (404 → skipped with a warning) + a `finding` artifact per obligation for the UI | `finding` × n, `seal` |
+| `report` | deep agent + code | `AuditReport` from the sealed findings; code appends Pins, **Evidence register** and **Gap list** to the markdown and fills `gap_list`, `evidence_register`, `bias_fairness_markdown`, `annex_iv_markdown`; a writer failure still yields a report | `report` |
 | `finalize` | code | `status done`, `data.verdicts`, `data.gaps`; a re-run with `data.change_id` writes its delta report (`utils.change_judge.delta_for_audit`) | |
 
 **Failure.** Tool errors come back to the agent as text (`steps.safe_tool`); a step's agent run is retried
 once (`STEP_ATTEMPTS`). Any unrecoverable node failure writes an **incomplete audit report** (`report`
-artifact with `incomplete: true`, what ran, what did not, why, partial results), sets `status failed` with
+artifact with `incomplete {reason, stage, ran, not_run, markdown}`, what ran, what did not, why, partial results), sets `status failed` with
 `stage = <node>` and `data.failure`, and re-raises, so the checkpoint stays on the failed node and a retry
 resumes there with the same pins.
 
