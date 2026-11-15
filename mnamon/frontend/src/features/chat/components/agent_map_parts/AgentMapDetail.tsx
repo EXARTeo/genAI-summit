@@ -4,7 +4,9 @@
  * sub-agent that delegated to it), then its work read as a conversation: the instruction it was
  * given, as a user message from the agent that delegated, and its reply drawn by the chat's own
  * renderers (thinking and tool steps, Markdown), then the sub-agents it delegated to; a click on
- * one opens it here, a step deeper. Read only: there is no composer.
+ * one opens it here, a step deeper. A background task shows its whole conversation from its own
+ * event stream: every follow-up the parent sent (`update_async_task`) as another bubble, each
+ * followed by its reply, in order. Read only: there is no composer.
  */
 import { motion, useReducedMotion } from 'framer-motion';
 import { Bot, CornerDownRight, MessageSquare, Timer, Wrench, type LucideIcon } from 'lucide-react';
@@ -17,6 +19,9 @@ import {
   type AgentMapAnswer,
   type AgentMapNode,
 } from '../../lib/agentMap';
+import { useTaskTranscript } from '../../hooks/useTaskTranscript';
+import { stripNotificationEcho } from '../../lib/notificationEcho';
+import { transcriptTurns } from '../../lib/taskTranscript';
 import { ChatMarkdown } from '../message_parts/ChatMarkdown';
 import { SubagentStatusChip } from '../message_parts/SubagentStatusChip';
 import { ThinkingBlock } from '../message_parts/ThinkingBlock';
@@ -35,7 +40,18 @@ function Fact({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode 
 }
 
 /** The instruction, as the chat draws a user message; a long one starts clipped behind "Show more". */
-function InstructionBubble({ from, to, text }: { from: string; to: string; text: string }) {
+function InstructionBubble({
+  from,
+  to,
+  text,
+  followUp = false,
+}: {
+  from: string;
+  to: string;
+  text: string;
+  /** A follow-up the parent sent later (`update_async_task`), not the original instruction. */
+  followUp?: boolean;
+}) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
@@ -58,6 +74,7 @@ function InstructionBubble({ from, to, text }: { from: string; to: string; text:
         <span className="truncate">
           {from} <span aria-hidden>→</span>
           <span className="sr-only">to</span> {to}
+          {followUp ? <span className="text-muted/80"> · follow-up</span> : null}
         </span>
       </p>
       <div className="ml-auto max-w-[88%] rounded-lg border border-border bg-foreground p-4 text-background shadow-card dark:bg-surface-sunken dark:text-foreground">
@@ -110,6 +127,13 @@ export function AgentMapDetail({
   const duration = agentNodeDuration(node, now);
   const parent = ancestors[ancestors.length - 1];
   const transcript = useMemo(() => agentTranscript(node), [node]);
+  // A background task: its whole conversation (every follow-up and reply) from its own stream.
+  const task = useTaskTranscript(node.background ? node.taskId : null);
+  const turns = useMemo(
+    () => (task.timeline ? transcriptTurns(task.timeline, transcript.instruction) : null),
+    [task.timeline, transcript.instruction],
+  );
+  const taskLive = node.status === 'running';
   const own = transcript.timeline.blocks.filter((b) => b.kind === 'thinking' || b.kind === 'content');
   const lastBlock = own[own.length - 1];
   const hasReply = own.length > 0;
@@ -163,27 +187,70 @@ export function AgentMapDetail({
         aria-label={`${node.title}: instruction and reply`}
         className="space-y-5 border-t border-border/50 pt-5"
       >
-        <InstructionBubble from={parent?.title ?? agentName} to={node.title} text={transcript.instruction} />
+        {turns ? (
+          turns.map((turn, index) => {
+            const own = turn.blocks.filter((b) => b.kind === 'thinking' || b.kind === 'content');
+            const lastOwn = own[own.length - 1];
+            const current = index === turns.length - 1;
+            return (
+              <div key={turn.id} className="space-y-5" data-testid="task-turn">
+                <InstructionBubble
+                  from={parent?.title ?? agentName}
+                  to={node.title}
+                  text={turn.instruction}
+                  followUp={turn.followUp}
+                />
+                <div className="flex w-full min-w-0 flex-col gap-3">
+                  {own.map((block) =>
+                    block.kind === 'thinking' ? (
+                      <ThinkingBlock key={block.id} block={block} live={taskLive && current} />
+                    ) : block.kind === 'content' ? (
+                      <ChatMarkdown
+                        key={block.id}
+                        text={stripNotificationEcho(block.text)}
+                        streaming={taskLive && current && block === lastOwn}
+                      />
+                    ) : null,
+                  )}
+                  {!own.length &&
+                    (taskLive && current ? (
+                      <AgentThinking size="sm" label="Working" className="text-muted" />
+                    ) : (
+                      <p className="text-sm text-muted">No reply was recorded.</p>
+                    ))}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <>
+            <InstructionBubble
+              from={parent?.title ?? agentName}
+              to={node.title}
+              text={transcript.instruction}
+            />
 
-        <div className="flex w-full min-w-0 flex-col gap-3">
-          {own.map((block) =>
-            block.kind === 'thinking' ? (
-              <ThinkingBlock key={block.id} block={block} live={transcript.live} />
-            ) : block.kind === 'content' ? (
-              <ChatMarkdown
-                key={block.id}
-                text={block.text}
-                streaming={transcript.live && block === lastBlock}
-              />
-            ) : null,
-          )}
-          {!hasReply &&
-            (transcript.live ? (
-              <AgentThinking size="sm" label="Starting" className="text-muted" />
-            ) : (
-              <p className="text-sm text-muted">No reply was recorded.</p>
-            ))}
-        </div>
+            <div className="flex w-full min-w-0 flex-col gap-3">
+              {own.map((block) =>
+                block.kind === 'thinking' ? (
+                  <ThinkingBlock key={block.id} block={block} live={transcript.live} />
+                ) : block.kind === 'content' ? (
+                  <ChatMarkdown
+                    key={block.id}
+                    text={block.text}
+                    streaming={transcript.live && block === lastBlock}
+                  />
+                ) : null,
+              )}
+              {!hasReply &&
+                (transcript.live || (node.background && !task.loaded) ? (
+                  <AgentThinking size="sm" label="Starting" className="text-muted" />
+                ) : (
+                  <p className="text-sm text-muted">No reply was recorded.</p>
+                ))}
+            </div>
+          </>
+        )}
 
         {node.children.length ? (
           <section aria-label="Sub-agents it delegated to" className="space-y-1.5">

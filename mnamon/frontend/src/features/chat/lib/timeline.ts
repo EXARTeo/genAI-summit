@@ -9,6 +9,7 @@
  * presented), `task_ref` / `task_settled` (background tasks). Plus run-level `plan`, `interrupts`,
  * `sources` and `usage`.
  */
+import { stripNotificationEcho } from './notificationEcho';
 import {
   askUserAnswers,
   askUserQuestions,
@@ -131,13 +132,21 @@ export interface TaskSettledBlock {
   status: string;
 }
 
+/** A follow-up the parent sent a background task (`update_async_task`): starts a new turn of its run. */
+export interface TaskInputBlock {
+  kind: 'task_input';
+  id: string;
+  text: string;
+}
+
 export type TimelineBlock =
   | ThinkingBlock
   | ContentBlock
   | SubagentBlock
   | ArtifactBlock
   | TaskRefBlock
-  | TaskSettledBlock;
+  | TaskSettledBlock
+  | TaskInputBlock;
 
 export interface PlanItem {
   content: string;
@@ -207,6 +216,8 @@ export const TOKEN_USAGE = 'TOKEN_USAGE';
 export const SOURCES = 'SOURCES';
 export const TASK_LAUNCHED = 'TASK_LAUNCHED';
 export const TASK_SETTLED_INLINE = 'TASK_SETTLED_INLINE';
+/** A task's own stream: the parent's follow-up, where the new run begins. */
+export const TASK_INPUT = 'TASK_INPUT';
 
 const TEXT_DELTA = new Set(['TEXT_MESSAGE_CHUNK', 'TEXT_MESSAGE_CONTENT']);
 
@@ -763,6 +774,12 @@ function applyCustom(state: RunTimeline, name: string, value: unknown, event: Ra
       );
       return;
     }
+    case TASK_INPUT: {
+      const text = str(v.text);
+      if (!text) return;
+      pushStandalone(state, { kind: 'task_input', id: nextId(state, 'input'), text }, at);
+      return;
+    }
     default:
   }
 }
@@ -874,7 +891,8 @@ export function timelineText(timeline: RunTimeline | null | undefined): string {
   return (
     timeline?.blocks
       .filter((b): b is ContentBlock => b.kind === 'content')
-      .map((b) => b.text)
+      .map((b) => stripNotificationEcho(b.text))
+      .filter(Boolean)
       .join('\n\n') ?? ''
   );
 }

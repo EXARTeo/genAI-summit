@@ -2,6 +2,7 @@ import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/shared/lib/utils';
 import { AgentMapIcon, Tooltip } from '@/shared/ui';
+import { useAgentMapNav } from '../../hooks/useAgentMapNav';
 import type { AgentMap } from '../../lib/agentMap';
 import { AgentMapPanel } from './AgentMapPanel';
 
@@ -30,6 +31,15 @@ export function AgentMapButton({ map, agentName, visible }: AgentMapButtonProps)
   React.useEffect(() => {
     if (!shown) setOpen(false);
   }, [shown]);
+
+  // A task marker in the chat asked to open its task here.
+  // Only requests made while this button is mounted: an old one never reopens the panel.
+  const request = useAgentMapNav((s) => s.request);
+  const [since] = React.useState(() => useAgentMapNav.getState().request?.nonce ?? 0);
+  const fresh = request && request.nonce > since ? request : null;
+  React.useEffect(() => {
+    if (fresh && shown) setOpen(true);
+  }, [fresh, shown]);
 
   return (
     <>
@@ -83,6 +93,7 @@ export function AgentMapButton({ map, agentName, visible }: AgentMapButtonProps)
         map={map}
         agentName={agentName}
         anchorRef={buttonRef}
+        request={fresh}
       />
     </>
   );

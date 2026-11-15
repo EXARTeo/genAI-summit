@@ -49,6 +49,8 @@ export interface AgentMapNode {
   depth: number;
   /** The folded block, for the detail view. */
   block: SubagentBlock;
+  /** A background task (`start_async_task`): its whole transcript streams from the task socket. */
+  background?: boolean;
   children: AgentMapNode[];
 }
 
@@ -274,6 +276,7 @@ export function taskAgentNodes(messageId: string, tasks: TaskRecord[]): AgentMap
       toolCount: 0,
       depth,
       block,
+      background: true,
       children: [...(children.get(task.task_id) ?? [])]
         .filter((child) => !next.has(child.task_id))
         .sort(byStart)

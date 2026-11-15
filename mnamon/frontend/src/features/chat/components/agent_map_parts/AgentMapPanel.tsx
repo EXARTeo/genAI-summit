@@ -15,6 +15,7 @@ import {
   type AgentMapNode,
 } from '../../lib/agentMap';
 import type { AgentFlowSavedView } from '../../lib/agentMapFlow';
+import type { AgentMapRequest } from '../../hooks/useAgentMapNav';
 import { useAgentMapView, type AgentMapViewMode } from '../../hooks/useAgentMapView';
 import { AgentMapTree } from './AgentMapTree';
 import { AgentMapDetail } from './AgentMapDetail';
@@ -94,9 +95,18 @@ type AgentMapPanelProps = {
   agentName: string;
   /** The button the panel opens from; the panel sits above its composer. */
   anchorRef: React.RefObject<HTMLElement>;
+  /** A task a chat marker asked to open: shown as its detail when the map knows it. */
+  request?: AgentMapRequest | null;
 };
 
-export function AgentMapPanel({ open, onOpenChange, map, agentName, anchorRef }: AgentMapPanelProps) {
+export function AgentMapPanel({
+  open,
+  onOpenChange,
+  map,
+  agentName,
+  anchorRef,
+  request,
+}: AgentMapPanelProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const [view, setView] = React.useState<View>({ kind: 'tree' });
   const [mode, setMode] = useAgentMapView();
@@ -176,6 +186,18 @@ export function AgentMapPanel({ open, onOpenChange, map, agentName, anchorRef }:
       trail: current.kind === 'detail' ? [...current.trail, current.nodeId] : [],
     }));
   };
+
+  // Opened from a task marker: straight to that task's detail (the newest node of it).
+  const handled = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!request || handled.current === request.nonce) return;
+    let match: string | null = null;
+    for (const [id, item] of nodes) if (item.node.taskId === request.taskId) match = id;
+    if (!match) return;
+    handled.current = request.nonce;
+    setViewMotion({ direction: 1, fade: true });
+    setView({ kind: 'detail', nodeId: match, trail: [] });
+  }, [request, nodes]);
 
   const showTree = (focus?: string) => {
     if (focus) setFocusedId(focus);
