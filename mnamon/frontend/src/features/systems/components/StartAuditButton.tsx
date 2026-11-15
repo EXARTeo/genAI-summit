@@ -1,9 +1,10 @@
-import { Play } from 'lucide-react';
+import { Play, Plug } from 'lucide-react';
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, DropdownMenu, toast } from '@/shared/ui';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button, DropdownMenu, Tooltip, toast } from '@/shared/ui';
 import { usePluginGraph } from '../hooks/usePlugins';
-import { useStartAudit, useSystems } from '../hooks/useSystems';
+import { useStartAudit, useSystemFiles, useSystems } from '../hooks/useSystems';
+import { systemRoutes } from '../lib/routes';
 import type { PluginGraph } from '../lib/types';
 
 function useStart() {
@@ -35,11 +36,17 @@ interface AuditTarget {
 /** The decision model is the one worth auditing first (ranker, scorer, classifier). */
 const DECISION_MODEL = /rank|scor|classif|model/i;
 
-/** Configured plugins of the system, the decision model first. */
-function auditTargets(graph: PluginGraph | undefined): AuditTarget[] {
+/**
+ * Plugins an audit can test (configured, with `data/data-dictionary.yaml`: the input fields the
+ * agent generates test data for), the decision model first.
+ */
+export function auditTargets(graph: PluginGraph | undefined, paths: Set<string>): AuditTarget[] {
   if (!graph) return [];
   const byFolder = new Map(graph.components.filter((c) => c.plugin).map((c) => [c.plugin!, c]));
-  const targets = Object.entries(graph.plugins).map(([folder, card]) => ({
+  const auditable = Object.entries(graph.plugins).filter(([folder]) =>
+    paths.has(`plugins/${folder}/data/data-dictionary.yaml`),
+  );
+  const targets = auditable.map(([folder, card]) => ({
     folder,
     name: byFolder.get(folder)?.name || card?.name || folder,
     recommended: false,
@@ -60,15 +67,36 @@ function auditTargets(graph: PluginGraph | undefined): AuditTarget[] {
 export function StartAuditButton({ systemId, systemName }: { systemId: string; systemName?: string }) {
   const { run, pending } = useStart();
   const graph = usePluginGraph(systemId);
-  const targets = useMemo(() => auditTargets(graph.data), [graph.data]);
+  const files = useSystemFiles(systemId);
+  const targets = useMemo(
+    () => auditTargets(graph.data, new Set((files.data ?? []).map((f) => f.path))),
+    [graph.data, files.data],
+  );
+  const loading = graph.isLoading || files.isLoading;
+
+  // Nothing to audit yet: point to the Plugins tab instead of starting an audit that must fail.
+  if (!loading && targets.length === 0) {
+    const configured = Object.keys(graph.data?.plugins ?? {}).length > 0;
+    return (
+      <Tooltip
+        content={
+          configured
+            ? 'Its plugins have no data dictionary yet (data/data-dictionary.yaml): add it in the Plugins tab.'
+            : 'No model to audit yet: build the pipeline and configure a plugin in the Plugins tab.'
+        }
+      >
+        <Button asChild variant="secondary">
+          <Link to={systemRoutes.detail(systemId, 'plugins')}>
+            <Plug /> Set up a plugin to audit
+          </Link>
+        </Button>
+      </Tooltip>
+    );
+  }
 
   if (targets.length < 2)
     return (
-      <Button
-        onClick={() => run(systemId, systemName, targets[0])}
-        loading={pending}
-        disabled={graph.isLoading}
-      >
+      <Button onClick={() => run(systemId, systemName, targets[0])} loading={pending} disabled={loading}>
         <Play /> Start audit
       </Button>
     );
