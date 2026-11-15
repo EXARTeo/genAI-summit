@@ -22,6 +22,10 @@
 .audit-flow .react-flow__node {
   cursor: pointer;
 }
+/* Edge labels ("redo ×N") above the edges, which sit at z-index 1. */
+.audit-flow .react-flow__edgelabel-renderer {
+  z-index: 5;
+}
 .audit-flow .react-flow__node-phase {
   cursor: default;
   pointer-events: none;

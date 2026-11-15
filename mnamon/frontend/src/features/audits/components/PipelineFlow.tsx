@@ -90,7 +90,8 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Ed
   let arrow: string;
   let mid = { x: 0, y: 0 };
   if (kind === 'redo') {
-    const h = 46;
+    // Low enough that the apex label stays inside the band header (never above the canvas).
+    const h = 30;
     path = `M ${sourceX},${sourceY} C ${sourceX},${sourceY - h} ${targetX},${targetY - h} ${targetX},${targetY}`;
     arrow = `M ${targetX - 3.5},${targetY - 7} L ${targetX},${targetY} L ${targetX + 3.5},${targetY - 7} Z`;
     mid = { x: (sourceX + targetX) / 2, y: sourceY - h * 0.75 };
