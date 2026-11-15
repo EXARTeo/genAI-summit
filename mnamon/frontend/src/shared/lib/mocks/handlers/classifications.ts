@@ -553,6 +553,10 @@ function preview(systemId: string) {
     ),
   ];
   return {
+    systemId,
+    classificationId: cur.id,
+    classificationStatus: cur.status,
+    classified: true,
     kb_version: cur.kb_version,
     prohibited: res.risk_class === 'prohibited',
     query: { role: res.role, risk_class: high ? 'high' : res.risk_class, exempt_6_3: exempt },
@@ -563,12 +567,39 @@ function preview(systemId: string) {
 
 const exists = (id: string) => !!mockSystems.get(id);
 
+/** The backend's ClassificationOut is camelCase (the result stays snake_case). */
+const out = (r: Row) => ({
+  id: r.id,
+  systemId: r.system_id,
+  status: r.status,
+  kbVersion: r.kb_version,
+  dossierVersion: r.dossier_version,
+  input: r.input,
+  result: r.result,
+  error: r.error,
+  traceId: r.trace_id,
+  previousId: r.previous_id,
+  createdBy: r.created_by,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+  events: r.events.map((e) => ({
+    id: String(e.id),
+    classificationId: e.classification_id,
+    systemId: e.system_id,
+    action: e.action,
+    actor: e.actor,
+    reason: e.reason,
+    data: e.data,
+    at: e.at,
+  })),
+});
+
 export const routes: MockRoute[] = [
   {
     method: 'GET',
     path: '/v1/systems/:systemId/classifications',
     handler: ({ params }) =>
-      exists(params.systemId) ? list(params.systemId) : mockError(404, 'System not found'),
+      exists(params.systemId) ? list(params.systemId).map(out) : mockError(404, 'System not found'),
   },
   {
     method: 'POST',
@@ -579,7 +610,7 @@ export const routes: MockRoute[] = [
       if (list(id).some((r) => r.status === 'running'))
         return mockError(409, 'A classification is already running');
       const previousId = isObj(body) && typeof body.previousId === 'string' ? body.previousId : null;
-      return new MockResponse(202, makeRow(id, new Date().toISOString(), previousId));
+      return new MockResponse(202, out(makeRow(id, new Date().toISOString(), previousId)));
     },
   },
   {
@@ -587,7 +618,8 @@ export const routes: MockRoute[] = [
     path: '/v1/systems/:systemId/classifications/:cid',
     handler: ({ params }) => {
       settle(params.systemId);
-      return findRow(params.systemId, params.cid) ?? mockError(404, 'Classification not found');
+      const row = findRow(params.systemId, params.cid);
+      return row ? out(row) : mockError(404, 'Classification not found');
     },
   },
   {
@@ -604,11 +636,11 @@ export const routes: MockRoute[] = [
         if (!reason) return mockError(422, 'reason: required to reject');
         row.status = 'rejected';
         addEvent(row, 'rejected', 'client:demo', reason);
-        return row;
+        return out(row);
       }
       if (b.decision !== 'approve') return mockError(422, 'decision: approve or reject');
       approve(params.systemId, row, reason);
-      return row;
+      return out(row);
     },
   },
   {

@@ -129,6 +129,11 @@ export interface Classification {
 
 /** `GET /v1/systems/{id}/obligations`: the preview from the approved class (reg-memory rows). */
 export interface ObligationsPreview {
+  systemId?: string;
+  classificationId?: string | null;
+  classificationStatus?: string | null;
+  /** false: the card is still unclassified (no items). */
+  classified?: boolean;
   kb_version?: string | null;
   prohibited?: boolean;
   query?: Record<string, unknown>;

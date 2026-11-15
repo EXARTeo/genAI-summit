@@ -126,8 +126,8 @@ export function riskLabel(risk: string | null | undefined): { label: string; ton
 
 const ROUTE_LABEL: Record<string, string> = {
   art5: 'Prohibited practice (Art. 5)',
-  art6_1_annex_i: 'High risk via Art. 6(1): Annex I product',
-  art6_2_annex_iii: 'High risk via Art. 6(2): Annex III area',
+  art6_1_annex_i: 'Via Art. 6(1): Annex I product or safety component',
+  art6_2_annex_iii: 'Via Art. 6(2): Annex III area',
   art6_3_exempt: 'Not high risk: Art. 6(3) derogation',
   art50_only: 'Transparency duties only (Art. 50)',
   none: 'No specific AI Act category',

@@ -40,6 +40,30 @@ const SHOTS = [
   ['audit-findings-view', '/audits/aud-sys001-r2?view=findings'],
   ['audit-report-view', '/audits/aud-sys001-r2?view=report'],
   ['system-obligations', '/systems/SYS-001/obligations'],
+  ['register-wizard', '/systems/new'],
+  [
+    'register-review',
+    '/systems/new',
+    async (page) => {
+      await page.getByRole('button', { name: /Fill example/ }).click();
+      for (let i = 0; i < 4; i++) await page.getByRole('button', { name: /Next/ }).click();
+      await page.waitForTimeout(400);
+    },
+  ],
+  [
+    'register-done',
+    '/systems/new',
+    async (page) => {
+      await page.getByRole('button', { name: /Fill example/ }).click();
+      for (let i = 0; i < 4; i++) await page.getByRole('button', { name: /Next/ }).click();
+      await page.getByRole('button', { name: /Create system/ }).click();
+      await page.getByText(/is registered/).waitFor();
+      await page.waitForTimeout(600);
+    },
+  ],
+  ['classification-proposed', '/systems/SYS-002'],
+  ['classification-stale', '/systems/SYS-001'],
+  ['classification-empty', '/systems/SYS-003'],
   [
     'approval-drawer',
     '/',
