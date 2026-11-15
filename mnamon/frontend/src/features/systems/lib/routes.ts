@@ -17,6 +17,13 @@ export const systemApi = {
     `/v1/systems/${encodeURIComponent(id)}/files/${encodePath(path)}/versions`,
   events: (id: string) => `/v1/systems/${encodeURIComponent(id)}/events`,
   audits: (id: string) => `/v1/systems/${encodeURIComponent(id)}/audits`,
+  plugins: (id: string) => `/v1/systems/${encodeURIComponent(id)}/plugins`,
+  pluginDefaults: (id: string) => `/v1/systems/${encodeURIComponent(id)}/plugins/defaults`,
+  components: (id: string) => `/v1/systems/${encodeURIComponent(id)}/plugins/components`,
+  component: (id: string, componentId: string) =>
+    `/v1/systems/${encodeURIComponent(id)}/plugins/components/${encodeURIComponent(componentId)}`,
+  plugin: (id: string, name: string) =>
+    `/v1/systems/${encodeURIComponent(id)}/plugins/${encodeURIComponent(name)}`,
 };
 
 function encodePath(path: string): string {

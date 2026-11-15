@@ -1,10 +1,8 @@
-import { CheckCircle2, FolderOpen, TriangleAlert, XCircle } from 'lucide-react';
+import { CheckCircle2, Settings2, TriangleAlert, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Button, Sheet, type BadgeTone } from '@/shared/ui';
 import { hintLabel, limitFacts, outputLabel, targetLabel } from '../../lib/plugins';
-import { systemRoutes } from '../../lib/routes';
 import { ACCESS_LABEL } from '../../lib/styles';
 import type { PluginCard } from '../../lib/types';
 
@@ -72,14 +70,14 @@ function Chips({ label, items, tone }: { label: string; items?: string[]; tone?:
 /** Everything in plugin.yaml beyond the card face: behaviour checklist, connection, test hints. */
 export function PluginDetailsSheet({
   plugin: p,
-  systemId,
   open,
   onOpenChange,
+  onConfigure,
 }: {
   plugin: PluginCard;
-  systemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onConfigure: () => void;
 }) {
   const access = p.access ?? { type: 'unknown' };
   const exp = p.expected_behaviour ?? { task: '' };
@@ -102,11 +100,9 @@ export function PluginDetailsSheet({
       title={p.name}
       description={`${ACCESS_LABEL[access.type] ?? access.type} plugin`}
       footer={
-        <Button asChild variant="secondary" size="sm">
-          <Link to={systemRoutes.detail(systemId, 'folder')}>
-            <FolderOpen />
-            Edit plugin.yaml in Folder
-          </Link>
+        <Button variant="secondary" size="sm" onClick={onConfigure}>
+          <Settings2 />
+          Configure plugin
         </Button>
       }
     >

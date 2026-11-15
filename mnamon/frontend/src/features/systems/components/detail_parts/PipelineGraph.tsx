@@ -9,35 +9,66 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { Cpu, User } from 'lucide-react';
+import { Building2, Plus, User } from 'lucide-react';
 import { useMemo } from 'react';
 import { cn } from '@/shared/lib/utils';
+import { accessIcon } from '../../lib/plugins';
 import { ACCESS_LABEL } from '../../lib/styles';
-import type { PluginCard } from '../../lib/types';
+import type { GraphComponent, PluginGraph } from '../../lib/types';
 
-type StageData = { label: string; sub: string; human: boolean; highlighted: boolean };
+type StageData = {
+  component: GraphComponent;
+  sub: string;
+  accessType?: string;
+  selected: boolean;
+  clickable: boolean;
+};
+
+const HUMAN = /human|review|ui$/i;
 
 function StageNode({ data }: NodeProps<Node<StageData>>) {
+  const c = data.component;
+  const human = !c.testable && HUMAN.test(`${c.kind} ${c.id}`);
+  const Icon = c.testable ? accessIcon(data.accessType ?? 'mlflow_model') : human ? User : Building2;
   return (
     <div
       className={cn(
-        'flex w-48 items-center gap-2.5 rounded-lg border bg-surface px-3 py-2.5 shadow-card',
-        data.highlighted ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border',
+        'group relative flex w-56 items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 shadow-card transition-[border-color,box-shadow] duration-150',
+        data.clickable && 'cursor-pointer hover:border-primary/50 hover:shadow-pop',
+        c.testable && !c.configured && 'border-dashed border-primary/40',
+        !c.testable && 'border-border bg-surface-muted/40',
+        c.configured && 'border-border',
+        data.selected && 'border-primary/70 ring-2 ring-primary/25',
       )}
     >
       <Handle type="target" position={Position.Left} className="!border-border !bg-surface" />
       <div
         className={cn(
-          'grid size-8 shrink-0 place-items-center rounded-lg',
-          data.human ? 'bg-surface-muted text-text' : 'bg-surface-muted text-muted',
+          'grid size-9 shrink-0 place-items-center rounded-lg [&_svg]:size-4',
+          c.testable ? 'bg-primary/10 text-primary' : 'bg-surface-muted text-muted',
         )}
       >
-        {data.human ? <User className="size-4" /> : <Cpu className="size-4" />}
+        <Icon />
       </div>
-      <div className="min-w-0">
-        <div className="truncate text-xs font-semibold">{data.label}</div>
-        <div className="truncate text-2xs text-muted">{data.sub}</div>
+      <div className="min-w-0 flex-1">
+        <div className={cn('truncate text-sm font-semibold leading-tight', !c.testable && 'text-muted')}>
+          {c.name}
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5 truncate text-2xs text-muted">
+          {c.testable && (
+            <span
+              aria-hidden
+              className={cn('size-1.5 shrink-0 rounded-full', c.configured ? 'bg-success' : 'bg-warning')}
+            />
+          )}
+          <span className="truncate">{data.sub}</span>
+        </div>
       </div>
+      {c.testable && !c.configured && (
+        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary [&_svg]:size-3.5">
+          <Plus />
+        </span>
+      )}
       <Handle type="source" position={Position.Right} className="!border-border !bg-surface" />
     </div>
   );
@@ -45,67 +76,67 @@ function StageNode({ data }: NodeProps<Node<StageData>>) {
 
 const nodeTypes = { stage: StageNode };
 
+function subtitle(c: GraphComponent, accessType?: string): string {
+  if (c.testable) {
+    if (!c.configured) return 'No plugin yet · click to set up';
+    return ACCESS_LABEL[accessType ?? ''] ?? 'Plugin ready';
+  }
+  if (HUMAN.test(`${c.kind} ${c.id}`)) return 'Human step · not testable';
+  return 'Upstream system · not testable';
+}
+
 /**
- * Pipeline placement of every plugin, derived from `placement.upstream/downstream`.
- * `highlight` = the plugin id whose card is selected.
+ * The system as a graph (architecture.yaml): one box per component, models are clickable and
+ * open their plugin. A model without a plugin has a dashed border and a "+".
  */
-export function PipelineGraph({ plugins, highlight }: { plugins: PluginCard[]; highlight?: string }) {
+export function PipelineGraph({
+  graph,
+  selected,
+  onSelect,
+}: {
+  graph: PluginGraph;
+  selected?: string;
+  onSelect?: (component: GraphComponent) => void;
+}) {
   const { nodes, edges } = useMemo(() => {
-    const ids = new Set<string>();
-    const links: [string, string][] = [];
-    for (const p of plugins) {
-      ids.add(p.id);
-      for (const u of p.placement?.upstream ?? []) {
-        ids.add(u);
-        links.push([u, p.id]);
-      }
-      for (const d of p.placement?.downstream ?? []) {
-        ids.add(d);
-        links.push([p.id, d]);
-      }
-    }
+    const ids = graph.components.map((c) => c.id);
+    const links = graph.edges
+      .map((e) => [e.source, e.target] as const)
+      .filter(([a, b]) => ids.includes(a) && ids.includes(b));
     // Longest-path layering, left to right.
-    const level = new Map<string, number>([...ids].map((i) => [i, 0]));
-    for (let pass = 0; pass < ids.size; pass++) {
+    const level = new Map<string, number>(ids.map((i) => [i, 0]));
+    for (let pass = 0; pass < ids.length; pass++) {
       for (const [a, b] of links) level.set(b, Math.max(level.get(b)!, level.get(a)! + 1));
     }
     const perLevel = new Map<number, number>();
-    const byId = new Map(plugins.map((p) => [p.id, p]));
-    const nodes: Node<StageData>[] = [...ids].map((id) => {
-      const l = level.get(id)!;
+    const nodes: Node<StageData>[] = graph.components.map((c) => {
+      const l = level.get(c.id)!;
       const row = perLevel.get(l) ?? 0;
       perLevel.set(l, row + 1);
-      const p = byId.get(id);
-      const short = id.includes('.') ? id.split('.').slice(1).join('.') : id;
+      const accessType = c.plugin ? graph.plugins[c.plugin]?.access?.type : undefined;
       return {
-        id,
+        id: c.id,
         type: 'stage',
-        position: { x: l * 250, y: row * 90 },
+        position: { x: l * 290, y: row * 96 },
         data: {
-          label: p?.name ?? short.replace(/-/g, ' '),
-          sub: p
-            ? (ACCESS_LABEL[p.access?.type] ?? p.access?.type ?? '')
-            : /ui|human|review/i.test(short)
-              ? 'human review'
-              : 'external',
-          human: !p && /ui|human|review/i.test(short),
-          highlighted: id === highlight,
+          component: c,
+          accessType,
+          sub: subtitle(c, accessType),
+          selected: c.id === selected,
+          clickable: !!onSelect,
         },
         draggable: false,
       };
     });
-    const seen = new Set<string>();
-    const edges: Edge[] = links
-      .filter(([a, b]) => !seen.has(`${a}>${b}`) && seen.add(`${a}>${b}`))
-      .map(([a, b]) => ({
-        id: `${a}>${b}`,
-        source: a,
-        target: b,
-        animated: a === highlight || b === highlight,
-        markerEnd: { type: MarkerType.ArrowClosed },
-      }));
+    const edges: Edge[] = links.map(([a, b]) => ({
+      id: `${a}>${b}`,
+      source: a,
+      target: b,
+      animated: a === selected || b === selected,
+      markerEnd: { type: MarkerType.ArrowClosed },
+    }));
     return { nodes, edges };
-  }, [plugins, highlight]);
+  }, [graph, selected, onSelect]);
 
   return (
     <div className="h-64 overflow-hidden rounded-xl border border-border bg-surface-muted/30">
@@ -113,9 +144,13 @@ export function PipelineGraph({ plugins, highlight }: { plugins: PluginCard[]; h
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        onNodeClick={(_, node) => {
+          onSelect?.((node.data as StageData).component);
+        }}
         fitView
-        fitViewOptions={{ padding: 0.25 }}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1.1 }}
         nodesConnectable={false}
+        nodesDraggable={false}
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
         minZoom={0.4}

@@ -95,8 +95,15 @@ export interface PluginCard {
     method?: string;
     environment?: string;
     limits?: Record<string, number>;
+    auth?: { type?: string; secret_ref?: string };
+    /** The same model through the model gateway (a /v1/... path), for `rest`. */
+    rest_url?: string;
   };
-  io?: { input_schema?: string; output?: Record<string, unknown> };
+  io?: {
+    input_schema?: string;
+    input_fields?: { name: string; type: string }[];
+    output?: Record<string, unknown>;
+  };
   expected_behaviour: { task: string; must?: string[]; must_not?: string[]; known_limitations?: string[] };
   /** Hints the planner turns into test scenarios and synthetic data. */
   scenarios?: {
@@ -107,7 +114,9 @@ export interface PluginCard {
     training_data?: string;
     data_policy?: string;
     metamorphic_relations?: string[];
+    [key: string]: unknown;
   };
+  [key: string]: unknown;
 }
 
 export interface BusinessRule {
@@ -117,4 +126,68 @@ export interface BusinessRule {
   title: string;
   kind: 'hard' | 'soft' | 'policy';
   text: string;
+}
+
+/** Mirrors mnamon/backend/schema/plugins.py. */
+export interface GraphComponent {
+  id: string;
+  name: string;
+  kind: string;
+  model?: string | null;
+  note?: string | null;
+  /** Plugin folder (`cv-ranker`) when one is configured. */
+  plugin?: string | null;
+  configured: boolean;
+  /** A model or endpoint the agent can call (not an upstream system or a human step). */
+  testable: boolean;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  data?: string | null;
+}
+
+export interface PluginGraph {
+  system: string;
+  components: GraphComponent[];
+  edges: GraphEdge[];
+  entry?: string | null;
+  plugins: Record<string, PluginCard>;
+}
+
+export interface SignatureField {
+  name: string;
+  type: string;
+}
+
+export interface MlflowModelInfo {
+  status: 'ok' | 'not_found' | 'unreachable' | 'not_mlflow' | string;
+  name?: string | null;
+  alias?: string | null;
+  version?: string | null;
+  run_id?: string | null;
+  description?: string | null;
+  tags: Record<string, string>;
+  inputs: SignatureField[];
+  outputs: SignatureField[];
+  error?: string | null;
+}
+
+export interface PluginDefaults {
+  name: string;
+  component?: string | null;
+  /** A complete card from the graph + MLflow: the form's grey placeholders. */
+  defaults: PluginCard;
+  existing?: PluginCard | null;
+  mlflow: MlflowModelInfo;
+}
+
+export interface PluginWriteResult {
+  name: string;
+  path: string;
+  version: number;
+  changed: boolean;
+  card: PluginCard;
+  architecture_updated: boolean;
 }

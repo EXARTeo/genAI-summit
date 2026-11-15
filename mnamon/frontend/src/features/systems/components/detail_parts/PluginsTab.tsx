@@ -1,11 +1,20 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, ChevronRight, FolderOpen, Plug, TriangleAlert, User, XCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  Network,
+  Plug,
+  Plus,
+  Settings2,
+  TriangleAlert,
+  User,
+  XCircle,
+} from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { listItem, staggerList } from '@/shared/lib/motion';
 import { cn } from '@/shared/lib/utils';
 import { Badge, Button, Card, EmptyState, ErrorState, Section, SkeletonCard, Tooltip } from '@/shared/ui';
-import { usePlugins } from '../../hooks/useSystemFolder';
+import { usePluginGraph } from '../../hooks/usePlugins';
 import {
   accessIcon,
   limitFacts,
@@ -16,11 +25,12 @@ import {
   type PluginFact,
   type StageRef,
 } from '../../lib/plugins';
-import { systemRoutes } from '../../lib/routes';
 import { ACCESS_LABEL } from '../../lib/styles';
-import type { PluginCard } from '../../lib/types';
+import type { GraphComponent, PluginCard } from '../../lib/types';
 import { PipelineGraph } from './PipelineGraph';
+import { GraphStepDialog } from './GraphStepDialog';
 import { PluginDetailsSheet } from './PluginDetailsSheet';
+import { PluginEditorSheet, type PluginEditorTarget } from './PluginEditorSheet';
 
 /** One pill in the card's pipeline strip. */
 function StagePill({ stage, current, ghost }: { stage?: StageRef; current?: boolean; ghost?: string }) {
@@ -101,12 +111,14 @@ function PluginCardView({
   selected,
   onSelect,
   onOpen,
+  onConfigure,
 }: {
   p: PluginCard;
   plugins: PluginCard[];
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
+  onConfigure: () => void;
 }) {
   const access = p.access ?? { type: 'unknown' };
   const exp = p.expected_behaviour ?? { task: '' };
@@ -177,18 +189,30 @@ function PluginCardView({
             />
             <span>behaviour checks</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            rightIcon={<ChevronRight />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-              onOpen();
-            }}
-          >
-            Details
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onConfigure();
+              }}
+            >
+              <Settings2 /> Configure
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              rightIcon={<ChevronRight />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+                onOpen();
+              }}
+            >
+              Details
+            </Button>
+          </div>
         </div>
       </Card>
     </motion.div>
@@ -196,80 +220,146 @@ function PluginCardView({
 }
 
 export function PluginsTab({ systemId }: { systemId: string }) {
-  const { plugins, isLoading, error, refetch } = usePlugins(systemId);
+  const { data: graph, isLoading, error, refetch } = usePluginGraph(systemId);
   const [selected, setSelected] = useState<string | undefined>();
   const [openId, setOpenId] = useState<string | undefined>();
+  const [editing, setEditing] = useState<PluginEditorTarget | null>(null);
+  const [step, setStep] = useState<{ component: GraphComponent | null } | null>(null);
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
-  if (isLoading) {
+  if (isLoading || !graph) {
     return (
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="space-y-4">
         <SkeletonCard />
-        <SkeletonCard />
+        <div className="grid gap-4 md:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       </div>
     );
   }
-  if (!plugins.length) {
+
+  const entries = Object.entries(graph.plugins);
+  const plugins: PluginCard[] = entries.map(([folder, card]) => ({
+    ...card,
+    id: card.id ?? `${systemId}.${folder}`,
+    name: card.name ?? folder,
+  }));
+  /** The graph component a plugin wraps (by its id, else by its folder). */
+  const componentFor = (p: PluginCard): GraphComponent | null => {
+    const folder = entries.find(([f, card]) => (card.id ?? `${systemId}.${f}`) === p.id)?.[0];
     return (
-      <EmptyState
-        icon={<Plug />}
-        title="No plugins configured"
-        description="A plugin connects the agent to one testable model or endpoint: add plugins/<name>/plugin.yaml in the Folder tab."
-      />
+      graph.components.find((c) => c.id === p.id) ??
+      graph.components.find((c) => !!folder && c.plugin === folder) ??
+      null
     );
-  }
+  };
+  const configure = (c: GraphComponent | null) => {
+    if (c) setSelected(c.id);
+    setEditing({ component: c });
+  };
+  const missing = graph.components.filter((c) => c.testable && !c.configured).length;
   const current = selected ?? plugins[0]?.id;
   const opened = plugins.find((p) => p.id === openId);
+  const onNode = (c: GraphComponent) => (c.testable ? configure(c) : setStep({ component: c }));
+  const addButton = (
+    <div className="flex items-center gap-2">
+      <Button variant="secondary" size="sm" onClick={() => setStep({ component: null })}>
+        <Network /> Add a step
+      </Button>
+      <Button size="sm" onClick={() => configure(null)}>
+        <Plus /> Add a model
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <Section title="Pipeline placement" description="Where each plugin sits; click a card to highlight it.">
-        <PipelineGraph plugins={plugins} highlight={current} />
-      </Section>
-      <Section
-        title={
-          <span className="flex items-center gap-2">
-            Plugins
-            <Badge tone="primary" className="rounded-full px-2">
-              {plugins.length}
-            </Badge>
-          </span>
-        }
-        description="Each plugin connects the agent to one model it can test."
-        actions={
-          <Button asChild variant="secondary" size="sm">
-            <Link to={systemRoutes.detail(systemId, 'folder')}>
-              <FolderOpen />
-              Open folder
-            </Link>
-          </Button>
-        }
-      >
-        <motion.div
-          variants={staggerList()}
-          initial="initial"
-          animate="animate"
-          className="grid gap-4 md:grid-cols-2"
+      {graph.components.length === 0 && (
+        <Section title="System graph" actions={addButton}>
+          <EmptyState
+            icon={<Network />}
+            title="No pipeline yet"
+            description="This system was registered with its documents only. Add its models and the steps around them (where the data comes from, who reviews the output); each model then gets a plugin the audit agent calls."
+          />
+        </Section>
+      )}
+      {graph.components.length > 0 && (
+        <Section
+          title="System graph"
+          description={
+            missing
+              ? `Click a model to configure its plugin. ${missing} model${missing === 1 ? ' has' : 's have'} no plugin yet.`
+              : 'Click a model to configure its plugin: how the audit agent calls it.'
+          }
+          actions={addButton}
         >
-          {plugins.map((p) => (
-            <PluginCardView
-              key={p.id}
-              p={p}
-              plugins={plugins}
-              selected={current === p.id}
-              onSelect={() => setSelected(p.id)}
-              onOpen={() => setOpenId(p.id)}
-            />
-          ))}
-        </motion.div>
-      </Section>
+          <PipelineGraph graph={graph} selected={current} onSelect={onNode} />
+        </Section>
+      )}
+
+      {plugins.length === 0 ? (
+        <EmptyState
+          icon={<Plug />}
+          title="No plugins configured"
+          description="A plugin is the wrapper around one model: how the audit agent reaches it, what it returns and how it must behave. Click a model in the graph, or add one."
+        />
+      ) : (
+        <Section
+          title={
+            <span className="flex items-center gap-2">
+              Plugins
+              <Badge tone="primary" className="rounded-full px-2">
+                {plugins.length}
+              </Badge>
+            </span>
+          }
+          description="Each plugin wraps one model the agent can test. An audit tests one plugin."
+        >
+          <motion.div
+            variants={staggerList()}
+            initial="initial"
+            animate="animate"
+            className="grid gap-4 md:grid-cols-2"
+          >
+            {plugins.map((p) => (
+              <PluginCardView
+                key={p.id}
+                p={p}
+                plugins={plugins}
+                selected={current === p.id}
+                onSelect={() => setSelected(p.id)}
+                onOpen={() => setOpenId(p.id)}
+                onConfigure={() => configure(componentFor(p))}
+              />
+            ))}
+          </motion.div>
+        </Section>
+      )}
       {opened && (
         <PluginDetailsSheet
           plugin={opened}
-          systemId={systemId}
           open={!!opened}
           onOpenChange={(o) => !o && setOpenId(undefined)}
+          onConfigure={() => {
+            setOpenId(undefined);
+            configure(componentFor(opened));
+          }}
         />
       )}
+      <GraphStepDialog
+        systemId={systemId}
+        graph={graph}
+        open={!!step}
+        component={step?.component}
+        onOpenChange={(o) => !o && setStep(null)}
+      />
+      <PluginEditorSheet
+        systemId={systemId}
+        graph={graph}
+        target={editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+      />
     </div>
   );
 }
