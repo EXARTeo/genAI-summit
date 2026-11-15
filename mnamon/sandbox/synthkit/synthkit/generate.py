@@ -221,7 +221,9 @@ class Generator:
             hi = (self.fields[f].get("range") or [None, None])[1]
             for row in bases:
                 twin = {k: row[k] for k in self.fields}
-                value = twin[f] + delta if twin[f] is not None else None
+                # Only numeric values shift by a delta; a category is left alone.
+                numeric = isinstance(twin[f], int | float) and not isinstance(twin[f], bool)
+                value = twin[f] + delta if numeric else None
                 if value is None or (hi is not None and value > hi):
                     continue
                 twin[f] = value
