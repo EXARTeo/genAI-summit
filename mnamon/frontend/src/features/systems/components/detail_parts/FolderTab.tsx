@@ -1,14 +1,19 @@
 import { FolderTree, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { formatBytes, formatRelative } from '@/shared/lib/format';
 import { actorLabel } from '@/shared/lib/labels';
 import { EmptyState, ErrorState, FileTree, Skeleton, toast } from '@/shared/ui';
 import { useFillHeight } from '../../hooks/useFillHeight';
 import { useSystemFiles, useUploadFiles } from '../../hooks/useSystems';
+import { systemRoutes } from '../../lib/routes';
 import { FilePreview } from './FilePreview';
 
 const ACCEPT = '.md,.yaml,.yml,.json,.csv,.txt,.pdf';
+
+/** Plugins (one folder per model) are configured in the Plugins tab, not edited as files. */
+const isPluginPath = (path: string) => path === 'plugins' || path.startsWith('plugins/');
 
 /** The system dossier as one explorer: tree (add files per folder, drag-and-drop) + full-height viewer. */
 export function FolderTab({ systemId }: { systemId: string }) {
@@ -16,6 +21,7 @@ export function FolderTab({ systemId }: { systemId: string }) {
   const wide = useMediaQuery('(min-width: 1024px)');
   const fill = useFillHeight<HTMLDivElement>(480, 32);
   const files = useSystemFiles(systemId);
+  const visible = useMemo(() => (files.data ?? []).filter((f) => !isPluginPath(f.path)), [files.data]);
   const upload = useUploadFiles(systemId);
   const [selected, setSelected] = useState<string | null>('system-card.yaml');
   const [busyFolder, setBusyFolder] = useState<string | null>(null);
@@ -75,7 +81,7 @@ export function FolderTab({ systemId }: { systemId: string }) {
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Explorer</span>
             {files.data && (
               <span className="text-[11px] tabular-nums text-muted">
-                {files.data.length} file{files.data.length === 1 ? '' : 's'}
+                {visible.length} file{visible.length === 1 ? '' : 's'}
               </span>
             )}
           </div>
@@ -92,7 +98,7 @@ export function FolderTab({ systemId }: { systemId: string }) {
                   className="min-h-full pb-6"
                   rootLabel={<span className="font-mono text-xs">/systems/{systemId}</span>}
                   showCounts
-                  entries={(files.data ?? []).map((f) => ({
+                  entries={visible.map((f) => ({
                     path: f.path,
                     title: `v${f.version} · ${formatBytes(f.size)} · by ${actorLabel(f.createdBy)} · ${formatRelative(f.createdAt)}`,
                     meta: (
@@ -112,7 +118,7 @@ export function FolderTab({ systemId }: { systemId: string }) {
                   onDropFiles={onFiles}
                   busyFolder={busyFolder}
                 />
-                {!files.data?.length && (
+                {!visible.length && (
                   <EmptyState
                     compact
                     icon={<FolderTree />}
@@ -123,9 +129,21 @@ export function FolderTab({ systemId }: { systemId: string }) {
               </>
             )}
           </div>
-          <p className="hidden border-t border-border px-4 py-2 text-[11px] text-muted lg:block">
-            Hover a folder to add files, or drop files on it. Each upload is a new version.
-          </p>
+          <div className="space-y-1 border-t border-border px-4 py-2 text-[11px] text-muted">
+            <p className="hidden lg:block">
+              Hover a folder to add files, or drop files on it. Each upload is a new version.
+            </p>
+            <p>
+              Models are wrapped as plugins, configured in the{' '}
+              <Link
+                to={systemRoutes.detail(systemId, 'plugins')}
+                className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Plugins tab
+              </Link>
+              .
+            </p>
+          </div>
         </aside>
       </div>
       <section className="flex min-h-[28rem] min-w-0 flex-col lg:min-h-0">
