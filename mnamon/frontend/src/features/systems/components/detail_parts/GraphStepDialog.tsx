@@ -1,4 +1,4 @@
-import { Building2, Cpu, Trash2, User } from 'lucide-react';
+import { Building2, Cpu, Trash2, User, Wand2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { Button, Dialog, Field, Input, Select, toast } from '@/shared/ui';
@@ -53,6 +53,49 @@ export function ConnectionFields({
 }
 
 export const connection = (v: string) => (v && v !== NONE ? [v] : []);
+
+/** The seed models on the local MLflow server, in the order a demo pipeline uses them. */
+export const EXAMPLE_MODELS = [
+  { name: 'CV parser', model: 'models:/sys-001-cv-parser@champion', folder: 'cv-parser' },
+  { name: 'CV ranker', model: 'models:/sys-001-cv-ranker@champion', folder: 'cv-ranker' },
+  { name: 'Credit scorer', model: 'models:/sys-002-credit-scorer@champion', folder: 'credit-scorer' },
+  {
+    name: 'Benefits triage',
+    model: 'models:/sys-003-benefits-triage@champion',
+    folder: 'benefits-triage',
+  },
+];
+
+/** The first seed model the graph does not use yet (else the first one). */
+export function nextExampleModel(graph: PluginGraph) {
+  const used = new Set(graph.components.map((c) => c.model).filter(Boolean));
+  return EXAMPLE_MODELS.find((m) => !used.has(m.model)) ?? EXAMPLE_MODELS[0];
+}
+
+/** Example values for a new step that fit the graph as it is: it extends the pipeline. */
+export function exampleStep(graph: PluginGraph, kind: ComponentKind) {
+  const comps = graph.components;
+  const last = comps[comps.length - 1]?.id ?? '';
+  const firstModel = comps.find((c) => c.testable)?.id ?? '';
+  const taken = new Set(comps.map((c) => c.name.toLowerCase()));
+  const free = (names: string[]) => names.find((n) => !taken.has(n.toLowerCase())) ?? names[0];
+  if (kind === 'upstream_system')
+    return {
+      name: free(['Applicant portal', 'Intake form', 'Loan origination']),
+      model: '',
+      upstream: '',
+      downstream: firstModel,
+    };
+  if (kind === 'human_review')
+    return {
+      name: free(['Recruiter review', 'Caseworker review', 'Credit officer']),
+      model: '',
+      upstream: last,
+      downstream: '',
+    };
+  const m = nextExampleModel(graph);
+  return { name: m.name, model: m.model, upstream: last, downstream: '' };
+}
 
 /**
  * Add a box to the system graph, or (with `component`) look at a non-model box and remove it.
@@ -174,6 +217,20 @@ export function GraphStepDialog({
       size="md"
       footer={
         <>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mr-auto"
+            onClick={() => {
+              const ex = exampleStep(graph, kind);
+              setName(ex.name);
+              setModel(ex.model);
+              setUpstream(ex.upstream);
+              setDownstream(ex.downstream);
+            }}
+          >
+            <Wand2 /> Fill example
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

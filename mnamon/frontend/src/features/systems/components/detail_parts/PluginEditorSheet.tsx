@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Trash2,
   Upload,
+  Wand2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { formatBytes } from '@/shared/lib/format';
@@ -27,7 +28,7 @@ import {
   type PluginFormValues,
 } from '../../lib/pluginForm';
 import type { GraphComponent, MlflowModelInfo, PluginGraph } from '../../lib/types';
-import { ConnectionFields, connection } from './GraphStepDialog';
+import { ConnectionFields, connection, nextExampleModel } from './GraphStepDialog';
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
@@ -351,6 +352,19 @@ export function PluginEditorSheet({
                 />
               </Field>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const m = nextExampleModel(graph);
+                setModelUri(m.model);
+                setFolder(m.folder);
+                setUpstream(graph.components[graph.components.length - 1]?.id ?? '');
+                setDownstream('');
+              }}
+            >
+              <Wand2 /> Fill example
+            </Button>
             <ConnectionFields
               graph={graph}
               upstream={upstream}
