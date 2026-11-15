@@ -58,12 +58,19 @@ def test_the_definition_loads_and_validates(shipped):
     assert spec is not None
     assert spec.name == "Mnamon Copilot"
     assert spec.model.main == "google_genai:${GEMINI_MODEL}"
-    assert [sa.name for sa in spec.subagents] == ["regulation-researcher", "evidence-analyst"]
+    assert [sa.name for sa in spec.subagents] == [
+        "audit-analyst",
+        "regulation-historian",
+        "regulation-researcher",
+        "test-designer",
+        "evidence-analyst",
+    ]
     natives = {t.native for t in spec.tools}
     assert {"list_systems", "read_audit", "lookup_provision", "propose_system_note"} <= natives
     # The writes ask first; delegation to the read-only sub-agents does not.
     assert spec.hitl["propose_system_note"] is True
     assert spec.hitl["start_audit"] is True
+    assert spec.hitl["attach_upload_to_audit_draft"] is True
     assert spec.hitl["execute"] is True
     assert spec.hitl["task"] is False
 

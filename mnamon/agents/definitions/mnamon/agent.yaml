@@ -22,11 +22,48 @@ tools:
   - native: list_audits
   - native: read_audit
   - native: read_audit_artifact
+  - native: list_findings
+  - native: get_gate_decisions
+  - native: list_obligations
   - native: lookup_provision
   - native: search_regulation
+  - native: list_kb_releases
+  - native: diff_kb
+  - native: list_reg_changes
+  - native: get_reg_change
+  - native: audit_needs_rerun
   - native: propose_system_note
+  - native: attach_upload_to_audit_draft
   - native: start_audit
 subagents:
+  - name: audit-analyst
+    description: >-
+      Explains one audit (or compares two): its pins and kb_version, results,
+      findings and gaps, the human decisions at each gate, the critic and the
+      report. Returns facts with the audit id and kb_version.
+    prompt: ./subagents/audit-analyst.md
+    tools:
+      - native: list_audits
+      - native: read_audit
+      - native: read_audit_artifact
+      - native: list_findings
+      - native: get_gate_decisions
+      - native: read_system_file
+  - name: regulation-historian
+    description: >-
+      Regulation versions and change: which kb_version an audit used, what
+      changed between releases, a regulation change and its judged impact, and
+      whether an audit needs a re-run (audit_needs_rerun).
+    prompt: ./subagents/regulation-historian.md
+    tools:
+      - native: read_audit
+      - native: list_audits
+      - native: list_kb_releases
+      - native: diff_kb
+      - native: list_reg_changes
+      - native: get_reg_change
+      - native: audit_needs_rerun
+      - native: lookup_provision
   - name: regulation-researcher
     description: >-
       Answers one question about the EU AI Act and its guidance from the
@@ -36,14 +73,35 @@ subagents:
     tools:
       - native: lookup_provision
       - native: search_regulation
+  - name: test-designer
+    description: >-
+      Helps the engineer design an audit: scenarios tied to obligation ids, a
+      dummy or uploaded dataset spec, an optional sandbox preview, then a
+      focused or custom start_audit (the user approves each write).
+    prompt: ./subagents/test-designer.md
+    tools:
+      - native: list_systems
+      - native: list_system_files
+      - native: read_system_file
+      - native: list_obligations
+      - native: list_kb_releases
+      - native: lookup_provision
+      - native: attach_upload_to_audit_draft
+      - native: start_audit
   - name: evidence-analyst
     description: >-
-      Checks one finding or number of an audit against its evidence: reads the
-      artifacts and system files, recomputes in the sandbox when data is
-      attached, returns what holds, what does not and the counter-arguments.
-    prompt: ./subagents/evidence-analyst.md    # inherits every tool, gates included
+      Re-checks one finding or number against an audit's saved evidence (its
+      artifacts, predictions and test results): recomputes in the sandbox,
+      returns what holds, what does not and the counter-arguments.
+    prompt: ./subagents/evidence-analyst.md
+    tools:
+      - native: read_audit
+      - native: read_audit_artifact
+      - native: list_findings
+      - native: read_system_file
 hitl:
-  task: false                 # delegating to the read-only sub-agents needs no approval
+  task: false                 # delegating to sub-agents needs no approval
   propose_system_note: true   # a note in the system folder
+  attach_upload_to_audit_draft: true   # a chat upload copied into datasets/uploaded/
   start_audit: true           # a new audit run
   execute: true               # the sandbox (locked on anyway)
