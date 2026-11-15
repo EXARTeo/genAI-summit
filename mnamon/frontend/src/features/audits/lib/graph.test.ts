@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { reviewedScenarios, searchDrivers, stepMemory, toScenarios } from './adapters';
 import real from './fixtures/sys001-audit.json';
-import { PHASES, edgeState, graphModel, laneLayout, phaseOf, redoLoops } from './graph';
+import { GRAPH, PHASES, edgeState, graphLayout, graphModel, phaseOf, redoLoops } from './graph';
 import { stepSummary } from './stepMeta';
 import { STAGES } from './pipeline';
 import type { Approval, Artifact, AuditDetail } from './types';
@@ -13,11 +13,14 @@ describe('pipeline graph', () => {
     expect(PHASES.flatMap((p) => p.stages)).toEqual(STAGES.map((s) => s.id));
     expect(phaseOf('approve_scenarios')).toBe(0);
     expect(phaseOf('find_public_data')).toBe(1);
-    const l = laneLayout(1200, (id) => (id === 'approve_datasets' ? 114 : 68));
-    expect(l.lanes.map((x) => x.x)).toEqual([0, l.laneWidth + 44, 2 * (l.laneWidth + 44)]);
-    expect(l.positions.find_public_data.y).toBe(l.positions.load_context.y);
-    expect(l.positions.draft_spec.y).toBeGreaterThan(l.positions.find_public_data.y);
-    expect(l.height).toBeGreaterThan(l.positions.approve_datasets.y + 114);
+    const l = graphLayout(1100, (id) => id === 'approve_datasets');
+    expect(l.positions.load_context.y).toBe(l.positions.approve_scenarios.y);
+    expect(l.positions.find_public_data.x).toBe(l.positions.load_context.x);
+    expect(l.positions.draft_spec.x).toBeCloseTo(l.positions.find_public_data.x + l.colWidth);
+    expect(l.positions.find_public_data.y).toBeGreaterThan(l.positions.approve_scenarios.y);
+    expect(l.positions.approve_datasets.height).toBe(GRAPH.box + GRAPH.label + GRAPH.action);
+    expect(l.positions.load_context.height).toBe(GRAPH.box + GRAPH.label);
+    expect(l.height).toBe(l.groups[2].y + l.groups[2].height);
   });
 
   it('edges lead into the live step and wrap between rows', () => {

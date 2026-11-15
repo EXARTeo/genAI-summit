@@ -1,4 +1,4 @@
-// The engineer pipeline as a graph: three phase lanes (cards stacked in each), edge states and the redo
+// The engineer pipeline as a graph: three phase bands (one row of nodes each), edge states and the redo
 // loops a gate rejection or a verifier redo leaves behind. Pure; the React Flow view is
 // components/PipelineFlow.tsx.
 import { STAGES, stepStates, type StepState } from './pipeline';
@@ -19,43 +19,52 @@ export const PHASES: { id: string; label: string; stages: string[] }[] = [
   { id: 'test', label: 'Test & judge', stages: ['run_tests', 'analyse', 'critic', 'report'] },
 ];
 
-/** Lane geometry (px, drawn at zoom 1 so card text is its real size). */
-export const LANE = { gutter: 44, pad: 14, header: 54, gapY: 30, minWidth: 900 } as const;
+/**
+ * Graph geometry (px, drawn at zoom 1 so text is its real size). Each phase is a band with
+ * one row of nodes, left to right, on a shared five-column grid; a node is an icon box with
+ * its label under it (a waiting gate adds its decision button below the label).
+ */
+export const GRAPH = {
+  padX: 16,
+  header: 40,
+  box: 60,
+  label: 56,
+  action: 40,
+  padBottom: 16,
+  groupGap: 34,
+  columns: 5,
+  minWidth: 600,
+} as const;
 
 export function phaseOf(stageId: string): number {
   return PHASES.findIndex((p) => p.stages.includes(stageId));
 }
 
-export interface LaneLayout {
-  laneWidth: number;
-  cardWidth: number;
+export interface GraphLayout {
+  width: number;
+  colWidth: number;
   height: number;
-  lanes: { id: string; x: number }[];
+  groups: { id: string; y: number; height: number }[];
+  /** Node frame (column-wide); the icon box sits centred at its top. */
   positions: Record<string, { x: number; y: number; height: number }>;
 }
 
-/**
- * Three lanes side by side filling `width`; cards stacked top to bottom inside each lane,
- * `heightOf(stage)` tall (a waiting gate is taller: it carries its decision button).
- */
-export function laneLayout(width: number, heightOf: (stageId: string) => number): LaneLayout {
-  const w = Math.max(width, LANE.minWidth);
-  const laneWidth = (w - LANE.gutter * (PHASES.length - 1)) / PHASES.length;
-  const cardWidth = laneWidth - LANE.pad * 2;
-  const positions: LaneLayout['positions'] = {};
-  let height = 0;
-  const lanes = PHASES.map((p, i) => {
-    const x = i * (laneWidth + LANE.gutter);
-    let y = LANE.header;
-    for (const id of p.stages) {
-      const h = heightOf(id);
-      positions[id] = { x: x + LANE.pad, y, height: h };
-      y += h + LANE.gapY;
-    }
-    height = Math.max(height, y - LANE.gapY + LANE.pad);
-    return { id: p.id, x };
+/** Phase bands stacked top to bottom; `hasAction(stage)` = the node carries a decision button. */
+export function graphLayout(width: number, hasAction: (stageId: string) => boolean): GraphLayout {
+  const w = Math.max(width, GRAPH.minWidth);
+  const colWidth = (w - GRAPH.padX * 2) / GRAPH.columns;
+  const positions: GraphLayout['positions'] = {};
+  let y = 0;
+  const groups = PHASES.map((p) => {
+    const rowH = GRAPH.box + GRAPH.label + (p.stages.some(hasAction) ? GRAPH.action : 0);
+    p.stages.forEach((id, i) => {
+      positions[id] = { x: GRAPH.padX + i * colWidth, y: y + GRAPH.header, height: rowH };
+    });
+    const g = { id: p.id, y, height: GRAPH.header + rowH + GRAPH.padBottom };
+    y += g.height + GRAPH.groupGap;
+    return g;
   });
-  return { laneWidth, cardWidth, height, lanes, positions };
+  return { width: w, colWidth, height: y - GRAPH.groupGap, groups, positions };
 }
 
 export type EdgeState = 'done' | 'live' | 'waiting' | 'pending';
