@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 
 from engine.kb.applicability import applicable
 from engine.kb.changes import list_changes, load_change
+from engine.kb.search import heading, label, search
 from schema.kb import (
     ChangeList,
     ChangeSummary,
@@ -17,9 +18,10 @@ from schema.kb import (
     Release,
     ReleaseList,
     RequirementList,
+    SearchResult,
     TestTemplateList,
 )
-from utils.state import get_kb
+from utils.state import get_catalog, get_kb
 
 
 def _version(kb_version: str | None) -> str:
@@ -44,7 +46,23 @@ def get_provision(provision_id: str, kb_version: str | None) -> dict[str, Any]:
         for i in get_kb().interpretations(version)
         if any(r == provision_id or r.startswith(provision_id + ".") for r in i["relates_to"])
     ]
-    return {**found, "children": children, "interpretations": interps}
+    title, inherited, title_from = heading(found, get_kb().provision_map(version))
+    derived = {"label": label(found), "title": title, "title_inherited": inherited}
+    if inherited:
+        derived["title_from"] = title_from
+    return {**found, **derived, "children": children, "interpretations": interps}
+
+
+def search_regulation(
+    kb_version: str | None, q: str, limit: int, instrument: str | None
+) -> SearchResult:
+    """Ranked provision hits (``engine.kb.search``), derived at read time from the release."""
+    version = _version(kb_version)
+    binding = {s.id: s.binding for s in get_catalog().sources}
+    total, hits = search(
+        get_kb().provisions(version), q, limit=limit, instrument=instrument, binding=binding
+    )
+    return SearchResult(kb_version=version, query=q, total=total, items=hits)
 
 
 def search_provisions(

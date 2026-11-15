@@ -1,12 +1,19 @@
 from fastapi import APIRouter, Depends, Query
 
 from core.security.rate_limit import read_rate_limit
-from schema.kb import Interpretation, InterpretationList, Provision, ProvisionList
+from schema.kb import (
+    Interpretation,
+    InterpretationList,
+    Provision,
+    ProvisionList,
+    SearchResult,
+)
 from utils.kb import (
     get_interpretation,
     get_provision,
     search_interpretations,
     search_provisions,
+    search_regulation,
 )
 
 router = APIRouter(dependencies=[Depends(read_rate_limit)])
@@ -24,6 +31,17 @@ async def provisions(
     with_text: bool = True,
 ) -> ProvisionList:
     return search_provisions(kb_version, prefix, q, instrument, limit, offset, with_text)
+
+
+@router.get("/search", response_model=SearchResult)
+async def search(
+    q: str = Query(..., min_length=2, max_length=200, description="words to find"),
+    kb_version: str | None = None,
+    instrument: str | None = Query(None, max_length=20),
+    limit: int = Query(10, ge=1, le=50),
+) -> SearchResult:
+    """Ranked hits, one per article: label, title (own or inherited), snippet, score."""
+    return search_regulation(kb_version, q, limit, instrument)
 
 
 @router.get("/{provision_id}", response_model=Provision)

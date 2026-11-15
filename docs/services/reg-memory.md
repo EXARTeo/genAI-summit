@@ -183,6 +183,33 @@ Art. 102-110 2026-07-27; Ch. III Sec. 1-3 2027-12-02 with `valid_from_by_basis`
 e.g. `[OMNIBUS.1.9]`, or `Regulation (EU) 2026/1744`), `chapter`, `section`, `source_doc`, `kb_version`.
 The real consolidated text gives ~1,400 AI Act nodes (+180 recitals, ~120 Omnibus nodes).
 
+Parser rules (`PARSER_VERSION` 2, recorded in each release manifest and part of its content hash, so a
+re-parse is always a **new** release): an unnumbered subparagraph after the last point of a list belongs
+to the paragraph (text between two points stays with the point; a point ending in `:` keeps its quoted
+text); `(i)` after `(h)` is the letter unless `(ii)` follows (`AIA.5.1.h.i`); Annex VII's `3.1.` are nodes
+(`AIA.ANNEX_VII.3.1`, label "Annex VII, point 3.1"); a second list restarting at `(a)` in one paragraph
+gets `_2` ids (`AIA.43.1.a_2`); chapter / section titles are kept on every node (`chapter_title`,
+`section_title`) and annex sections get their title.
+
+### Search: `engine/kb/search.py` (deterministic, derived at read time)
+
+`GET /v1/provisions/search?q=governance` ranks a release's provisions without changing it. Scores: the
+node's own title (8) or inherited article/annex title (5), its section (3) and chapter (2) heading, its
+own text (whole word 2 per term, repeats up to +1.5, the phrase +5, a match inside a word 0.3; `-` counts
+as part of a word, so "risk" is not "high-risk"); recitals ×0.55, Omnibus ×0.7. Every term must match
+(else the best coverage). One hit per article/annex/recital: the earliest node within 85 % of the best
+score leads, the rest go to `also`; articles found only by their chapter/section heading form one hit
+per section (`match: heading`). Hit:
+
+```json
+{"id": "AIA.10.2", "label": "Art. 10(2)", "title": "Data and data governance", "title_inherited": true,
+ "title_from": "AIA.10", "snippet": "Training, validation and testing data sets shall be subject to data
+ governance and management practices ...", "score": 8.4, "match": "text", "kind": "paragraph",
+ "instrument": "AIA", "source": "ai-act-consolidated", "binding": true, "also": ["AIA.10"],
+ "chapter_title": "HIGH-RISK AI SYSTEMS", "section_title": "Requirements for high-risk AI systems",
+ "valid_from": "2027-12-02"}
+```
+
 ### Interpretations: `engine/kb/interpretations.py`
 
 Catalog sources of kind `guideline`, `faq`, `code_of_practice`, `internal_policy` (not `binding: true`)
@@ -336,7 +363,8 @@ ingest / write limits) and logged with a request id.
 | GET | `/v1/documents/{doc_id}` | The full versions log |
 | GET | `/v1/documents/{doc_id}/text?version=` | Extracted text (latest if no version) |
 | GET | `/v1/provisions?kb_version=&prefix=&q=&instrument=&limit=&offset=&with_text=` | Provisions by id prefix (`AIA.10`) or text |
-| GET | `/v1/provisions/{id}?kb_version=` | One provision + its children + interpretations relating to it |
+| GET | `/v1/provisions/search?q=&kb_version=&instrument=&limit=` | Ranked search, one hit per article (below) |
+| GET | `/v1/provisions/{id}?kb_version=` | One provision (+ `label`, own or inherited `title`) + its children + interpretations relating to it (both as id lists) |
 | GET | `/v1/interpretations?relates_to=&source_id=` / `/v1/interpretations/{id}` | Guidance nodes (without / with text) |
 | GET | `/v1/releases` / `/v1/releases/{kb_version}` | Releases (newest first, `active`) / one manifest |
 | POST | `/v1/releases` `{force?}` | Build a candidate now (+ RegChange if it differs) |

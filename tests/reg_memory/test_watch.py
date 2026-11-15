@@ -96,6 +96,15 @@ async def test_demo_mirror_change_produces_regchange(api, stack):
     found = (await api.get("/v1/provisions", params={"q": "recruitment"})).json()
     assert [p["id"] for p in found["items"]] == ["AIA.ANNEX_III.4.a"]
     assert (await api.get("/v1/provisions/AIA.999")).status_code == 404
+    # ranked search: one call answers with label, (inherited) title and a snippet
+    assert prov["label"] == "Art. 10(2)(f)" and prov["title"] == "Data and data governance"
+    assert prov["title_inherited"] is True
+    hits = (await api.get("/v1/provisions/search", params={"q": "governance"})).json()
+    assert hits["kb_version"] == baseline
+    top = hits["items"][0]
+    assert top["id"].startswith("AIA.10") and top["title"] == "Data and data governance"
+    assert "governance" in top["snippet"].lower() and top["binding"] is True
+    assert top["source"] == "ai-act-consolidated" and top["score"] > 0
 
     # 2) unchanged check: nothing new
     same = (

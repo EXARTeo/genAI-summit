@@ -30,6 +30,30 @@ class ProvisionList(BaseModel):
     items: list[dict[str, Any]]
 
 
+class SearchHit(_Open):
+    """One ranked search hit: enough to cite and judge it without another call."""
+
+    id: str
+    label: str
+    title: str | None = None
+    title_inherited: bool = False
+    snippet: str
+    score: float
+    match: str  # text | title | heading
+    kind: str | None = None
+    instrument: str | None = None
+    source: str | None = None
+    binding: bool | str = True
+    also: list[str] = Field(default_factory=list)
+
+
+class SearchResult(BaseModel):
+    kb_version: str
+    query: str
+    total: int
+    items: list[SearchHit]
+
+
 class Interpretation(_Open):
     id: str
     source_id: str
