@@ -118,7 +118,44 @@ class _ProvisionArgs(BaseModel):
 
 
 class _SearchArgs(BaseModel):
-    query: str = Field(description="Words to find in the regulation text.")
+    query: str = Field(
+        description="A few words to find, e.g. 'data governance' or 'human oversight'."
+    )
+
+
+#: The fields of a search hit handed to the model, in this order.
+SEARCH_HIT_KEYS = (
+    "id",
+    "label",
+    "title",
+    "title_inherited",
+    "snippet",
+    "score",
+    "match",
+    "kind",
+    "binding",
+    "source",
+    "also",
+)
+
+
+def _ref_id(ref: Any) -> str | None:
+    """A child / interpretation reference: reg-memory sends ids, older shapes dicts."""
+    return ref.get("id") if isinstance(ref, dict) else (str(ref) if ref else None)
+
+
+def _interp_ref(ref: Any) -> Any:
+    if isinstance(ref, dict):
+        return {k: ref.get(k) for k in ("id", "summary") if ref.get(k)}
+    return _ref_id(ref)
+
+
+def _search_hit(item: dict[str, Any]) -> dict[str, Any]:
+    """One hit, without empty fields (``title_inherited`` only when true)."""
+    hit = {k: item.get(k) for k in SEARCH_HIT_KEYS if item.get(k) not in (None, "", [])}
+    if not hit.get("title_inherited"):
+        hit.pop("title_inherited", None)
+    return hit
 
 
 class _NoteArgs(_SystemArgs):
@@ -223,13 +260,13 @@ def _builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Callable[[]
             body = await api.provision(provision_id.strip())
         except WorkspaceAPIError as exc:
             return f"Could not read {provision_id}: {exc.public}."
-        keep = {k: body.get(k) for k in ("id", "title", "text", "valid_from", "kb_version")}
+        fields = ("id", "label", "title", "title_inherited", "text", "valid_from", "kb_version")
+        keep = {k: body.get(k) for k in fields}
         keep["kb_version"] = keep.get("kb_version") or api._kb_version
-        keep["children"] = [c.get("id") for c in body.get("children") or []][:40]
-        keep["interpretations"] = [
-            {"id": i.get("id"), "summary": i.get("summary")}
-            for i in (body.get("interpretations") or [])[:10]
-        ]
+        if not keep.get("title_inherited"):
+            keep.pop("title_inherited", None)
+        keep["children"] = [_ref_id(c) for c in body.get("children") or []][:40]
+        keep["interpretations"] = [_interp_ref(i) for i in (body.get("interpretations") or [])[:10]]
         return _dump(keep)
 
     async def search_regulation(query: str) -> str:
@@ -237,8 +274,8 @@ def _builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Callable[[]
             items = await api.search(query)
         except WorkspaceAPIError as exc:
             return f"Search failed: {exc.public}."
-        hits = [{"id": i.get("id"), "title": i.get("title")} for i in items]
-        return _dump({"kb_version": api._kb_version, "items": hits})
+        hits = [_search_hit(i) for i in items]
+        return _dump({"kb_version": api._kb_version, "query": query, "items": hits})
 
     async def propose_system_note(
         kind: str, name: str, content: str, system_id: str | None = None
@@ -349,8 +386,11 @@ def _builders(scope: WorkspaceScope, api: WorkspaceAPI) -> dict[str, Callable[[]
         SEARCH_REGULATION: tool(
             search_regulation,
             SEARCH_REGULATION,
-            "Find regulation provisions by words (ids and titles at the active kb_version; "
-            "then lookup_provision).",
+            "Find regulation provisions by words at the active kb_version. Ranked, one hit per "
+            "article: id, label (Art. 10(2)), title (its own or, with title_inherited, the "
+            "article's), a snippet of the matching text, score, match (text | title | "
+            "heading), binding, and also (other matching ids in that article). Quote only "
+            "after lookup_provision.",
             _SearchArgs,
         ),
         PROPOSE_SYSTEM_NOTE: tool(

@@ -212,7 +212,9 @@ with its counter-arguments; drafts evidence or gap notes as `proposed`; starts a
 - **Tools** (native, `harness/tools/workspace_api/`, bound to the run's `client_id` and scope; a missing
   `system_id` / `audit_id` argument defaults to the scope): `list_systems`, `list_system_files`,
   `read_system_file`, `list_audits`, `read_audit`, `read_audit_artifact` (the backend's `/v1/systems` and
-  `/v1/audits` with the run's `X-Client-Id`), `lookup_provision`, `search_regulation` (reg-memory, pinned to
+  `/v1/audits` with the run's `X-Client-Id`), `lookup_provision` (text, `label`, own or inherited `title`,
+  child ids), `search_regulation` (reg-memory's ranked search: one hit per article with `label`, `title`,
+  `title_inherited`, `snippet`, `score`, `match`, `kind`, `binding`, `source`, `also`; both pinned to
   the active `kb_version` read once per run), and two gated writes: `propose_system_note` (writes
   `proposed/{evidence,gaps}/<name>.md` into the system folder with `status: proposed`) and `start_audit`
   (`POST /v1/systems/{id}/audits`). Plus the platform's `present_artifact`, `render_chart`, the sandbox

@@ -156,11 +156,10 @@ class WorkspaceAPI:
         kb = await self.kb_version()
         return await self._regmem(f"/v1/provisions/{quote(provision_id)}", kb_version=kb)
 
-    async def search(self, query: str) -> list[dict[str, Any]]:
+    async def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+        """Ranked hits (one per article) with label, title, snippet and score."""
         kb = await self.kb_version()
-        body = await self._regmem(
-            "/v1/provisions", q=query, kb_version=kb, limit=10, with_text=False
-        )
+        body = await self._regmem("/v1/provisions/search", q=query, kb_version=kb, limit=limit)
         return list(body.get("items") or []) if isinstance(body, dict) else []
 
 

@@ -143,9 +143,62 @@ class _Backend:
             return httpx.Response(200, json={"text": "id: SYS-001\n"})
         if path == "/v1/releases":
             return httpx.Response(200, json={"active": "kb-2026-11-14"})
+        if path == "/v1/provisions/search":
+            return httpx.Response(200, json=_SEARCH)
         if path.startswith("/v1/provisions/"):
-            return httpx.Response(200, json={"id": "AIA.10.2.f", "title": "Bias", "text": "..."})
+            return httpx.Response(200, json=_PROVISION)
         return httpx.Response(404, json={"detail": "not found"})
+
+
+# reg-memory's shape: children and interpretations are plain id strings.
+_PROVISION = {
+    "id": "AIA.10.2",
+    "label": "Art. 10(2)",
+    "title": "Data and data governance",
+    "title_inherited": True,
+    "title_from": "AIA.10",
+    "text": "Training, validation and testing data sets shall be subject to data governance.",
+    "valid_from": "2027-12-02",
+    "kb_version": "kb-2026-11-14",
+    "children": ["AIA.10.2.a", "AIA.10.2.f"],
+    "interpretations": ["INT.guide.bias"],
+}
+
+_SEARCH = {
+    "kb_version": "kb-2026-11-14",
+    "query": "governance",
+    "total": 2,
+    "items": [
+        {
+            "id": "AIA.10.2",
+            "label": "Art. 10(2)",
+            "title": "Data and data governance",
+            "title_inherited": True,
+            "title_from": "AIA.10",
+            "snippet": "Training data sets shall be subject to data governance",
+            "score": 8.4,
+            "match": "text",
+            "kind": "paragraph",
+            "instrument": "AIA",
+            "source": "ai-act-consolidated",
+            "binding": True,
+            "also": ["AIA.10"],
+            "chapter_title": "HIGH-RISK AI SYSTEMS",
+        },
+        {
+            "id": "AIA.64",
+            "label": "Art. 64",
+            "title": "AI Office",
+            "title_inherited": False,
+            "snippet": "Chapter VII GOVERNANCE",
+            "score": 7.0,
+            "match": "heading",
+            "kind": "article",
+            "binding": True,
+            "also": [],
+        },
+    ],
+}
 
 
 @pytest.fixture
@@ -180,6 +233,39 @@ async def test_regulation_lookups_are_pinned_to_the_active_kb_version(backend):
     assert result["kb_version"] == "kb-2026-11-14"
     lookup = backend.requests[-1]
     assert lookup.url.params["kb_version"] == "kb-2026-11-14"
+
+
+async def test_lookup_reads_id_string_children_and_returns_label_and_title(backend):
+    result = json.loads(await _tool("lookup_provision").ainvoke({"provision_id": "AIA.10.2"}))
+    assert result["label"] == "Art. 10(2)" and result["title"] == "Data and data governance"
+    assert result["title_inherited"] is True
+    assert result["text"].startswith("Training, validation")
+    assert result["children"] == ["AIA.10.2.a", "AIA.10.2.f"]
+    assert result["interpretations"] == ["INT.guide.bias"]
+
+
+async def test_search_hits_carry_label_title_and_snippet(backend):
+    result = json.loads(await _tool("search_regulation").ainvoke({"query": "governance"}))
+    assert result["kb_version"] == "kb-2026-11-14" and result["query"] == "governance"
+    request = backend.requests[-1]
+    assert request.url.path == "/v1/provisions/search"
+    assert request.url.params["q"] == "governance"
+    assert request.url.params["kb_version"] == "kb-2026-11-14"
+    first, second = result["items"]
+    assert first == {
+        "id": "AIA.10.2",
+        "label": "Art. 10(2)",
+        "title": "Data and data governance",
+        "title_inherited": True,
+        "snippet": "Training data sets shall be subject to data governance",
+        "score": 8.4,
+        "match": "text",
+        "kind": "paragraph",
+        "binding": True,
+        "source": "ai-act-consolidated",
+        "also": ["AIA.10"],
+    }
+    assert "title_inherited" not in second and "also" not in second
 
 
 async def test_a_note_is_written_as_proposed_under_proposed(backend):
