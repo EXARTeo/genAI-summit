@@ -166,19 +166,19 @@ Implementation: extend the agents service's existing `CompositeBackend` builder 
 ```python
 class AuditState(TypedDict):
     audit_id: str
-    pins: Pins                      # kb_version, dossier_version, config_version, model_version, seeds
-    obligation_map: Ref             # /obligations/map.yaml + sha256
-    scenarios: Ref | None           # /audit/scenarios/v{n}.yaml
+    pins: Pins  # kb_version, dossier_version, config_version, model_version, seeds
+    obligation_map: Ref  # /obligations/map.yaml + sha256
+    scenarios: Ref | None  # /audit/scenarios/v{n}.yaml
     data_plan: Ref | None
-    datasets: list[DatasetRef]      # sha256, rows, source, card path
-    inference: list[InferenceRef]   # per test: predictions path, sha256, model_version, n_rows
-    analysis: Ref | None            # metrics + the analyst's code, outputs
-    verdicts: Ref | None            # proposed (pre-seal)
-    findings: list[str]             # sealed finding ids
+    datasets: list[DatasetRef]  # sha256, rows, source, card path
+    inference: list[InferenceRef]  # per test: predictions path, sha256, model_version, n_rows
+    analysis: Ref | None  # metrics + the analyst's code, outputs
+    verdicts: Ref | None  # proposed (pre-seal)
+    findings: list[str]  # sealed finding ids
     report: Ref | None
     gates: dict[str, GateState]
     redo: dict[str, int]
-    errors: list[NodeError]         # tool errors as data, never a crash
+    errors: list[NodeError]  # tool errors as data, never a crash
 ```
 
 Each deep agent returns a **result contract** (pydantic, via `response_format`) that names the files it wrote; a code verifier checks the files exist, parse, and match the contract before the graph moves on.
