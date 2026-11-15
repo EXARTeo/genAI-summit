@@ -117,6 +117,11 @@ class GeminiSettings(BaseSettings):
     timeout_seconds: float = Field(120.0, gt=0, le=900, validation_alias="GEMINI_TIMEOUT_SECONDS")
     max_retries: int = Field(2, ge=0, le=10, validation_alias="GEMINI_MAX_RETRIES")
     fake_llm: bool = Field(False, validation_alias="AGENTS_FAKE_LLM")
+    # How hard a chat agent's Gemini model thinks (empty = the model's default).
+    # Its thoughts are shown only while REASONING_SUMMARY is not off.
+    thinking_level: str = Field(
+        "", pattern=r"^(|minimal|low|medium|high)$", validation_alias="GEMINI_THINKING_LEVEL"
+    )
 
     @field_validator("model", "reasoning_model", mode="before")
     @classmethod
@@ -348,8 +353,8 @@ class AgentRegistrySettings(BaseSettings):
 class ModelProfileSettings(BaseSettings):
     model_config = _BASE_MODEL_CONFIG
 
-    # OpenAI returns a reasoning model's reasoning only as its own summary,
-    # streamed as THINKING events. off asks for none.
+    # Reasoning shown as THINKING events: OpenAI's own summary (auto|concise|detailed),
+    # Gemini's thought summaries (include_thoughts; any value but off). off asks for none.
     reasoning_summary: str = Field(
         "auto", pattern=r"^(auto|concise|detailed|off)$", validation_alias="REASONING_SUMMARY"
     )

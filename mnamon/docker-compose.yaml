@@ -193,6 +193,9 @@ services:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GEMINI_MODEL_REASONING: ${GEMINI_MODEL_REASONING:-}
+      # The chat agent's thoughts as THINKING steps (flash-lite returns none; flash does).
+      GEMINI_THINKING_LEVEL: ${GEMINI_THINKING_LEVEL:-}
+      REASONING_SUMMARY: ${REASONING_SUMMARY:-auto}
       # Deterministic stub model for dry runs and demos without a key (never calls Google).
       AGENTS_FAKE_LLM: ${AGENTS_FAKE_LLM:-false}
       # The audit pipeline (pipeline/): reg-memory lookups, redo budgets, the change judge.
