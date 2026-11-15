@@ -12,14 +12,13 @@ import { memo, useRef, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { AgentThinking, Button, Textarea } from '@/shared/ui';
 import type { SiblingInfo } from '../lib/branches';
-import { formatClock, runSeconds } from '../lib/messageFormat';
+import { formatClock } from '../lib/messageFormat';
 import { isActiveRun, type LiveRun } from '../lib/runState';
-import { countTools, hasAgentSignal, timelineText } from '../lib/timeline';
+import { hasAgentSignal, timelineText } from '../lib/timeline';
 import type { MessageOut } from '../lib/types';
 import { AiActionBar, UserActionBar } from './message_parts/ActionBars';
 import { ChatMarkdown } from './message_parts/ChatMarkdown';
 import { MessageAttachments } from './message_parts/MessageAttachments';
-import { MessageUsage } from './message_parts/MessageUsage';
 import { ArtifactCard, PlanChecklist, TaskRefRow, TaskSettledRow } from './message_parts/RunBlocks';
 import { SubagentCard } from './message_parts/SubagentCard';
 import { ThinkingBlock } from './message_parts/ThinkingBlock';
@@ -254,15 +253,6 @@ export const AssistantMessage = memo(function AssistantMessage({
           text={text}
           time={formatClock(run?.completedAt ?? message.created_at)}
           agentName={message.agentName ?? message.agentSlug ?? 'Agent'}
-          usage={
-            run ? (
-              <MessageUsage
-                usage={run.timeline.usage}
-                tools={countTools(run.timeline)}
-                seconds={runSeconds(run.startedAt, run.completedAt)}
-              />
-            ) : null
-          }
           liked={message.liked}
           onRate={onRate}
           onRetry={onRetry}

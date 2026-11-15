@@ -830,11 +830,3 @@ export function timelineText(timeline: RunTimeline | null | undefined): string {
 export function hasAgentSignal(timeline: RunTimeline | null | undefined): boolean {
   return Boolean(timeline && (timeline.blocks.length > 0 || timeline.interrupts.length > 0));
 }
-
-export function countTools(timeline: RunTimeline): number {
-  let n = 0;
-  for (const b of timeline.blocks) {
-    if (b.kind === 'thinking') n += b.items.filter((i) => i.kind === 'tool').length;
-  }
-  return n;
-}

@@ -1,16 +1,16 @@
 /**
  * Per-message action bars (magenticx `message_parts/ActionBars.tsx`).
  *
- * - Answer: time · agent · usage gauge · Copy · Like · Dislike · ⋯ (Try again) · sub-agents (with
+ * - Answer: time · agent · Copy · Like · Dislike · Try again · sub-agents (with
  *   a count badge) · ‹ 2/3 ›. A rated answer shows only the thumb it got (click again to clear).
  *   magenticx's Share, Fork, Read aloud, Report and Sources are left out: no backend for them here.
  * - User message: ‹ 2/3 › · Copy · Edit, shown on hover (kept visible for a moment after a copy).
  */
-import { Bot, Check, Copy, MoreHorizontal, Pencil, RotateCcw, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Bot, Check, Copy, Pencil, RotateCcw, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { motion, useAnimationControls, type TargetAndTransition } from 'framer-motion';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { DropdownMenu, IconButton } from '@/shared/ui';
+import { IconButton } from '@/shared/ui';
 import { BranchControls } from './BranchControls';
 
 /** A tap pulse with a slight overshoot (magenticx); MotionConfig turns it off for reduced motion. */
@@ -170,7 +170,6 @@ export function AiActionBar({
   text,
   time,
   agentName,
-  usage,
   liked,
   onRate,
   onRetry,
@@ -182,8 +181,6 @@ export function AiActionBar({
   text: string;
   time?: string;
   agentName?: string | null;
-  /** The usage gauge (MessageUsage), shown after the agent name. */
-  usage?: ReactNode;
   liked?: boolean | null;
   onRate: (liked: boolean) => void;
   onRetry: () => void;
@@ -194,7 +191,7 @@ export function AiActionBar({
 }) {
   return (
     <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1" data-testid="ai-action-bar">
-      {(time || agentName || usage) && (
+      {(time || agentName) && (
         <div className="flex items-center gap-2 text-xs text-muted md:text-sm">
           {time ? <span className="num">{time}</span> : null}
           {agentName ? (
@@ -203,7 +200,6 @@ export function AiActionBar({
               <span>{agentName}</span>
             </span>
           ) : null}
-          {usage}
         </div>
       )}
       <div className="flex items-center gap-0.5">
@@ -226,12 +222,12 @@ export function AiActionBar({
             onClick={() => onRate(false)}
           />
         )}
-        <DropdownMenu
-          align="start"
-          trigger={
-            <IconButton label="More message actions" icon={<MoreHorizontal />} className={ACTION_BUTTON} />
-          }
-          items={[{ label: 'Try again', icon: <RotateCcw />, disabled: retryDisabled, onSelect: onRetry }]}
+        <IconButton
+          label="Try again"
+          icon={<RotateCcw />}
+          className={ACTION_BUTTON}
+          disabled={retryDisabled}
+          onClick={onRetry}
         />
         {subagentCount > 0 && onOpenSubagents && (
           <IconButton

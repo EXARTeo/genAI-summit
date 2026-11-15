@@ -1,6 +1,10 @@
 // How a tool step presents itself in the chain of thought.
 import { describe, expect, it } from 'vitest';
 import {
+  isQuietTool,
+  provisionLabel,
+  toolImages,
+  toolSummary,
   basename,
   formatSubagentDuration,
   formatThinkingDuration,
@@ -81,5 +85,49 @@ describe('meta and durations', () => {
     expect(formatThinkingDuration(0, 64_000)).toBe('1m 4s');
     expect(formatSubagentDuration(0, 300)).toBe('<1s');
     expect(formatSubagentDuration(0, 185_000)).toBe('3m 05s');
+  });
+});
+
+describe('quiet tools', () => {
+  it('names the workspace tools', () => {
+    expect(toolTitle('list_systems', {})).toBe('List systems');
+    expect(toolTitle('list_system_files', { system_id: 'SYS-001' })).toBe("List SYS-001's files");
+    expect(toolTitle('lookup_provision', { provision_id: 'AIA.10.2' })).toBe('Look up Art. 10(2)');
+    expect(provisionLabel('AIA.1.2.f')).toBe('Art. 1(2)(f)');
+  });
+
+  it('marks read, list and search tools quiet, never write or run tools', () => {
+    for (const name of ['list_systems', 'read_system_file', 'grep', 'search_regulation', 'view_image'])
+      expect(isQuietTool(name)).toBe(true);
+    for (const name of ['write_file', 'execute', 'propose_system_note', 'start_audit', 'task'])
+      expect(isQuietTool(name)).toBe(false);
+  });
+
+  it('summarises what came back', () => {
+    const systems = JSON.stringify([
+      { id: 'SYS-001', name: 'CV Screener' },
+      { id: 'SYS-002', name: 'Credit Scorer' },
+    ]);
+    expect(toolSummary('list_systems', systems)).toBe(
+      '2 systems: SYS-001 CV Screener, SYS-002 Credit Scorer',
+    );
+    expect(toolSummary('list_system_files', '/systems/SYS-001/\na.md (v1)\nb.yaml (v2)')).toBe('2 files');
+    expect(toolSummary('grep', 'No matches found')).toBe('No matches');
+    const search = JSON.stringify({
+      items: [{ id: 'AIA.10', title: 'Data and data governance' }, { id: 'AIA.10.2' }],
+    });
+    expect(toolSummary('search_regulation', search)).toBe(
+      '2 provisions: Art. 10 Data and data governance, Art. 10(2)',
+    );
+    expect(toolSummary('read_system_file', JSON.stringify('line 1\nline 2'))).toBe('2 lines read');
+    expect(toolSummary('list_systems', 'Could not list systems: timeout.')).toBe(
+      'Could not list systems: timeout.',
+    );
+  });
+
+  it('pulls image thumbnails out of a result', () => {
+    const result = JSON.stringify([{ type: 'image', preview_base64: 'AAAA', mime_type: 'image/jpeg' }]);
+    expect(toolImages(result)).toEqual([{ src: 'data:image/jpeg;base64,AAAA', alt: 'Image' }]);
+    expect(toolImages('plain text')).toEqual([]);
   });
 });

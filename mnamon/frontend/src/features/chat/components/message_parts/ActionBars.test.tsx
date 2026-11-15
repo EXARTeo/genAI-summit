@@ -5,7 +5,6 @@ import { TooltipProvider } from '@/shared/ui';
 import { AiActionBar, UserActionBar } from './ActionBars';
 import { BranchControls } from './BranchControls';
 import { MarkdownTable } from './MarkdownTable';
-import { MessageUsage } from './MessageUsage';
 
 const wrap = (ui: React.ReactElement) => render(<TooltipProvider>{ui}</TooltipProvider>);
 const noBranch = { index: 0, count: 1, onSelect: () => undefined };
@@ -72,10 +71,11 @@ describe('AiActionBar', () => {
     expect(screen.queryByRole('button', { name: 'Dislike' })).not.toBeInTheDocument();
   });
 
-  it('offers Try again in the ⋯ menu', async () => {
+  it('shows Try again as its own button, with no ⋯ menu and no usage gauge', async () => {
     const { onRetry } = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'More message actions' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Try again' }));
+    expect(screen.queryByRole('button', { name: 'More message actions' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Token usage/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(onRetry).toHaveBeenCalled();
   });
 });
@@ -91,25 +91,6 @@ describe('UserActionBar', () => {
     expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Edit message' }));
     expect(onEdit).toHaveBeenCalled();
-  });
-});
-
-describe('MessageUsage', () => {
-  it('shows the compact total, nothing without usage', () => {
-    const { rerender } = wrap(
-      <MessageUsage
-        usage={{ inputTokens: 4200, outputTokens: 612, modelCalls: 2, model: 'gemini' }}
-        tools={2}
-        seconds={9}
-      />,
-    );
-    expect(screen.getByLabelText('Token usage: 4,812 tokens')).toHaveTextContent('4.8k');
-    rerender(
-      <TooltipProvider>
-        <MessageUsage usage={null} tools={0} seconds={null} />
-      </TooltipProvider>,
-    );
-    expect(screen.queryByLabelText(/Token usage/)).not.toBeInTheDocument();
   });
 });
 

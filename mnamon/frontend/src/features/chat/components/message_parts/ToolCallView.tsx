@@ -20,6 +20,12 @@ import {
   SquareTerminal,
   Wrench,
   XCircle,
+  Boxes,
+  ClipboardList,
+  FilePlus,
+  FileText,
+  Image as ImageIcon,
+  Play,
   type LucideIcon,
 } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -27,11 +33,14 @@ import { cn } from '@/shared/lib/utils';
 import type { Source, ToolStep } from '../../lib/timeline';
 import {
   asToolArgs,
+  isQuietTool,
   isShellTool,
   parseCommandOutput,
   parseToolArgs,
   toolDurationLabel,
+  toolImages,
   toolMeta,
+  toolSummary,
   toolTitle,
   toolTitleHint,
 } from '../../lib/toolPresentation';
@@ -50,6 +59,15 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   execute: SquareTerminal,
   shell: SquareTerminal,
   search_regulation: Scale,
+  lookup_provision: Scale,
+  list_systems: Boxes,
+  list_audits: ClipboardList,
+  list_system_files: FolderOpen,
+  read_audit: ClipboardList,
+  read_audit_artifact: FileText,
+  propose_system_note: FilePlus,
+  start_audit: Play,
+  view_image: ImageIcon,
   task: Bot,
 };
 
@@ -223,6 +241,40 @@ export function ToolCallView({ tool, isLast = false }: { tool: ToolStep; isLast?
           : tool.state === 'output-available'
             ? (TOOL_ICONS[tool.name] ?? Wrench)
             : PulsingClock;
+
+  // Read / list / search tools: a one-line summary, no Parameters / Result panes.
+  if (isQuietTool(tool.name) && !failed && !face) {
+    const summary = toolSummary(tool.name, tool.result);
+    const images = toolImages(tool.result);
+    return (
+      <CoTStep
+        icon={icon}
+        hideConnector={isLast}
+        label={
+          <span className="flex max-w-full items-center gap-2">
+            <span className="truncate font-medium" title={hint}>
+              {title}
+            </span>
+            {duration && <span className="num shrink-0 text-xs text-muted">{duration}</span>}
+          </span>
+        }
+      >
+        {summary && <p className="text-xs text-muted">{summary}</p>}
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {images.map((img, i) => (
+              <img
+                key={i}
+                src={img.src}
+                alt={img.alt}
+                className="max-h-56 max-w-full rounded-lg border border-border/60 object-contain"
+              />
+            ))}
+          </div>
+        )}
+      </CoTStep>
+    );
+  }
 
   return (
     <CoTStep
