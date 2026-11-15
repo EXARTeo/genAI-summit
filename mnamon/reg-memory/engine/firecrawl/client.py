@@ -2,12 +2,24 @@
 search, map. Every call needs ``FIRECRAWL_API_KEY``; callers check
 :attr:`FirecrawlConfig.active` first and fall back to their own fetch + hash
 diff without it.
+
+Credits are scarce (free plan: 500), so every call is **cached on disk**
+(``<data>/firecrawl-cache/<sha256 of path + body>.json``) for
+``FIRECRAWL_CACHE_MINUTES`` (default 360; 0 = off), and a URL Firecrawl cannot reach
+(localhost, private or Docker-internal hosts, e.g. the demo mirror) is never sent:
+it raises :class:`FirecrawlError` without spending a credit.
 """
 
 from __future__ import annotations
 
+import hashlib
+import ipaddress
+import json
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -23,11 +35,19 @@ DEFAULT_DOMAINS = ["europa.eu"]
 class FirecrawlConfig:
     api_key: str = ""
     base_url: str = "https://api.firecrawl.dev"
+    #: Where answers are cached (``None`` = no cache) and for how long.
+    cache_dir: Path | None = None
+    cache_minutes: int = 0
 
     @classmethod
     def from_settings(cls, s: FetchSettings | None = None) -> FirecrawlConfig:
         s = s or settings.fetch
-        return cls(api_key=s.firecrawl_api_key.get_secret_value(), base_url=s.firecrawl_url)
+        return cls(
+            api_key=s.firecrawl_api_key.get_secret_value(),
+            base_url=s.firecrawl_url,
+            cache_dir=Path(settings.store.data_dir) / "firecrawl-cache",
+            cache_minutes=s.firecrawl_cache_minutes,
+        )
 
     @property
     def active(self) -> bool:
@@ -38,11 +58,54 @@ class FirecrawlError(FetchError):
     pass
 
 
+_PRIVATE_SUFFIXES = (".local", ".internal", ".lan", ".localhost")
+
+
+def unreachable_url(url: str | None) -> bool:
+    """A URL Firecrawl's cloud cannot fetch: localhost, a private IP or a bare Docker name."""
+    if not url:
+        return False
+    host = (urlparse(url).hostname or "").lower()
+    if not host or host == "localhost" or host.endswith(_PRIVATE_SUFFIXES) or "." not in host:
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback or ip.is_link_local
+
+
+def _cache_path(cfg: FirecrawlConfig, path: str, body: dict[str, Any]) -> Path | None:
+    if cfg.cache_dir is None or cfg.cache_minutes <= 0:
+        return None
+    key = hashlib.sha256(f"{path}\n{json.dumps(body, sort_keys=True)}".encode()).hexdigest()
+    return cfg.cache_dir / f"{key}.json"
+
+
+def _cached(file: Path | None, minutes: int) -> dict[str, Any] | None:
+    if file is None or not file.exists():
+        return None
+    try:
+        entry = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if time.time() - float(entry.get("at") or 0) > minutes * 60:
+        return None
+    data = entry.get("data")
+    return data if isinstance(data, dict) else None
+
+
 async def _post(
     client: httpx.AsyncClient, cfg: FirecrawlConfig, path: str, body: dict[str, Any]
 ) -> dict[str, Any]:
     if not cfg.active:
         raise FirecrawlError("firecrawl: FIRECRAWL_API_KEY not set")
+    if unreachable_url(body.get("url")):
+        raise FirecrawlError(f"firecrawl {path}: {body.get('url')} is not public; not sent")
+    file = _cache_path(cfg, path, body)
+    hit = _cached(file, cfg.cache_minutes)
+    if hit is not None:
+        return hit
     resp = await client.post(
         f"{cfg.base_url.rstrip('/')}/v2/{path}",
         json=body,
@@ -54,6 +117,11 @@ async def _post(
     data = resp.json() or {}
     if data.get("success") is False:
         raise FirecrawlError(f"firecrawl {path}: {data.get('error') or 'failed'}")
+    if file is not None:
+        file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = file.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"at": time.time(), "data": data}), encoding="utf-8")
+        tmp.replace(file)
     return data
 
 

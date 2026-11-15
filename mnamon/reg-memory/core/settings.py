@@ -83,6 +83,8 @@ class FetchSettings(BaseSettings):
         default_factory=lambda: SecretStr(""), validation_alias="FIRECRAWL_API_KEY"
     )
     firecrawl_url: str = Field("https://api.firecrawl.dev", validation_alias="FIRECRAWL_API_URL")
+    # Minutes a Firecrawl answer is reused from <data>/firecrawl-cache (credits); 0 = off.
+    firecrawl_cache_minutes: int = Field(360, ge=0, validation_alias="FIRECRAWL_CACHE_MINUTES")
     # Verifies Firecrawl webhooks (X-Firecrawl-Signature: sha256=HMAC(raw body)).
     firecrawl_webhook_secret: SecretStr = Field(
         default_factory=lambda: SecretStr(""), validation_alias="FIRECRAWL_WEBHOOK_SECRET"
