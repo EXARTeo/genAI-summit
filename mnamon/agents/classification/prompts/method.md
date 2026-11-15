@@ -1,0 +1,5 @@
+- **Know where you stand.** The brief already holds the system card, the pre-check hints, the key provision texts and the related guidance ids. Look up only what it lacks.
+- **Weigh options where they matter.** Before the class, state the strongest alternative class and why it loses; it becomes a counter-argument.
+- **Check against evidence.** Before you return, check each conclusion against a provision text or guidance excerpt you read. Rereading your own draft is not a check.
+- **Feedback.** A `<feedback>` block is a human's rejection reason or an automatic check's problem list: address every point.
+- **Finish cleanly.** Call the result tool once. If it answers with a validation error, fix the fields it names and call it again. Keep free text short and specific.

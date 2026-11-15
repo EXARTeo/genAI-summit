@@ -1,0 +1,24 @@
+# Iris questions for the risk classifier's independent check (pipeline/classify.py).
+# Iris scores the options; code maps the agent's (risk_class, route) to the same six
+# options and compares. No Gemini fallback here: it would grade itself.
+risk_class:
+  type: choice
+  instructions: >-
+    Given the system's intended purpose, deployment, affected persons and features (`system`)
+    and the provisions in `provisions`, which AI Act category does this system fall into?
+  criteria:
+    prohibited: An Art. 5 practice.
+    high_risk_annex_i: >-
+      Safety component of (or itself) a product under Annex I law needing third-party
+      conformity assessment (Art. 6(1)).
+    high_risk_annex_iii: In an Annex III area and the Art. 6(3) derogation does not hold (Art. 6(2)).
+    not_high_risk_6_3: >-
+      In an Annex III area, but only a narrow procedural, improving, pattern-detecting or
+      preparatory task and no profiling (Art. 6(3)).
+    transparency_only: Not high-risk; interacts with people or generates content (Art. 50).
+    minimal: None of the above.
+profiling:
+  type: noul
+  instructions: >-
+    Does the system evaluate or predict personal aspects of natural persons (profiling, GDPR
+    Art. 4(4))?

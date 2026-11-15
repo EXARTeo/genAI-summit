@@ -171,6 +171,11 @@ class PipelineSettings(BaseSettings):
     oumi_base_url: str = Field("https://inference.oumi.ai/v1", validation_alias="OUMI_BASE_URL")
     oumi_model: str = Field("", validation_alias="OUMI_MODEL")
     oumi_timeout_seconds: float = Field(20.0, gt=0, le=120, validation_alias="OUMI_TIMEOUT_SECONDS")
+    # Risk classification (pipeline/classify.py): below this confidence (Iris's or the
+    # agent's) a proposal is flagged needs_human.
+    classify_iris_min_confidence: float = Field(
+        0.6, ge=0, le=1, validation_alias="CLASSIFY_IRIS_MIN_CONFIDENCE"
+    )
 
     @field_validator("decision_model", "scenario_review_model", "oumi_base_url", mode="before")
     @classmethod

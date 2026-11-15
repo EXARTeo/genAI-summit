@@ -239,6 +239,21 @@ class RegMemory:
         body = await self._get("/v1/provisions", **params)
         return list(body.get("items") or []) if isinstance(body, dict) else []
 
+    async def search(
+        self, q: str, kb_version: str | None = None, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """``GET /v1/provisions/search``: ranked hits (id, label, title, snippet, score)."""
+        body = await self._get("/v1/provisions/search", q=q, kb_version=kb_version, limit=limit)
+        return list(body.get("items") or []) if isinstance(body, dict) else []
+
+    async def interpretation(
+        self, interpretation_id: str, kb_version: str | None = None
+    ) -> dict[str, Any]:
+        """``GET /v1/interpretations/{id}``: one guidance node with its full text."""
+        return await self._get(
+            f"/v1/interpretations/{quote(interpretation_id)}", kb_version=kb_version
+        )
+
     async def interpretations(
         self, relates_to: str, kb_version: str | None = None
     ) -> list[dict[str, Any]]:

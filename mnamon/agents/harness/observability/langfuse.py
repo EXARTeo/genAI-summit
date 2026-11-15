@@ -236,12 +236,14 @@ def start_span(
     trace_id: str | None = None,
     input: Any = None,  # noqa: A002 - the SDK's field name
     metadata: Mapping[str, Any] | None = None,
+    parent_id: str | None = None,
 ) -> Any | None:
     """Open one span outside a LangChain run (a decision-model call), or None.
 
     It joins ``trace_id`` (the audit's trace) when that is a well-formed W3C id,
     else the current OpenTelemetry context. Fail-open: tracing off or any SDK
-    error returns None, and :func:`end_span` accepts None.
+    error returns None, and :func:`end_span` accepts None. ``parent_id`` (a span
+    id of the same trace) nests the span under that span.
     """
     if _client is None:
         return None
@@ -249,7 +251,9 @@ def start_span(
         return _client.start_observation(
             name=name,
             as_type="span",
-            trace_context=parent_trace_context({"trace_id": trace_id}),
+            trace_context=parent_trace_context(
+                {"trace_id": trace_id, "parent_observation_id": parent_id}
+            ),
             input=input,
             metadata=dict(metadata or {}),
         )

@@ -1,0 +1,122 @@
+# Deterministic pre-check data of the risk classifier (pipeline/classify.py).
+# Hints, never answers: the classify_risk agent confirms or rejects each one.
+# Keywords match whole words, case-insensitive; a phrase matches as written.
+
+# Annex III point -> keywords. The top 3 points by distinct matches become candidates.
+annex_iii:
+  "1.a":
+    title: Remote biometric identification
+    keywords: [biometric, remote biometric identification, face recognition, facial recognition, fingerprint]
+  "1.b":
+    title: Biometric categorisation by sensitive attributes
+    keywords: [biometric categorisation, biometric categorization, infer ethnicity, sensitive attributes]
+  "1.c":
+    title: Emotion recognition
+    keywords: [emotion recognition, emotion, emotions, affect detection]
+  "2":
+    title: Critical infrastructure
+    keywords: [critical infrastructure, electricity, water supply, gas supply, heating, road traffic, digital infrastructure, power grid]
+  "3.a":
+    title: Education access and admission
+    keywords: [admission, admissions, education, school, university, students, enrolment, enrollment]
+  "3.b":
+    title: Evaluating learning outcomes
+    keywords: [learning outcomes, grading, exam, exams, assessment of students, students]
+  "3.c":
+    title: Level of education
+    keywords: [level of education, education level, placement]
+  "3.d":
+    title: Monitoring students during tests
+    keywords: [proctoring, cheating, prohibited behaviour, students during tests]
+  "4.a":
+    title: Recruitment and selection
+    keywords: [recruitment, recruiting, recruiter, recruiters, hiring, cv, cvs, resume, resumes, job applications, job applicants, applicants, candidates, shortlist, shortlisting, job advertisements, vacancy, vacancies]
+  "4.b":
+    title: Work-related decisions and monitoring
+    keywords: [promotion, termination, dismissal, task allocation, employees, workers, performance monitoring, work-related, workforce]
+  "5.a":
+    title: Public assistance benefits and services
+    keywords: [public assistance, benefits, social benefits, welfare, eligibility, public services, social security, healthcare services]
+  "5.b":
+    title: Creditworthiness and credit scoring
+    keywords: [credit, creditworthiness, credit score, credit scoring, loan, loans, lending, borrower]
+  "5.c":
+    title: Life and health insurance pricing
+    keywords: [life insurance, health insurance, insurance premium, insurance pricing, underwriting]
+  "5.d":
+    title: Emergency calls and dispatch
+    keywords: [emergency calls, emergency call, dispatch, triage, first response, ambulance, firefighters]
+  "6.a":
+    title: Law enforcement victim risk
+    keywords: [law enforcement, police, victim]
+  "6.b":
+    title: Polygraphs (law enforcement)
+    keywords: [polygraph, lie detection]
+  "6.c":
+    title: Evidence reliability (law enforcement)
+    keywords: [evidence reliability, criminal investigation]
+  "6.d":
+    title: Offending risk (law enforcement)
+    keywords: [reoffending, re-offending, recidivism, offending risk]
+  "6.e":
+    title: Profiling in criminal investigations
+    keywords: [criminal profiling, detection of criminal offences, prosecution]
+  "7.a":
+    title: Migration polygraphs
+    keywords: [migration, asylum, border control]
+  "7.b":
+    title: Migration risk assessment
+    keywords: [migration, irregular migration, security risk, visa, border]
+  "7.c":
+    title: Asylum, visa and residence applications
+    keywords: [asylum, visa, residence permit, residence permits]
+  "7.d":
+    title: Detecting persons at borders
+    keywords: [border, border control, detecting persons]
+  "8.a":
+    title: Administration of justice
+    keywords: [judicial, judge, court, courts, legal research, dispute resolution, alternative dispute resolution]
+  "8.b":
+    title: Elections and voting behaviour
+    keywords: [election, elections, referendum, voting, voters, political campaigns]
+
+# Art. 5 practice -> keyword groups: a flag needs a match in EVERY group of one entry.
+art5:
+  AIA.5.1.a:
+    title: Subliminal, manipulative or deceptive techniques
+    all: [[subliminal, manipulative, manipulate, manipulation, deceptive, dark patterns]]
+  AIA.5.1.b:
+    title: Exploiting vulnerabilities
+    all: [[exploit, exploits, exploiting], [vulnerable, vulnerability, vulnerabilities, children, elderly, disability, minors]]
+  AIA.5.1.c:
+    title: Social scoring
+    all: [[social score, social scoring, social behaviour, social behavior, trustworthiness score]]
+  AIA.5.1.d:
+    title: Crime prediction from profiling
+    all: [[crime, criminal, offence, offences, offending], [predict, prediction, predicts, risk score, profiling, personality]]
+  AIA.5.1.e:
+    title: Untargeted facial image scraping
+    all: [[scrape, scraping, scraped, untargeted], [face, faces, facial, cctv]]
+  AIA.5.1.f:
+    title: Emotion recognition at work or school
+    all: [[emotion, emotions, emotion recognition, mood, affect], [workplace, employees, employee, workers, work, staff, school, students, education]]
+  AIA.5.1.g:
+    title: Biometric categorisation of sensitive traits
+    all: [[biometric], [race, ethnicity, political opinions, religion, religious, sexual orientation, trade union]]
+  AIA.5.1.h:
+    title: Real-time remote biometric identification for law enforcement
+    all: [[real-time, real time, live], [biometric identification, face recognition, facial recognition], [police, law enforcement, publicly accessible]]
+
+# Words that suggest learning or inference; none of them in the description ->
+# ai_system_doubt (the agent must address Art. 3(1)).
+ai_system_words: [ai, model, models, machine learning, learning, learned, learns, trained, training, neural, llm, inference, infers, predict, predicts, prediction, predictions, classifier, classifies, classify, generative, gpt, gemini, scoring, score, recommend, recommends, recommendation, ranking, ranks, nlp, language model, deep learning, statistical, extract, extracts, extraction]
+
+# How the system was obtained (wizard step 1) -> role hint (Art. 3(3), 3(4), 25(1)).
+# The first group whose word appears in the answer wins; default provider.
+acquisition_roles:
+  - role: provider_by_art25
+    words: [changed, modified, modify, rebranded, rebrand, substantial modification, bought_and_changed, bought_changed, adapted]
+  - role: deployer
+    words: [as_is, as is, bought, licensed, licence, license, third_party, third-party, vendor, purchased]
+  - role: provider
+    words: [in_house, in-house, inhouse, built, developed, own]
