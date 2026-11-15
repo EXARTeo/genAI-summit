@@ -287,6 +287,9 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MODEL_GATEWAY_URL: http://model-gateway:8000
       MODEL_GATEWAY_TOKEN: ${MODEL_GATEWAY_TOKEN:?set in Portainer}
+      # Under /tmp, not a /work tmpfs: `docker stack deploy` drops a tmpfs `mode`, so a
+      # /work tmpfs comes up root 0755 and uid 1000 cannot write it. /tmp keeps 1777.
+      SANDBOX_WORK_ROOT: /tmp/work
     healthcheck:
       <<: *python-health
       test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8090/health', timeout=4).status == 200 else 1)"]
@@ -296,11 +299,8 @@ services:
     cap_drop: [ALL]
     volumes:
       - type: tmpfs
-        target: /work
-        tmpfs: {size: 536870912, mode: 01777}
-      - type: tmpfs
         target: /tmp
-        tmpfs: {size: 536870912, mode: 01777}
+        tmpfs: {size: 1073741824}
     logging: *logging
     deploy:
       <<: *restart
