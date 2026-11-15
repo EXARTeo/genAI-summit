@@ -97,10 +97,16 @@ export function useAddRule(systemId: string) {
 export function useStartAudit() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { systemId: string; systemName?: string }) =>
+    /** `targetPlugin`: the plugin folder (`cv-ranker`) this audit tests; one audit, one plugin. */
+    mutationFn: (v: { systemId: string; systemName?: string; targetPlugin?: string }) =>
       startAudit(v.systemId, {
         stage: 'load_context',
-        data: { title: 'Audit', systemName: v.systemName ?? v.systemId, trigger: 'manual' },
+        data: {
+          title: 'Audit',
+          systemName: v.systemName ?? v.systemId,
+          trigger: 'manual',
+          ...(v.targetPlugin ? { target_plugin: v.targetPlugin } : {}),
+        },
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['audits'] });
